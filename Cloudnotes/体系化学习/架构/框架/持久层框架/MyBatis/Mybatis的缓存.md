@@ -57,7 +57,7 @@ private <E> List<E> queryFromDatabase(MappedStatement ms, Object parameter,
 ```
 
 
-![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/B00FBC007A8545E59605BF0AEB6B0AB7/10895)
+![image](images/10895)
 
 
 

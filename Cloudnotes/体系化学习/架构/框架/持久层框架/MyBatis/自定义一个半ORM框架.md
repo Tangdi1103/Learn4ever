@@ -1,11 +1,12 @@
 [toc]
 <font size=4>
+
 # 一、原始JDBC操作的问题
 1.  数据库配置存在硬编码问题，不易统一维护
 1.  频繁的创建/释放数据库链接，浪费系统资源，影响性能
 1.  sql语句、预编译、获取结果集存在硬编码问题
 1.  需要手动封装结果集至对象中，若查询字段或POJO变化，需重新解析封装
-![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/AE689A3F7AA04E89B0F505FD92D3E4A4/10327)
+![image](images/10327)
 
 
 
@@ -20,7 +21,7 @@
 #### 2.2.1.1. sqlMapConfig.xml
 > 1. 存放数据源信息
 > 2. 存放所有Mapper.xml的全路径
-    
+
 ```
 <mappers>
    <mapper resource="UserMapper.xml"></mapper>
@@ -73,7 +74,7 @@
 #### 7.使用动态代理，解决客户端入参statementId硬编码
     1.Mapper.xml的statementId = namespace(DAO接口全路径) + "." + id(方法名)
 
-![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/E2586B9B31CA40949208273F5F718C70/10450)
+![image](images/10450)
 
 
 # 三、自定义持久层框架代码实现
@@ -910,7 +911,7 @@ Proxy.newProxyInstance(ClassLoader，Class[]，InvocationHandler)
 1. Class[]:需被代理类的Class数组
 1. InvocationHandler:代理实现类
 2. 
-![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/BF01F1E631C14F2ABA8ED12DD6B5D673/10517)
+![image](images/10517)
 
 ## 5.2反射
 ## 5.3泛型
