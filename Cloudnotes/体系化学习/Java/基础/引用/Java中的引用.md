@@ -1,0 +1,3 @@
+> 在Java中，变量除了基础数据类型其他的都是引用。而引用又分为==强引用==、==软引用==、==弱引用==、==幻想引用==...
+
+![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/1D0AB930D11949F88E2A981F96D08F2E/10167)

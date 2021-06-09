@@ -1,0 +1,1 @@
+IDEA-->setting-->Plugin-->Gradle view
