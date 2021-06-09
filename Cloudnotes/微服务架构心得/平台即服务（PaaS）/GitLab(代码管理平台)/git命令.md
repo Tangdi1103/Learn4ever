@@ -2,29 +2,9 @@
 
 
 ```
-git clone ssh://....
+git clone url
 ```
 
-
----
-
-### 拉取与推送
-==**git pull**==
-
-git pull命令用于从另一个存储库或本地分支获取并集成(整合)。git pull命令的作用是：取回远程主机某个分支的更新，再与本地的指定分支合并，它的完整格式稍稍有点复杂。
-
-
-```
-git pull <远程主机名> <远程分支名>:<本地分支名>
-```
-**==git push==**
-
-git push命令用于将本地分支的更新，推送到远程主机。它的格式与git pull命令相似。
-
-
-```
-git push <远程主机名> <本地分支名>:<远程分支名>
-```
 ==**标签**==
 
 ==-a== 选项意为”创建一个带注解的标签”。 不用 ==-a== 选项也可以执行的，但它不会记录这标签是啥时候打的，谁打的，也不会让你添加个标签的注解。 我推荐一直创建带注解的标签。
@@ -58,6 +38,7 @@ git config --global https.proxy http://127.0.0.1:8080
 ```
 
 ==**取消代理**==
+
 ```
 git config --global --unset http.proxy
 git config --global --unset https.proxy
@@ -73,3 +54,41 @@ git commit -m "shy auto save"       shy auto save是自定义的
 git push -u origin master 
 
 ```
+
+**==查看/添加远程仓库==**
+
+```shell
+#查看当前项目远程仓库
+git remote
+origin
+
+#查看当前项目远程仓库地址
+git remote -v
+origin  https://github.com/gozhuyinglong/blog-demos.git (fetch)
+origin  https://github.com/gozhuyinglong/blog-demos.git (push)
+
+#重命名远程仓库
+git remote rename <old_remote> <new_remote>
+git remote rename origin github
+
+#修改远程地址
+git remote set-url <remote> <url>
+
+#添加远程仓库
+git remote add <remote> <url>
+git remote add gitee https://gitee.com/gozhuyinglong/blog-demos.git
+
+#拉取及推送
+git push <remote> <branch>
+git pull <remote> <branch>
+
+git pull github master
+git push github master
+git pull gitee master
+git push gitee master
+
+#移除远程仓库
+git remote remove <remote>
+git remote remove gitee
+```
+
