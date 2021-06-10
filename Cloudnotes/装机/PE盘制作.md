@@ -8,10 +8,10 @@
 ##### 2、备份好U盘中的数据，安装PE将格式化U盘
 
 ##### 3、双击下载好的工具箱，将PE安装进U盘
-![image](http://tiebapic.baidu.com/forum/w%3D580/sign=7788ceac1d46f21fc9345e5bc6256b31/a7e09b44d688d43f27d611a56a1ed21b0ff43b4a.jpg)
+![image](images/a7e09b44d688d43f27d611a56a1ed21b0ff43b4a.jpg)
 
 ##### 4、选择推荐安装方式及U盘
-![image](http://tiebapic.baidu.com/forum/w%3D580/sign=4debebbfab3eb13544c7b7b3961fa8cb/e9184a176d224f4aed45b4441ef790529a22d1ea.jpg)
+![image](images/e9184a176d224f4aed45b4441ef790529a22d1ea.jpg)
 
 ##### 5、准备系统镜像
 系统镜像在[MSDN](https://msdn.itellyou.cn/)下载（MSDN中的系统都为微软官方纯净系统），下载几个需要的系统，放入制作好的PE盘中。

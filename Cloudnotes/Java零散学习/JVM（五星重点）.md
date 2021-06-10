@@ -1,4 +1,4 @@
-![image](https://gitee.com/souyunkutech/souyunku-home/raw/master/images/souyunku-web/2019/08/0809/01/1/img_1.png)
+![image](images/img_1.png)
 
 
 #### 一、JVM运行时数据区【人们常说的JVM内存，内存管理机制（分配/回收）】： 

@@ -860,13 +860,15 @@ public class Test {
 ```
 ##  4.4.增加缓存
 
-    1. 一级缓存默认开启，若开启二级缓存，二级缓然优先于一级缓存
+    1. builder解析SqlMapConfig.xml和各Mapper.xml得到Configuration核心配置类
+    	1.Configuration若含二级缓存标识，则创建CachingExecutor传入SqlSessionFactory
+    	2.Configuration若不含二级缓存标识，则船舰SimpleExecutor传入SqlSessionFactory
     2. 一级缓存作用域SqlSession，执行数据库操作时将结果存于HashMap中
     3. 增删改时，会清空SqlSession中的缓存
-    4. 二级缓存作用域namespace，在解析mapper.xml时生成cacheExecutor封装在各个MeppedStatement对象中，所以同个namespace的两个SqlSession共享同一个缓存对象
+    4. 二级缓存作用域namespace，在解析mapper.xml时生成Cache封装在各个MeppedStatement对象中，所以同个namespace的两个SqlSession共享同一个缓存对象
     5. Mybatis自带的二级缓存不支持分布式架构，需整合缓存服务来做二级缓存如redis
     6. 缓存只在autoCommit关闭时生效，在调用commit方法时，先清空缓存，再commit事务
-    7. 实现原理：在SqlMapConfiguration和各Mapper.xml中开启二级缓存，在Executor执行查时先查缓存，执行删改操作时清空缓存
+    7. 实现原理：在SqlMapConfiguration和各Mapper.xml中开启二级缓存
         <settings>
            <setting name="cacheEnabled" value="true"/>
         </settings>
