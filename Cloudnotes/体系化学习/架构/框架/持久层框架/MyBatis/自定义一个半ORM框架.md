@@ -48,38 +48,54 @@
 
 ### 2.2.2框架端（封装JDBC操作）
 #### 1. 加载配置文件信息为字节输入流
+
+​	提供全局配置，如dataSource配置、mapper路径配置、是否自动提交事务、缓存等等。。
+
 #### 2. 创建一个SqlSessionFactoryBuilder类
     1. 使用dom4j解析xml文件，组装到实体对象中
     2. 将解析后的对象传入SqlSessionFactory构造函数，创建SqlSessionFactory并返回
 #### 3. 通过dom4j解析配置文件及sql文件，存入实体类
     1. Configuration(配置源信息)：DataSource(classDriver、jdbcUrl、name、password)、Map<statementId,MappedStatement>
     2. MappedStatement(mapper信息)：id、parameterType、resultType、sql、mapperType
-#### 4. 创建SqlSessionFactory工厂接口及默认实现类,getSqlSession()
+#### 4. 创建SqlSessionFactory工厂接口及默认实现类,openSqlSession()
+
+```
+提供事务是否自动提交控制设置
+1.openSqlSession(boolean autoCommit,Configuration configuration)
+2.openSqlSession(Configuration configuration)
+```
+
+
 
 #### 5. 创建SqlSession接口及默认实现，实现通用CRUD方法
 
 > sqlSession为提供用户端进行数据库操作的类，所以应该对应一个jdbc连接，并提供是否自动提交、关闭连	接、提交、回滚等操作
+>
+> 如果使用了连接池，客户端最好不要关闭连接。否则一个方法中无法做多次jdbc操作。并且也无法控制事务
 
-```java
-1.默认conn.setAutoCommit(false)
+```
+1.默认conn.setAutoCommit(true)
 2.select
 3.update
 4.insert
 5.delete
-6.commit
+6.commit	//提交
 7.close
-8.rollback
-9.getMapper
+8.rollback	//回滚
+9.getMapper //获取动态代理对象
 ```
 #### 6. 创建Executor接口及默认实现，执行JDBC操作
 
-    1. 接收Configuration、MappedStatement和查询对象
-    2. boundSql，解析sql替换#{colunm}为?，并抽取查询字段
-    3. 通过连接池获取connection，创建prepareStatement（一个Executor实例对应一个连接，所以连接要配置为成员变量）
-    4. 通过查询字段和MappedStatement中的请求class对象，绑定sql参数
-    5. 通过ResultSet.metaData()获取元数据，并使用内省类PropertyDescriptor完成ORM，封装对象
-#### 7.使用动态代理，解决客户端入参statementId硬编码
+```java
+1. 接收Configuration、MappedStatement和查询对象
+2. boundSql，解析sql替换#{colunm}为?，并抽取查询字段
+3. 通过连接池获取connection，创建prepareStatement（一个Executor实例对应一个连接，所以连接要配置为成员变量）
+4. 通过查询字段和MappedStatement中的请求class对象，绑定sql参数
+5. 通过ResultSet.metaData()获取元数据，并使用内省类PropertyDescriptor完成ORM，封装对象
+```
+#### 7.编写代理实现类，解决客户端入参statementId硬编码
     1.Mapper.xml的statementId = namespace(DAO接口全路径) + "." + id(方法名)
+    2.使用jdk动态代理，返回客户端代理对象，去执行代理类增强逻辑
 
 ![image](images/10450.jpg)
 
@@ -420,7 +436,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory{
 
 ## 3.4 SqlSession及默认实现类
 
-构造函数包含核心配置类、执行器，每个sqlsession对应一个Executor，通过Executor获取jdbc连接提供带statementId的CRUD、commit、close、rollback和代理功能
+构造函数包含核心配置类、执行器，每个sqlsession对应一个Executor，通过Executor获取jdbc连接提供带statementId的CRUD、commit、close、rollback和jdk动态代理类创建
 ```
 public class DfaultSqlSession implements SqlSession{
 
@@ -512,6 +528,9 @@ Executor才是最终的做JDBC操作的类，使用连接池的dataSource获取j
 执行sql得到结果集resultSet，通过ResultSetMetaData元数据封装属性名及值到返回对象中，此处得DB与POJO字段名完全相同。
 
 可通过注解为POJO提供别名，然后用别名映射DB字段
+
+若自动commit关闭，则在update后，需要手动执行commit提交事务
+
 ```
 public class SimplerExecutor implements Executor{
 
@@ -631,9 +650,12 @@ public class SimplerExecutor implements Executor{
 }
 ```
 
-## 3.6 代理实现类
+## 3.6 动态代理实现类
 
-通过被代理类的Method对象，可获得类名+"."+方法名的statementId，xml中的namespace和id需与该statementId一致。根据statementId获得对应的mappedStatement对象，调用Executor
+通过被代理类的Method对象，可获得类名+"."+方法名的statementId，xml中的namespace和id需与该statementId一致。根据statementId获得对应的mappedStatement对象，调用Executor。
+
+invoke是代理类执行的方法
+
 ```
 public class MapperProxyHandler implements InvocationHandler {
 
@@ -903,11 +925,13 @@ public class Test {
 
 ## 4.6事务管理
 
-```
-1.Mybatis有三种事务管理器，分别为JdbcTransaction、ManagedTransaction和SpringManagedTransaction
-2.SqlSessionFactory创建SqlSession前，根据Configuration核心配置类创建对应Transaction
-3.将Transaction传入Executor执行器，由Transaction控制jdbc连接和事务
-```
+1. 事务管理必须关闭autoCommit，进行手动commit来管控事务，需在全局配置SqlMapConfig中配置
+2. Mybatis有三种事务管理器，分别为JdbcTransaction、ManagedTransaction和SpringManagedTransaction
+3. SqlSessionFactory创建SqlSession前，根据Configuration核心配置类创建对应Transaction
+4. 将Transaction传入Executor执行器，由Transaction控制jdbc连接和事务
+5. 事务控制的前提是，一个方法中所有的jdbc操作都是同一个连接。如果实现了DAO层，并且在service方法中调用了多个DAO方法操作数据库，那DAO接口的实现类或者是接口代理实现类就不能直接通过连接池获取Connection连接。解决方法是，通过**ThreadLocal**来保证每个线程的连接是同一个
+
+
 
 
 
@@ -927,10 +951,9 @@ public class Test {
 使用jdk自带的动态代理：
 Proxy.newProxyInstance(ClassLoader，Class[]，InvocationHandler)
 1. ClassLoader:当前类的类加载器
-1. Class[]:需被代理类的Class数组
-1. InvocationHandler:代理实现类
-2. 
-![image](images/10517.jpg)
+2. Class[]:需被代理类的Class数组
+3. InvocationHandler:代理类的实现
+4. ![image](images/10517.jpg)
 
 ## 5.2反射
 ## 5.3泛型
