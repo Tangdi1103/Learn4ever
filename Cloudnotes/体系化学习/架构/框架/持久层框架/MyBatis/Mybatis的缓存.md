@@ -4,7 +4,7 @@
 1. 作用于SqlSession，SqlSession -> BaseExecutor -> Perpetualcache -> HashMap 
 2. 执行查询时，根据statementId和入参组成cacheKey，查询是否有缓存
 3. 无缓存则查库，然后写入缓存
-4. 一级缓存默认开启，若开启二级缓存，二级缓然优先于一级缓存
+4. 一级缓存默认开启，若开启二级缓存，二级缓然优先于一级缓存(若开启了二级缓存则执行器为CachingExecutor)
 5. 一级缓存作用域SqlSession，执行数据库操作时将结果存于HashMap中
 6. 增删改时，会清空SqlSession中的缓存
 7. 缓存只在autoCommit关闭时生效，在调用commit方法时，先清空缓存，再commit事务
@@ -57,7 +57,7 @@ private <E> List<E> queryFromDatabase(MappedStatement ms, Object parameter,
 ```
 
 
-![image](images/10895-1623295660664)
+![image](images/10895-1623295660664.jpg)
 
 
 
@@ -73,5 +73,5 @@ private <E> List<E> queryFromDatabase(MappedStatement ms, Object parameter,
        <setting name="cacheEnabled" value="true"/>
     </settings>
 
-![image](images/10897)
+![image](images/10897.jpg)
 </font>

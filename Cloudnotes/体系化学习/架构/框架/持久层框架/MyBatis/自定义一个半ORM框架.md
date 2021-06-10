@@ -6,7 +6,7 @@
 1.  频繁的创建/释放数据库链接，浪费系统资源，影响性能
 1.  sql语句、预编译、获取结果集存在硬编码问题
 1.  需要手动封装结果集至对象中，若查询字段或POJO变化，需重新解析封装
-![image](images/10327)
+![image](images/10327.jpg)
 
 
 
@@ -55,26 +55,33 @@
     1. Configuration(配置源信息)：DataSource(classDriver、jdbcUrl、name、password)、Map<statementId,MappedStatement>
     2. MappedStatement(mapper信息)：id、parameterType、resultType、sql、mapperType
 #### 4. 创建SqlSessionFactory工厂接口及默认实现类,getSqlSession()
+
 #### 5. 创建SqlSession接口及默认实现，实现通用CRUD方法
-    1.默认conn.setAutoCommit(false)
-    2.select
-    3.update
-    4.insert
-    5.delete
-    6.commit
-    7.close
-    8.rollback
-    9.getMapper
+
+> sqlSession为提供用户端进行数据库操作的类，所以应该对应一个jdbc连接，并提供是否自动提交、关闭连	接、提交、回滚等操作
+
+```java
+1.默认conn.setAutoCommit(false)
+2.select
+3.update
+4.insert
+5.delete
+6.commit
+7.close
+8.rollback
+9.getMapper
+```
 #### 6. 创建Executor接口及默认实现，执行JDBC操作
+
     1. 接收Configuration、MappedStatement和查询对象
     2. boundSql，解析sql替换#{colunm}为?，并抽取查询字段
-    3. 通过连接池获取connection，创建prepareStatement
+    3. 通过连接池获取connection，创建prepareStatement（一个Executor实例对应一个连接，所以连接要配置为成员变量）
     4. 通过查询字段和MappedStatement中的请求class对象，绑定sql参数
     5. 通过ResultSet.metaData()获取元数据，并使用内省类PropertyDescriptor完成ORM，封装对象
 #### 7.使用动态代理，解决客户端入参statementId硬编码
     1.Mapper.xml的statementId = namespace(DAO接口全路径) + "." + id(方法名)
 
-![image](images/10450)
+![image](images/10450.jpg)
 
 
 # 三、自定义持久层框架代码实现
@@ -894,8 +901,18 @@ public class Test {
     4.实现原理：在DefaultResultSetHandler.createResultObject()方法处理返回结果时，判断ResultMap标签中是否含懒加载，是则创建代理实现类。代理实现类中判断当前方法是否懒加载，是则执行查询
     5.实现方式：有Javassist和Cglib两种代理方式，默认使用javassist实现
 
+## 4.6事务管理
+
+```
+1.Mybatis有三种事务管理器，分别为JdbcTransaction、ManagedTransaction和SpringManagedTransaction
+2.SqlSessionFactory创建SqlSession前，根据Configuration核心配置类创建对应Transaction
+3.将Transaction传入Executor执行器，由Transaction控制jdbc连接和事务
+```
+
+
 
 # 五、使用的技术 
+
 ## 5.1设计模式
 ### 5.1.1 构建者模式
 #### SqlSessionFactoryBuilder
@@ -913,7 +930,7 @@ Proxy.newProxyInstance(ClassLoader，Class[]，InvocationHandler)
 1. Class[]:需被代理类的Class数组
 1. InvocationHandler:代理实现类
 2. 
-![image](images/10517)
+![image](images/10517.jpg)
 
 ## 5.2反射
 ## 5.3泛型

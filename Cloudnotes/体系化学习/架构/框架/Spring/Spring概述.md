@@ -64,7 +64,7 @@ Spring是⼀个分层⾮常清晰并且依赖关系、职责定位⾮常明确�
 和Test 模块，如下图所示，Spring依靠这些基本模块，实现了⼀个令⼈愉悦的融合了现有解决⽅案的零
 侵⼊的轻量级框架。 
 
-![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/0A771ED24F4F4E808061590B8AA54365/11206)
+<img src="images/11206" alt="image"  />
 
 - Spring核⼼容器（Core Container） 容器是Spring框架最核⼼的部分，它管理着Spring应⽤中bean的创建、配置和管理。在该模块中，包括了Spring bean⼯⼚，它为Spring提供了DI的功能。基于bean⼯⼚，我们还会发现有多种Spring应⽤上下⽂的实现。所有的Spring模块都构建于核⼼容器之上。
 
