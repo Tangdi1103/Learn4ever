@@ -72,7 +72,7 @@ elif [[ $operation == 'pull' && ($gitType == 'gitee' || $gitType == 'github') ]]
 		elif [[ $str =~ 'gitee' ]]; then
 			# 若只存在gitee
 			git remote rename origin gitee
-			git remote add github $github
+			git remote add github $githuburl
 
 			echo git pull $gitType master
 			git pull $gitType master
