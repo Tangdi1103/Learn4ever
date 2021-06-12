@@ -4,7 +4,10 @@ set -o errexit
 githuburl=https://github.com/Tangdi1103/mynotes.git
 giteeurl=https://gitee.com/Tangdi1103/mynotes.git
 
-if [[ $1 =~ 'git' ]]; then
+# 直接启动并输入参数	比	手动启动dos并输入参数更方便
+read -p "请输入远程库github/gitee：" gitType
+
+if [[ $gitType =~ 'git' ]]; then
 	# 初始化一个本地git仓库并获得执行结果，即使当前目录已存在本地库，git init命令并不会报错
 	initResult=`git init`
 	# 打印结果
@@ -18,22 +21,22 @@ if [[ $1 =~ 'git' ]]; then
 		if [[ $str =~ 'ynotes' ]]; then
 			if [[ $str =~ 'github' && $str =~ 'gitee' ]]; then
 				# 若github和gitee存在，则pull最新拉去代码
-				echo git pull $1 master
-				git pull $1 master
+				echo git pull $gitType master
+				git pull $gitType master
 			elif [[ $str =~ 'github' ]]; then
 				# 若只存在github
 				git remote rename origin github
 				git remote add gitee $giteeurl
 
-				echo git pull $1 master
-				git pull $1 master
+				echo git pull $gitType master
+				git pull $gitType master
 			elif [[ $str =~ 'gitee' ]]; then
 				# 若只存在gitee
 				git remote rename origin gitee
 				git remote add github $github
 
-				echo git pull $1 master
-				git pull $1 master
+				echo git pull $gitType master
+				git pull $gitType master
 			fi
 		elif [[ $str =~ '' ]]; then
 			# url=null
@@ -41,7 +44,7 @@ if [[ $1 =~ 'git' ]]; then
 			# echo git remote add origin url
 			# git remote add origin url
 
-			if [[ $1 =~ "github" ]]; then
+			if [[ $gitType =~ "github" ]]; then
 				# 打印入参绑定得git-url
 				echo git remote add github $githuburl
 				# 绑定远程仓库命名为github
@@ -52,7 +55,7 @@ if [[ $1 =~ 'git' ]]; then
 				# 并再添加gitee远程库
 				git remote add gitee $giteeurl
 
-			elif [[ $1 =~ "gitee" ]]; then
+			elif [[ $gitType =~ "gitee" ]]; then
 				# 打印入参绑定得git-url
 				echo git remote add gitee $giteeurl
 				# 绑定远程仓库命名为github
@@ -81,7 +84,7 @@ if [[ $1 =~ 'git' ]]; then
 		# echo git remote add origin url
 		# git remote add origin url
 
-		if [[ $1 =~ "github" ]]; then
+		if [[ $gitType =~ "github" ]]; then
 			# 打印入参绑定得git-url
 			echo git remote add github $githuburl
 			# 绑定远程仓库命名为github
@@ -92,7 +95,7 @@ if [[ $1 =~ 'git' ]]; then
 			# 并再添加gitee远程库
 			git remote add gitee $giteeurl
 
-		elif [[ $1 =~ "gitee" ]]; then
+		elif [[ $gitType =~ "gitee" ]]; then
 			# 打印入参绑定得git-url
 			echo git remote add gitee $giteeurl
 			# 绑定远程仓库命名为github
