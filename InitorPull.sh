@@ -68,11 +68,9 @@ if [[ $gitType =~ 'git' ]]; then
 				git remote add github $githuburl
 			else
 				echo "coundn't found remote"
-				errexit
 			fi
 		else
 			echo '当前非云笔记库，不做操作'
-			exit
 		fi
 	fi
 
@@ -108,11 +106,12 @@ if [[ $gitType =~ 'git' ]]; then
 			git remote add github $githuburl
 		else
 			echo "coundn't found remote"
-			errexit
 		fi
 	fi
-
 
 else
 	echo "入参有误"
 fi
+
+read -p "输入任意键退出..." d
+exit
