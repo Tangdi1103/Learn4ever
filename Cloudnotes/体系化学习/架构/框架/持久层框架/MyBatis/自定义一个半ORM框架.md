@@ -56,8 +56,8 @@
     2. 将解析后的对象传入SqlSessionFactory构造函数，创建SqlSessionFactory并返回
 #### 3. 通过dom4j解析配置文件及sql文件，存入实体类
     1. Configuration(配置源信息)：DataSource(classDriver、jdbcUrl、name、password)、Map<statementId,MappedStatement>
-    2. MappedStatement(mapper信息)：id、parameterType、resultType、sql、mapperType
-#### 4. 创建SqlSessionFactory工厂接口及默认实现类,openSqlSession()
+    2. MappedStatement(mapper信息)：namespace、id、parameterType、resultType、sql、mapperType
+#### 4. 创建SqlSessionFactory工厂接口及默认实现类,实现方法openSqlSession()
 
 ```
 提供事务是否自动提交控制设置
@@ -87,11 +87,12 @@
 #### 6. 创建Executor接口及默认实现，执行JDBC操作
 
 ```java
-1. 接收Configuration、MappedStatement和查询对象
-2. boundSql，解析sql替换#{colunm}为?，并抽取查询字段
-3. 通过连接池获取connection，创建prepareStatement（一个Executor实例对应一个连接，所以连接要配置为成员变量）
-4. 通过查询字段和MappedStatement中的请求class对象，绑定sql参数
-5. 通过ResultSet.metaData()获取元数据，并使用内省类PropertyDescriptor完成ORM，封装对象
+1. executor主要提供query、update(增删改jdbc底层都是update操作)、commit、close、getConnection
+2. 接收Configuration、MappedStatement和查询对象
+3. boundSql，解析sql替换#{colunm}为?，并抽取查询字段
+4. 通过连接池获取connection，创建prepareStatement（一个Executor实例对应一个连接，所以连接要配置为成员变量）
+5. 通过查询字段和MappedStatement中的请求class对象，绑定sql参数
+6. 通过ResultSet.metaData()获取元数据，并使用内省类PropertyDescriptor完成ORM，封装对象
 ```
 #### 7.编写代理实现类，解决客户端入参statementId硬编码
     1.Mapper.xml的statementId = namespace(DAO接口全路径) + "." + id(方法名)
