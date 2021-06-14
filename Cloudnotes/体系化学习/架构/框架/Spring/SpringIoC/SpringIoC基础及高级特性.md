@@ -6,14 +6,19 @@
 
 
 
-BeanFactory是Spring框架中IoC容器的顶层接⼝,它只是⽤来定义⼀些基础功能,定义⼀些基础规范,⽽
-ApplicationContext是它的⼀个⼦接⼝，所以ApplicationContext是具备BeanFactory提供的全部功能
-的。
+BeanFactory是Spring框架中IoC容器的顶层接⼝,它只是⽤来定义⼀些基础功能,定义⼀些基础规范，而ApplicationContext是它的⼀个⼦接⼝，所以ApplicationContext是具备BeanFactory提供的全部功能的。
 
-通常，我们称BeanFactory为SpringIOC的基础容器，ApplicationContext是容器的⾼级接⼝，⽐
-BeanFactory要拥有更多的功能，⽐如说国际化⽀持和资源访问（xml，java配置类）等等
+
 
 <img src="images/image-20210613221400985" style="zoom:150%;" />
+
+
+
+通常，我们称BeanFactory为SpringIOC的基础容器，ApplicationContext是容器的⾼级接⼝，⽐BeanFactory要拥有更多的功能，⽐如说国际化⽀持和资源访问（xml，java配置类）等等
+
+<img src="images/[K2%DRKYRAF6H1AFN3}XQPM.png" alt="img" style="zoom:150%;" />
+
+Spring容器是一套组件和过程的集合，包括BeanFactory顶层容器、ApplicationContext容器、MessageSource国际化处理器、Map单例池、后置处理器等
 
 
 
@@ -240,7 +245,7 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 ### 1.对应注解
 
 - **@Configuration** 注解，表名当前类是⼀个配置类
-- **@ComponentScan** 注解，替代<component-scan>
+- **@ComponentScan** 注解，替代<context:component-scan>
 - **@PropertySource**，引⼊外部属性配置⽂件替代<property-placeholder>
 - **@Import** 引⼊其他配置类
 - **@Value** 对变量赋值，可以直接赋值，也可以使⽤${} 读取资源配置⽂件中的信息
@@ -289,3 +294,4 @@ Bean的延迟加载（延迟创建）lazy-init="true"，将bean设置为延迟�
 ### 3.后置处理器
 
 <img src="images/image-20210614174805074.png" alt="image-20210614174805074" style="zoom:150%;" />
+
