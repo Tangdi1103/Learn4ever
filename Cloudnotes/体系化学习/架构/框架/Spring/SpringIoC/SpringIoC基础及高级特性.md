@@ -18,7 +18,7 @@ BeanFactory是Spring框架中IoC容器的顶层接⼝,它只是⽤来定义⼀�
 
 <img src="images/[K2%DRKYRAF6H1AFN3}XQPM.png" alt="img" style="zoom:150%;" />
 
-Spring容器是一套组件和过程的集合，包括BeanFactory顶层容器、ApplicationContext容器、MessageSource国际化处理器、Map单例池、后置处理器等
+Spring容器是一套组件和过程的集合，包括BeanFactory顶层容器、ApplicationContext容器、MessageSource国际化处理器、单例池singletonObjects、后置处理器等
 
 
 
@@ -132,7 +132,7 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 | :---------------------- | :----------------------------------------------------------- |
 | 标签                    | @Component("accountDao")，注解加在类上bean的id属性内容直接配置在注解后⾯如果不配置，默认定义个这个bean的id为类的类名⾸字⺟⼩写；另外，针对分层代码开发提供了@Componenet的三种别名@Controller、@Service、@Repository分别⽤于控制层类、服务层类、dao层类的bean定义，这四个注解的⽤法完全⼀样，只是为了更清晰的区分⽽已 |
 | 标签的scope属           | @Scope("prototype")，默认单例，注解加在类上                  |
-| 标签的initmethod属性    | @PostConstruct，注解加在⽅法上，该⽅法就是初始化后调⽤的⽅法 |
+| 标签的initmethod属性    | @PostConstruct，注解加在⽅法上，该⽅法就是初始化时调⽤的⽅法 |
 | 标签的destorymethod属性 | @PreDestory，注解加在⽅法上，该⽅法就是销毁前调⽤的⽅法      |
 
 
@@ -385,14 +385,13 @@ bean:com.lagou.edu.factory.CompanyFactoryBean@53f6fd09
 
 #### 3.1. BeanFactoryPostProcessor
 
-BeanFactoryPostProcessor是Bean工厂级别的后置处理器，对整个bean工厂的处理。其在Spring容器的周期顺序如下
+**BeanFactoryPostProcessor**是Bean工厂级别的后置处理器，对整个bean工厂的处理。其在Spring容器的周期顺序如下**(详细见bean生命周期)**
 
-  		1.  bean工厂实例化
-  		2.  实例化实现了BeanFactoryPostProcessor接口的类
-  		3.  调用BeanFactoryPostProcessor接口实现类的postProcessBeanFactory()方法
-  		4.  对bean工厂进行后置处理
+1.  bean工厂实例化
+2.  实例化实现了**BeanFactoryPostProcessor**接口的类
+3.  通过**postProcessBeanFactory**()方法对bean工厂进行后置处理
 
-典型应用是PropertyPlaceholderConfigurer接口，通过getBeanDefinition()方法，得到BeanDefinition对象（xml中bean标签的封装）
+典型应用是PropertyPlaceholderConfigurer接口，通过**getBeanDefinition**()方法，得到**BeanDefinition**对象（xml中bean标签的封装）
 
 ```java
 public class MyBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
@@ -412,18 +411,19 @@ public class MyBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
 
 #### 3.2. BeanPostProcessor 
 
-BeanPostProcessor是Bean级别的后置处理器，可以针对某个具体的Bean。
+**BeanPostProcessor**是Bean级别的后置处理器，可以针对某个具体的Bean。
 
 该接⼝提供了两个⽅法，分别在Bean的初始化⽅法前和初始化⽅法后执⾏，默认是会对整个Spring容器中所有的bean进⾏处理。如果要对具体的某个bean处理，可以通过⽅法参数判断，两个类型参数分别为Object和String，第⼀个参数是每个bean的实例，第⼆个参数是每个bean的name或者id属性的值。所以我们可以通过第⼆个参数，来判断我们将要处理的具体的bean。
 
-其在Spring容器的周期顺序如下:
+其在Spring容器的周期顺序如下:**(详细见bean生命周期)**
 
- 	1. 实例化实现了BeanPostProcessor 接口的类
- 	2. 实例化bean对象
- 	3. 处理实现了ApplicationContextAware等各个Aware接口的实现方法
- 	4. 执行BeanPostProcessor后置处理器的postProcessBeforeInitialization方法
- 	5. 执行其他初始化的方法，如@postStruct、InitializingBean接口、bean标签的init-mothod指定的方法
- 	6. 执行BeanPostProcessor后置处理器的postProcessAfterInitialization方法
+1. 实例化实现了**BeanPostProcessor** 接口的类
+2. 实例化bean对象
+3. 设置属性值
+4. 执行实现**BeanNameAware**、**BeanFactoryAware**、**ApplicationContextAware**接口获取beanName、beanFactory、ApplicationContext
+5. 执行实现**BeanPostProcessor**接口后置处理器的**postProcessBeforeInitialization**方法
+6. 执行其他初始化的方法，顺序为@**postConstruct**、**InitializingBean**接口、bean标签的**init-mothod**指定的方法
+7. 执行实现**BeanPostProcessor**接口后置处理器的**postProcessAfterInitialization**方法
 
 ```java
 public class MyBeanPostProcessor implements BeanPostProcessor {
