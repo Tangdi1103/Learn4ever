@@ -252,4 +252,4 @@ beans.xml主要表述bean之间的依赖关系
 ### 1.5 ProxyFactory
 
 	1. 代理工厂提供多种代理对象的创建
- 	2. 这里的代理主要用来做事务管控，依赖TransactionManager
+	2. 这里的代理主要用来做事务管控，依赖TransactionManager

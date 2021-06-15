@@ -176,8 +176,8 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 
 #### 纯xml的依赖注入有两种方式，分别是set方法注入依赖、有参构造注入依赖
 
-	1.  在bean中使用set方法注入
-	2.  在bean中使用有参构造注入依赖
+1.  在bean中使用set方法注入
+2.  在bean中使用有参构造注入依赖
 
 ## 六、xml+注解
 
@@ -185,7 +185,7 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 
 1. #### xml+注解结合模式，xml⽂件依然存在，所以，spring IOC容器的启动仍然从加载xml开始。
 
-2. #### 三方包的类使用xml配置，引入配置文件
+2. #### 三方包的类使用xml定义bean，引入配置文件
 
    **applicationContext.xml**：
 
@@ -213,7 +213,7 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 
    
 
-3. #### 自开发类使用注解
+3. #### 自开发类使用注解定义bean
 
    使用注解，需要配置扫描使用注解定义bean的路径
 
@@ -226,9 +226,11 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 
 ### 2.依赖注入
 
-1. #### 自定义Bean通常使用注解定义，第三方类定义在xml中
+1. #### 使用set方法注入依赖
 
-2. #### 注解注入
+2. #### 使用有参构造注入依赖
+
+3. #### 注解注入依赖
 
    @Autowired（推荐使⽤）：策略为按照类型注⼊
 
@@ -291,7 +293,160 @@ Bean的延迟加载（延迟创建）lazy-init="true"，将bean设置为延迟�
 
 ### 2.FactoryBean和BeanFactory
 
+#### 2.1. FactoryBean
+
+​	Spring中Bean有两种，⼀种是普通Bean，⼀种是⼯⼚Bean（FactoryBean）， FactoryBean可以⽣成某⼀个类型的Bean实例（返回给我们），也就是说我们可以借助于它⾃定义Bean的创建过程。Bean创建的三种⽅式中的静态⽅法和实例化⽅法和FactoryBean作⽤类似（都是使用某方法创建复杂对象）， FactoryBean使⽤较多，尤其在Spring框架⼀些组件中会使⽤，还有其他框架和Spring框架整合时使⽤  
+
+**FactoryBean接口定义：**
+
+```java
+// 可以让我们⾃定义Bean的创建过程（完成复杂Bean的定义）
+public interface FactoryBean<T> {
+	@Nullable
+	// 返回FactoryBean创建的Bean实例，如果isSingleton返回true，则该实例会放到Spring容器的单例对象缓存池中Map
+	T getObject() throws Exception;
+	@Nullable
+	// 返回FactoryBean创建的Bean类型
+	Class<?> getObjectType();
+	// 返回作⽤域是否单例
+	default boolean isSingleton() {
+		return true;
+	}
+}
+```
+
+
+
+**实现FactoryBean接口：**
+
+```java
+public class CompanyFactoryBean implements FactoryBean<Company> {
+	private String companyInfo; // 公司名称,地址,规模
+    
+	public void setCompanyInfo(String companyInfo) {
+		this.companyInfo = companyInfo;
+    }
+    
+	@Override
+	public Company getObject() throws Exception {
+        // 模拟创建复杂对象Company
+        Company company = new Company();
+        String[] strings = companyInfo.split(",");
+        company.setName(strings[0]);
+        company.setAddress(strings[1]);
+        company.setScale(Integer.parseInt(strings[2]));
+        return company;
+    }
+    
+    @Override
+    public Class<?> getObjectType() {
+        return Company.class;
+    }
+    
+    @Override
+    public boolean isSingleton() {
+        return true;
+    }
+}
+```
+
+**xml配置bean：**
+
+```xml
+<bean id="companyBean" class="com.lagou.edu.factory.CompanyFactoryBean">
+	<property name="companyInfo" value="IBM,北京,5000"/>
+</bean>
+```
+
+**获取FactoryBean产⽣的对象 ：**
+
+```java
+Object companyBean = applicationContext.getBean("companyBean");
+System.out.println("IBM:" + companyBean);
+// 结果如下
+bean:Company{name='IBM', address='北京', scale=5000}
+
+// 获取FactoryBean，需要在id之前添加“&
+Object companyBean = applicationContext.getBean("&companyBean");
+System.out.println("bean:" + companyBean);
+// 结果如下
+bean:com.lagou.edu.factory.CompanyFactoryBean@53f6fd09
+```
+
+
+
+#### 2.2. BeanFactory
+
+​	BeanFactory接⼝是容器的顶级接⼝，定义了容器的⼀些基础⾏为，负责⽣产和管理Bean的⼀个⼯⼚，具体使⽤它下⾯的⼦接⼝类型，⽐如ApplicationContext  
+
 ### 3.后置处理器
 
-<img src="images/image-20210614174805074.png" alt="image-20210614174805074" style="zoom:150%;" />
+​	Spring提供了两种后处理bean的扩展接⼝，分别为 BeanPostProcessor 和BeanFactoryPostProcessor，两者在使⽤上是有所区别的。  
+
+#### 3.1. BeanFactoryPostProcessor
+
+BeanFactoryPostProcessor是Bean工厂级别的后置处理器，对整个bean工厂的处理。其在Spring容器的周期顺序如下
+
+  		1.  bean工厂实例化
+  		2.  实例化实现了BeanFactoryPostProcessor接口的类
+  		3.  调用BeanFactoryPostProcessor接口实现类的postProcessBeanFactory()方法
+  		4.  对bean工厂进行后置处理
+
+典型应用是PropertyPlaceholderConfigurer接口，通过getBeanDefinition()方法，得到BeanDefinition对象（xml中bean标签的封装）
+
+```java
+public class MyBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
+
+	public MyBeanFactoryPostProcessor() {
+		System.out.println("BeanFactoryPostProcessor的实现类构造函数...");
+	}
+
+	@Override
+	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+		System.out.println("BeanFactoryPostProcessor的实现方法调用中......");
+	}
+}
+```
+
+
+
+#### 3.2. BeanPostProcessor 
+
+BeanPostProcessor是Bean级别的后置处理器，可以针对某个具体的Bean。
+
+该接⼝提供了两个⽅法，分别在Bean的初始化⽅法前和初始化⽅法后执⾏，默认是会对整个Spring容器中所有的bean进⾏处理。如果要对具体的某个bean处理，可以通过⽅法参数判断，两个类型参数分别为Object和String，第⼀个参数是每个bean的实例，第⼆个参数是每个bean的name或者id属性的值。所以我们可以通过第⼆个参数，来判断我们将要处理的具体的bean。
+
+其在Spring容器的周期顺序如下:
+
+ 	1. 实例化实现了BeanPostProcessor 接口的类
+ 	2. 实例化bean对象
+ 	3. 处理实现了ApplicationContextAware等各个Aware接口的实现方法
+ 	4. 执行BeanPostProcessor后置处理器的postProcessBeforeInitialization方法
+ 	5. 执行其他初始化的方法，如@postStruct、InitializingBean接口、bean标签的init-mothod指定的方法
+ 	6. 执行BeanPostProcessor后置处理器的postProcessAfterInitialization方法
+
+```java
+public class MyBeanPostProcessor implements BeanPostProcessor {
+
+	public MyBeanPostProcessor() {
+		System.out.println("BeanPostProcessor 实现类构造函数...");
+	}
+
+	@Override
+	public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+		if("lagouBean".equals(beanName)) {
+			System.out.println("BeanPostProcessor 实现类 postProcessBeforeInitialization 方法被调用中......");
+		}
+		return bean;
+	}
+
+	@Override
+	public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+		if("lagouBean".equals(beanName)) {
+			System.out.println("BeanPostProcessor 实现类 postProcessAfterInitialization 方法被调用中......");
+		}
+		return bean;
+	}
+}
+```
 
