@@ -253,6 +253,38 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 - **@Value** 对变量赋值，可以直接赋值，也可以使⽤${} 读取资源配置⽂件中的信息
 - **@Bean** 将⽅法返回对象加⼊SpringIOC 容器
 
+```java
+// @Configuration 注解表明当前类是一个配置类
+@Configuration
+@ComponentScan({"com.lagou.edu"})
+@PropertySource({"classpath:jdbc.properties"})
+/*@Import()*/
+public class SpringConfig {
+
+    @Value("${jdbc.driver}")
+    private String driverClassName;
+    @Value("${jdbc.url}")
+    private String url;
+    @Value("${jdbc.username}")
+    private String username;
+    @Value("${jdbc.password}")
+    private String password;
+
+
+    @Bean("dataSource")
+    public DataSource createDataSource(){
+        DruidDataSource druidDataSource = new DruidDataSource();
+        druidDataSource.setDriverClassName(driverClassName);
+        druidDataSource.setUrl(url);
+        druidDataSource.setUsername(username);
+        druidDataSource.setPassword(password);
+        return  druidDataSource;
+    }
+}
+```
+
+
+
 ### 2.定义bean
 
 1. 将xml中的扫描注解路径配置移到java配置类中
@@ -391,21 +423,7 @@ bean:com.lagou.edu.factory.CompanyFactoryBean@53f6fd09
 2.  实例化实现了**BeanFactoryPostProcessor**接口的类
 3.  通过**postProcessBeanFactory**()方法对bean工厂进行后置处理
 
-典型应用是PropertyPlaceholderConfigurer接口，通过**getBeanDefinition**()方法，得到**BeanDefinition**对象（xml中bean标签的封装）
-
-```java
-public class MyBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
-
-	public MyBeanFactoryPostProcessor() {
-		System.out.println("BeanFactoryPostProcessor的实现类构造函数...");
-	}
-
-	@Override
-	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
-		System.out.println("BeanFactoryPostProcessor的实现方法调用中......");
-	}
-}
-```
+典型应用是PropertyPlaceholderConfigurer接口，通过**getBeanDefinition**()方法，得到**BeanDefinition**对象（xml中bean标签的封装），然后对定义的属性进⾏修改，@Value("${xxx.xxx}")这个典型的占位符就是通过beanFactory工厂后置处理转换成真实值的
 
 
 
