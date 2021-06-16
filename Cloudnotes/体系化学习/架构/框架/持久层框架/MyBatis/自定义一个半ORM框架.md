@@ -52,18 +52,20 @@
 ​	提供全局配置，如dataSource配置、mapper路径配置、是否自动提交事务、缓存等等。。
 
 #### 2. 创建一个SqlSessionFactoryBuilder类
-    1. 使用dom4j解析xml文件，组装到实体对象中
-    2. 将解析后的对象传入SqlSessionFactory构造函数，创建SqlSessionFactory并返回
+1. 使用dom4j解析xml文件，组装到实体对象中
+2. 将解析后的对象传入SqlSessionFactory构造函数，创建SqlSessionFactory并返回
+
 #### 3. 通过dom4j解析配置文件及sql文件，存入实体类
-    1. Configuration(配置源信息)：DataSource(classDriver、jdbcUrl、name、password)、Map<statementId,MappedStatement>
-    2. MappedStatement(mapper信息)：namespace、id、parameterType、resultType、sql、mapperType
+1. Configuration(配置源信息)：DataSource(classDriver、jdbcUrl、name、password)、Map<statementId,MappedStatement>
+2. MappedStatement(mapper信息)：namespace、id、parameterType、resultType、sql、mapperType
+
 #### 4. 创建SqlSessionFactory工厂接口及默认实现类,实现方法openSqlSession()
 
-```
 提供事务是否自动提交控制设置
-1.openSqlSession(boolean autoCommit,Configuration configuration)
-2.openSqlSession(Configuration configuration)
-```
+
+1. openSqlSession(boolean autoCommit,Configuration configuration)
+
+2. openSqlSession(Configuration configuration)
 
 
 
@@ -73,30 +75,37 @@
 >
 > 如果使用了连接池，客户端最好不要关闭连接。否则一个方法中无法做多次jdbc操作。并且也无法控制事务
 
-```
-1.默认conn.setAutoCommit(true)
-2.select
-3.update
-4.insert
-5.delete
-6.commit	//提交
-7.close
-8.rollback	//回滚
-9.getMapper //获取动态代理对象
-```
+1. 默认conn.setAutoCommit(true)
+
+2. select
+
+3. update
+
+4. insert
+
+5. delete
+
+6. commit	//提交
+
+7. close
+
+8. rollback	//回滚
+
+9. getMapper //获取动态代理对象
+
 #### 6. 创建Executor接口及默认实现，执行JDBC操作
 
-```java
 1. executor主要提供query、update(增删改jdbc底层都是update操作)、commit、close、getConnection
 2. 接收Configuration、MappedStatement和查询对象
 3. boundSql，解析sql替换#{colunm}为?，并抽取查询字段
 4. 通过连接池获取connection，创建prepareStatement（一个Executor实例对应一个连接，所以连接要配置为成员变量）
 5. 通过查询字段和MappedStatement中的请求class对象，绑定sql参数
 6. 通过ResultSet.metaData()获取元数据，并使用内省类PropertyDescriptor完成ORM，封装对象
-```
+
 #### 7.编写代理实现类，解决客户端入参statementId硬编码
-    1.Mapper.xml的statementId = namespace(DAO接口全路径) + "." + id(方法名)
-    2.使用jdk动态代理，返回客户端代理对象，去执行代理类增强逻辑
+1. Mapper.xml的statementId = namespace(DAO接口全路径) + "." + id(方法名)
+
+2. 使用jdk动态代理，返回客户端代理对象，去执行代理类增强逻辑
 
 ![image](images/10450.jpg)
 
@@ -104,7 +113,7 @@
 # 三、自定义持久层框架代码实现
 ## 3.1 创建SqlSessionFactoryBuilder
 解析字节输入流，将生成的Configuration类传入SqlSessionFactory构造函数，创建SqlSessionFactory
-```
+```java
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import com.tangdi.pojo.Configuration;
 import org.dom4j.Document;
@@ -217,7 +226,7 @@ public class XMLConfigerBuilder {
 
 ## 3.2 SqlMapConfig.xml和Mapper.xml的解析类
 dataSource使用连接池，使用classloader.getResource()扫描packge路径下所有mapper文件,解析并封装所有属性，所有属性封装进configuration类中
-```
+```java
 package com.tangdi.parse;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
@@ -409,7 +418,7 @@ public class XMLMapperBuilder {
 
 ## 3.3 SqlSessionFactory及默认实现类
 提供两种创建SqlSession方法，一个是可设置自动提交Executor，另一个是默认自动提交Executor
-```
+```java
 public class DefaultSqlSessionFactory implements SqlSessionFactory{
 
     private Configuration configuration;
@@ -438,7 +447,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory{
 ## 3.4 SqlSession及默认实现类
 
 构造函数包含核心配置类、执行器，每个sqlsession对应一个Executor，通过Executor获取jdbc连接提供带statementId的CRUD、commit、close、rollback和jdk动态代理类创建
-```
+```java
 public class DfaultSqlSession implements SqlSession{
 
     private Configuration configuration;
@@ -524,7 +533,7 @@ public class DfaultSqlSession implements SqlSession{
 
 Executor才是最终的做JDBC操作的类，使用连接池的dataSource获取jdbc连接；
 
-解析获得?替换#{}后得sql，以及#{}中得查询字段名，预编译sql，并使用反射得到查询字段值并设置参数；
+boundSql方法解析sql，用?替换#{}后得sql，以及#{}中得查询字段名，预编译sql，并使用反射得到查询字段值并设置参数；
 
 执行sql得到结果集resultSet，通过ResultSetMetaData元数据封装属性名及值到返回对象中，此处得DB与POJO字段名完全相同。
 
@@ -532,7 +541,7 @@ Executor才是最终的做JDBC操作的类，使用连接池的dataSource获取j
 
 若自动commit关闭，则在update后，需要手动执行commit提交事务
 
-```
+```java
 public class SimplerExecutor implements Executor{
 
     private Connection connection;
@@ -657,7 +666,7 @@ public class SimplerExecutor implements Executor{
 
 invoke是代理类执行的方法
 
-```
+```java
 public class MapperProxyHandler implements InvocationHandler {
 
     private Configuration configuration;
@@ -691,7 +700,7 @@ public class MapperProxyHandler implements InvocationHandler {
 
 ## 3.7 测试类
 
-```
+```java
 public class Test {
     SqlSession sqlSession;
     UserDao mapper;
@@ -812,7 +821,7 @@ public class Test {
 ## 3.8 xml文件
 
 ### 3.8.1 SqlMapConfig.xml
-```
+```xml
 <configuration>
 
     <!--数据库配置信息-->
@@ -833,7 +842,7 @@ public class Test {
 ```
 
 ### 3.8.1 SqlMapConfig.xml
-```
+```xml
 <mapper namespace="com.tangdi.dao.UserDao">
     <select id="findAll" parameterType="com.tangdi.domain.User" resultType="com.tangdi.domain.User" >
         select * from user_demo

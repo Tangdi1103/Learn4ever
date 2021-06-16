@@ -1,3 +1,17 @@
+[TOC]
+
+
+
+# 一、动态代理和静态代理
+
+## 1.静态代理
+
+### 	1.1. 对应不同功能，需要编写不同代理类
+
+### 	1.2. 代理与被代理实现同一个接口（拥有相同行为），代理类增强被代理类功能（被代理类传入代理类中，代理方法调用被代理方法）
+
+### 	1.3. 如下，就是静态代理，代理类需被代理类传入。代理类来增强功能
+
 ```java
 // 租房接口
 public interface RentingHouse{
@@ -12,7 +26,55 @@ public class IRentingHouseImpl implements RentingHouse{
     }
 }
 
+// 代理类
+public class IRentingHouseProxy implements RentingHouse{
+    
+    RentingHouse rentHouse;
+    
+    public IRentingHouseProxy(RentingHouse rentHouse){
+        this.rentHouse = rentHouse;
+    }
+    
+    @Override
+    public void rentHouse(){
+        System.out.print("中介（代理）收取3%服务费");
+        rentHouse.rentHouse();
+        System.out.print("客服信息买了3毛钱");
+    }
+}
 
+public class Test {
+    public static void main(String[] args){
+        IRentingHouse iRentingHouse = new IRentingHouseImpl();  // 委托对象
+        IRentingHouse iRentingHouseProxy = new IRentingHouseProxy(iRentingHouse); //代理类
+        iRentingHouseProxy.rentHouse();
+    }
+}
+```
+
+
+
+## 2.动态代理
+
+### 	1.1. 对应布通功能，可用同一代理类
+
+### 	1.2. 动态代理分为：JDK动态代理，cglib动态代理（三方类库）
+
+### 	1.3. jdk动态代理如下：
+
+```java
+// 租房接口
+public interface RentingHouse{
+    void rentHouse();
+}
+
+// 委托类
+public class IRentingHouseImpl implements RentingHouse{
+    @Override
+    public void rentHouse(){
+        System.out.print("我要租一室一厅");
+    }
+}
 
 public class Test {
     public static void main(String[] args){
@@ -33,23 +95,100 @@ public class Test {
 }
 ```
 
-newInstanceProxy()方法中的入参：
+**newInstanceProxy()方法中的入参：**
 
-	1. ClassLoader类加载器
-	2. 需被代理类的接口类型
+1. ClassLoader类加载器
+2. 需被代理类的接口类型
+
  3. 代理增强功能的逻辑
 
-       1. Proxy代理本身
+    1. Proxy代理本身
 
-       2. method被代理类的方法
+    2. method被代理类的方法
 
-       3. args被代理类的方法入参
+    3. args被代理类的方法入参
 
 1和2使用反射机制，在底层动态的生成了一个代理对象
 
+### 	1.4. cglib动态代理如下
+
+```java
+// 租房接口
+public interface RentingHouse{
+    void rentHouse();
+}
+
+// 委托类
+public class IRentingHouseImpl implements RentingHouse{
+    @Override
+    public void rentHouse(){
+        System.out.print("我要租一室一厅");
+    }
+}
 
 
-Mybatis中应用jdk动态代理如下：
+
+public class Test {
+    public static void main(String[] args){
+        IRentingHouse iRentingHouse = new IRentingHouseImpl();  // 委托对象
+        
+        // 生成代理对象
+        Object o = Enhancer.create(iRentingHouse.getClass(),new MethodInterceptor(){
+            @Overrid
+            public Object intercept(Object o,Method method,Object[] objects,MethodProxy methodProxy){
+                ...
+                Object o = method.invoke(iRentingHouse,args);
+                ...
+                return o;
+            }
+        });//代理类
+        iRentingHouseProxy.rentHouse();
+    }
+}
+```
+
+**create中的入参**
+
+1. Class<?>委托对象的Class
+2. MethodInterceptor增强的业务逻辑，通过方法拦截器实现逻辑增强
+   1. Object委托对象的引用
+   2. Method委托对象的方法
+   3. Object[]委托对象方法的入参
+   4. MethodProxy当前执行方法代理对象的封装
+
+
+
+**cglib需要引入jar包**
+
+```xml
+<dependency>
+    <groupId>cglib</groupId>
+    <artifact>cglib</artifact>
+    <version>2.1.2</version>
+</dependency>
+```
+
+### 1.5. jdk动态代理与cglib动态代理的区别
+
+#### jdk动态代理的委托类必须实现接口，而cglib则没这个要求
+
+
+
+
+
+# 二、Mybatis中的应用：
+
+Mybatis的sqlSession获得DAO接口代理对象方法如下：
+
+```java
+@Override
+    public Object getMapper(Class<?> mapperClass) {
+        MapperProxyHandler mapperProxyHandler = new MapperProxyHandler(configuration,executor);
+        return Proxy.newProxyInstance(DfaultSqlSession.class.getClassLoader(),new Class[]{mapperClass},mapperProxyHandler);
+    }
+```
+
+Mybatis中通过getMapper得到代理对象，具体代理实现逻辑如下：
 
 ```java
 public class MapperProxyHandler implements InvocationHandler {
@@ -85,10 +224,3 @@ public class MapperProxyHandler implements InvocationHandler {
 
 将客户端加载配置文件，创建sqlSessionFactory和生产sqlSession的重复代码放入DAO接口的代理实现内中，实现只用调用DAO接口就完成数据库操作
 
-使用jdk自带的动态代理：
-Proxy.newProxyInstance(ClassLoader，Class[]，InvocationHandler)
-
-1. ClassLoader:当前类的类加载器
-2. Class[]:需被代理类的Class数组
-3. InvocationHandler:代理类的实现
-4. ![](images/10517.jpg)
