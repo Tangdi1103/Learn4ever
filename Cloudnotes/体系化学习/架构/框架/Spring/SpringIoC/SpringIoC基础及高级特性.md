@@ -329,6 +329,8 @@ Bean的延迟加载（延迟创建）lazy-init="true"，将bean设置为延迟�
 
 ​	Spring中Bean有两种，⼀种是普通Bean，⼀种是⼯⼚Bean（FactoryBean）， FactoryBean可以⽣成某⼀个类型的Bean实例（返回给我们），也就是说我们可以借助于它⾃定义Bean的创建过程。Bean创建的三种⽅式中的静态⽅法和实例化⽅法和FactoryBean作⽤类似（都是使用某方法创建复杂对象）， FactoryBean使⽤较多，尤其在Spring框架⼀些组件中会使⽤，还有其他框架和Spring框架整合时使⽤  
 
+若想getBean()获取FactoryBean，需要在id之前添加“&
+
 **FactoryBean接口定义：**
 
 ```java
