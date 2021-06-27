@@ -22,11 +22,22 @@
 
 它通过⼀套注解，让⼀个简单的Java 类成为处理请求的控制器，⽽⽆须实现任何接⼝。同时它还⽀持RESTful 编程⻛格的请求。Spring MVC 本质可以认为是对servlet的封装，简化了我们serlvet的开发
 
+1. 提供参数绑定，自动将HTPP请求的String类型入参转换为Hander方法形参类型
+2. 通过@Controller、@RequestMapping可使某个方法成为一个Handler
+3. SpringMVC中Servlet与Handler分离，且只有一个Servlet
+
 ![springmvc模式和原生servlet模式区别](images/springmvc模式和原生servlet模式区别.png)
 
 ## 二、SpringMVC工作流程
 
 ![img](images/%EOZTL_N%21TYYO[2R_]2U.png)
+
+**使用SpringMVC框架开发过程**
+
+1. 配置DispatcherServlet前端控制器
+2. 开发处理具体业务逻辑的Handler（@Controller、@RequestMapping）
+3. xml配置⽂件配置controller扫描，配置springmvc三⼤件
+4. 将xml⽂件路径告诉springmvc（DispatcherServlet）
 
 **流程说明**
 
@@ -47,7 +58,7 @@
 - **HandlerMapping（处理器映射器）**
   HandlerMapping 是⽤来查找Handler 的，也就是处理器，具体的表现形式可以是类，也可以是⽅法。⽐如，标注了@RequestMapping的每个⽅法都可以看成是⼀个Handler。Handler负责具体实际的请求处理，在请求到达后，HandlerMapping 的作⽤便是找到请求相应的处理器Handler 和Interceptor
 - **HandlerAdapter（处理器适配器）**
-  HandlerAdapter 是⼀个适配器。因为Spring MVC 中Handler 可以是任意形式的，只要能处理请求即可。但是把请求交给Servlet 的时候，由于Servlet 的⽅法结构都是doService(HttpServletRequest req,HttpServletResponse resp)形式的，要让固定的Servlet 处理⽅法调⽤Handler 来进⾏处理，便是HandlerAdapter 的职责。
+  HandlerAdapter 是⼀个适配器。因为Spring MVC 中Handler 可以是任意形式的（可以试类，也可以使方法），把请求交给Servlet 的时候，由于Servlet 的⽅法结构都是doService(HttpServletRequest req,HttpServletResponse resp)形式的，要让固定的Servlet调⽤不同的Handler 来进⾏处理，便是HandlerAdapter 的职责。
 - HandlerExceptionResolver
   HandlerExceptionResolver ⽤于处理Handler 产⽣的异常情况。实现HandlerExceptionResolver 接口可捕获异常并处理。它的作⽤是根据异常设置ModelAndView，之后交给渲染⽅法进⾏渲染，渲染⽅法会将ModelAndView 渲染成⻚⾯。也可使用@ExceptionHandler注解对应方法上捕获异常
 - **ViewResolver**

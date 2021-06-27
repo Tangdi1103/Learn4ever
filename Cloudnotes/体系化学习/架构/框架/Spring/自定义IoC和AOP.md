@@ -109,7 +109,7 @@
    1. 扫描路径下所有包含注解的对象，根据定义的beanName和反射对象放入BeanDefinition中
    2. getBean方法提供三级缓存
    3. 若注入依赖类型为接口类型，则从BeanDefinition中找到接口对应的bean
-   4. 提供类名第一个字母大写方法
+   4. 提供类名第一个字母小写方法
    5. 提供动态代理封装事务管理
 2. 定义bean，有xml定义和注解定义两种
    1. xml：创建beans.xml，定义bean的唯一标识和全限定类名，以及提供所依赖bean的唯一标识（xml配置方式）
@@ -125,7 +125,7 @@
 
 # 五、自定义IoC和AOP
 
-## 1.1 BeanFactory
+### 1.1 BeanFactory
 
 ​	**BeanFactory**：IOC容器顶级接口，定义了bean基本管理标准
 
@@ -204,13 +204,9 @@ public abstract class AbstractBeanFactory implements BeanFactory {
         transactionProxy();
     }
 
-    protected void loadConfig(Class<?> clazz) throws IOException, ClassNotFoundException {
+   protected abstract void loadConfig(Class<?> clazz) throws IOException, ClassNotFoundException;
 
-    }
-
-    protected void transactionProxy() {
-        ;
-    }
+    protected abstract void transactionProxy();
 
     @Override
     public Object getBean(String beanName) {
@@ -838,7 +834,6 @@ import javax.servlet.ServletContextListener;
 import java.io.IOException;
 
 /**
- * @program: lagou-transfer
  * @description: 自定义监听器
  * @author: Wangwentao
  * @create: 2021-06-17 10:38
