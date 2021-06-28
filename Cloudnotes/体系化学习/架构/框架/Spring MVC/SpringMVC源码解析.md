@@ -10,7 +10,7 @@
 
 
 
-### 2. DispatchServlet随web容器启动执行初始化方法init
+### 2. DispatchServlet随web容器启动执行父类HttpServletBean初始化方法init
 
 **执行父类方法 ——> org.springframework.web.servlet.HttpServletBean#init**
 
@@ -69,3 +69,67 @@
 **3. 进行了SpringMVC九大组件的初始化工作**
 
 ![image-20210627224434724](images/image-20210627224434724.png)
+
+# 二、SpringMVC工作原理
+
+### 1.DispatcherServlet接受前端请求执行父类FrameworkServlet的doPost/doGet
+
+**执行父类方法 ——> org.springframework.web.servlet.FrameworkServlet#doGet**
+
+**执行父类方法 ——> org.springframework.web.servlet.FrameworkServlet#doPost**
+
+![image-20210628193618045](images/image-20210628193618045.png)
+
+### 2.执行org.springframework.web.servlet.FrameworkServlet#processRequest
+
+![image-20210628194004262](images/image-20210628194004262.png)
+
+### 3.执行org.springframework.web.servlet.DispatcherServlet#doService
+
+![image-20210628194230579](images/image-20210628194230579.png)
+
+### 4.执行org.springframework.web.servlet.DispatcherServlet#doDispatch
+
+![doDispatch](images/doDispatch.png)
+
+##### 4.1调用getHandler，根据对应handlerMapping获取handler以及对应的执行链（如拦截器）
+
+![image-20210628194822297](images/image-20210628194822297.png)
+
+##### 4.2调用getHandlerAdapter，根据supports是否适配，获取对应的handler适配器
+
+![image-20210628195713028](images/image-20210628195713028.png)
+
+##### 4.3执行拦截器pre方法
+
+![image-20210628200455803](images/image-20210628200455803.png)
+
+![image-20210628201249622](images/image-20210628201249622.png)
+
+##### 4.4调用org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter#handle执行handler方法
+
+![image-20210628200913092](images/image-20210628200913092.png)
+
+##### 4.5调用applyDefaultViewName设置视图名
+
+![image-20210628201028160](images/image-20210628201028160.png)
+
+##### 4.6调用拦截器post方法
+
+![image-20210628201218675](images/image-20210628201218675.png)
+
+![image-20210628201233427](images/image-20210628201233427.png)
+
+##### 4.7调用org.springframework.web.servlet.DispatcherServlet#processDispatchResult封装返回结果（视图解析及拦截器after）
+
+![image-20210628201747634](images/image-20210628201747634.png)
+
+**4.7.1 调用org.springframework.web.servlet.DispatcherServlet#render解析视图已经渲染视图**
+
+![image-20210628201914440](images/image-20210628201914440.png)
+
+![image-20210628201948776](images/image-20210628201948776.png)
+
+**4.7.2 调用拦截器afterCompletion**
+
+![image-20210628202230717](images/image-20210628202230717.png)
