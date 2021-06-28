@@ -328,3 +328,55 @@ public String handleRedirect(String name,RedirectAttributes redirectAttributes) 
 }
 ```
 
+## 七、乱码问题解决
+
+#### 1.Post请求乱码， web.xml中加⼊过滤器  
+
+```xml
+<!-- 解决post乱码问题 -->
+<filter>
+    <filter-name>encoding</filter-name>
+    <filter-class>org.springframework.web.filter.CharacterEncodingFilter</filter-class>
+    <!-- 设置编码参是UTF8 -->
+    <init-param>
+        <param-name>encoding</param-name>
+        <param-value>UTF-8</param-value>
+    </init-param>
+    <init-param>
+        <param-name>forceEncoding</param-name>
+    	<param-value>true</param-value>
+    </init-param>
+</filter>
+<filter-mapping>
+    <filter-name>encoding</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+```
+
+#### 2.Get请求乱码（Get请求乱码需要修改tomcat下server.xml的配置）  
+
+```xml
+<Connector URIEncoding="utf-8" connectionTimeout="20000" port="8080" protocol="HTTP/1.1" redirectPort="8443"/>
+```
+
+## 八、启动配置
+
+**配置web.xml启动SpringMVC的DispatchServlet**
+
+```xml
+<!--springmvc启动-->
+<servlet>
+    <servlet-name>springmvc</servlet-name>
+    <servletclass>org.springframework.web.servlet.DispatcherServlet</servletclass>
+    <init-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>classpath*:springmvc.xml</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+</servlet>
+<servlet-mapping>
+    <servlet-name>springmvc</servlet-name>
+    <url-pattern>/</url-pattern>
+</servlet-mapping>
+```
+
