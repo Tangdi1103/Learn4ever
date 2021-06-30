@@ -138,7 +138,7 @@
 
 ![image-20210628202230717](images/image-20210628202230717.png)
 
-### 三、RequestBody和ResponseBode注解
+# 三、RequestBody和ResponseBode注解
 
 1. RequestBody绑定参数时通过遍历方法传入的MethodParmeter，根据Parmeter的类型获取对应的MethodParmeterResoler参数解析器（判断该MethodParmeter是否含@RequestBody注解），然后进行解析（根据MethodParmeter的的类型和请求的JSON进行封装）。
 
