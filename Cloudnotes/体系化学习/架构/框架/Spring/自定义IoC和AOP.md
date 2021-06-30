@@ -114,7 +114,7 @@
 2. 定义bean，有xml定义和注解定义两种
    1. xml：创建beans.xml，定义bean的唯一标识和全限定类名，以及提供所依赖bean的唯一标识（xml配置方式）
    2. 注解：自定义@AutoWired、@Component、@Service、@Repository、@ComponentScan、@Transactional
-3. 创建连接管理ConnectionUtils，使用threadLocal保证线程上下文的JDBC是同一个连接，这里的dataSource暂时写死。有兴趣可以自己实现@Bean注解，然后注入三方类，如：德鲁伊的连接池，然后在ConnectionUtils中注入连接池依赖
+3. 创建连接管理ConnectionUtils，使用threadLocal保证线程上下文的JDBC是同一个连接，这里的dataSource暂时写死。有兴趣可以自己实现@Bean注解将三方类交由Spring托管，@PropertySource（引入外部资源），如：德鲁伊的连接池，然后在ConnectionUtils中注入连接池依赖
 4. 创建事务管理TransactionManager，提供事务关闭自动提交、提交事务、回滚事务
 5. 创建一个代理工厂ProxyFactory，提供JDK动态代理和cglib动态代理，对需要事务控制的bean进行代理
 6. 创建一带@ComponentScan注解的配置类，定义了bean的路径，作为容器启动的入口。
