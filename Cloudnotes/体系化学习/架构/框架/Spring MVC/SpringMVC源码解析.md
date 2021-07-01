@@ -30,39 +30,41 @@
 
 **初始化SpringMVC容器WebApplicatiopnContext**
 
-![image-20210627221214204](images/image-20210627221214204.png)
+![image-20210701171740681](images/image-20210701171740681.png)
 
 
 
-### 5.FrameworkServlet实现ApplicationContextAware获取ApplicationContext实例
-
-**若已经存在**
-
-**org.springframework.web.servlet.FrameworkServlet#setApplicationContext**
-
-![image-20210627221710965](images/image-20210627221710965.png)
-
-### 6.初始化SpringMVC容器WebApplicatiopnContext
+### 5.初始化SpringMVC容器WebApplicatiopnContext
 
 **调用MVC容器初始化org.springframework.web.servlet.FrameworkServlet#initWebApplicationContext**
 
 ![webApplicationContext](images/webApplicationContext.png)
 
-##### 6.1 WebApplicationContext rootContext = WebApplicationContextUtils.getWebApplicationContext(getServletContext())
+##### 5.1 WebApplicationContext rootContext = WebApplicationContextUtils.getWebApplicationContext(getServletContext())
 
 从ServletContext上下文获取SpringIoC容器 
 
 由Servlet监听器启动Spring，并将SpringIoC容器存入ServletContext上下文
 
-##### 6.2 cwac.setParent(rootContext);方法将Spring容器作为SpringMVC容器的父容器
+##### 5.2 若wac不为空(这种情况一般是容器刷新时)，则将SpringIoC容器作为父类传入,并调用configureAndRefreshWebApplicationContext进行容器配置及刷新
 
-##### 6.3 若wac为空，则调用createWebApplicationContext创建默认的SpringMVC容器，并将SpringIoC容器作为父类传入
+##### 5.3 若wac为空(刚启动服务时都为空)，则调用**createWebApplicationContext**创建默认的SpringMVC容器，并将SpringIoC容器作为父类传入
 
-##### 6.4 调用configureAndRefreshWebApplicationContext进行容器配置及刷新
+![image-20210701173132717](images/image-20210701173132717.png)
+
+##### 5.4 调用configureAndRefreshWebApplicationContext进行容器配置及刷新
 
 **初始化了SpringMVC容器的一些数据并调用org.springframework.context.support.AbstractApplicationContext#refresh，进入Spring容器启动的流程([详情查看SpringIoC源码解析](../Spring/SpringIoC/源码解析.md) )**
 
 ![image-20210627223607171](images/image-20210627223607171.png)
+
+
+
+##### 5.5 AbstractApplicationContext#refresh容器刷新，最后一个阶段finishRefresh去发布通知，MVC加载组件
+
+![image-20210701174243413](images/image-20210701174243413.png)
+
+![image-20210701174630986](images/image-20210701174630986.png)
 
 ##### 6.5 加载SpringMVC九大组件
 
