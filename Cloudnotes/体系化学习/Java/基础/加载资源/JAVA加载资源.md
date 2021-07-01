@@ -20,7 +20,7 @@ Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResour
 InputStream is = new FileInputStream(System.getProperty("user.dir") + "/WebContent/WEB-INF/" + resource);
 ```
 
-### 3.使用Spring加载外部资源
+### 3.使用Spring加载外部资源文件
 
 ```java
 @Configuration
@@ -32,12 +32,12 @@ public class RedisConfig {
 }
 ```
 
-### 4.使用Spring加载外部资源2
+### 4.使用Springboot批量加载全局配置的属性
 
 ```java
 //注解将配置映射到到实体类
 @ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false)
-@Configuration
+@Component
 public class RocketMqUPPCallBackConfig {
     private String configUrl;
     private String produceAppName;
@@ -113,5 +113,4 @@ ResourceBundle bundleCN = ResourceBundle.getBundle("props.messages",new Locale("
 ResourceBundle bundleUS = ResourceBundle.getBundle("props.messages",new Locale("en","US"));
 msg=bundleCN.getString("payment.no.selfService");
 ```
-
 
