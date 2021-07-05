@@ -114,7 +114,29 @@ public ModelAndView handlePut(@PathVariable("id") Integer id,@PathVariable("name
 
 **绑定简单数据类型参数**：直接声明形参即可，类型推荐使用包装类**防止NPE**（形参名需与入参名一致，也可使用**@RequestParam**注解进⾏手动映射）
 
-**绑定POJO类型**：直接声明形参为**POJO**类型即可（形参名无所谓，但get请求入参名需与POJO属性名一致），若为**POST**请求**JSON**格式数据，可使用**@RequestBody**注解接受
+**绑定POJO类型**：直接声明形参为**POJO**类型即可（形参名无所谓，但get请求入参名需与POJO属性名一致），若为**POST**请求**JSON**格式数据，可使用**@RequestBody**注解接收，并引入jackson相关jar
+
+```xml
+<!--json数据交互所需jar， start-->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-core</artifactId>
+    <version>2.9.0</version>
+</dependency>
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+    <version>2.9.0</version>
+</dependency>
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-annotations</artifactId>
+    <version>2.9.0</version>
+</dependency>
+<!--json数据交互所需jar， end-->
+```
+
+
 
 ## 六、高级特性
 
