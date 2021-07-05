@@ -116,6 +116,8 @@ public ModelAndView handlePut(@PathVariable("id") Integer id,@PathVariable("name
 
 **绑定POJO类型**：直接声明形参为**POJO**类型即可（形参名无所谓，但get请求入参名需与POJO属性名一致），若为**POST**请求**JSON**格式数据，可使用**@RequestBody**注解接收，并引入jackson相关jar
 
+**SpringMVC默认使用的jackson来序列化对象，包括请求入参JSON->对象，响应对象->JSON都使用jackson来完成**
+
 ```xml
 <!--json数据交互所需jar， start-->
 <dependency>
