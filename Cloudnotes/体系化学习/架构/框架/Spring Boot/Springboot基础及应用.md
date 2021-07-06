@@ -81,3 +81,5 @@ public class RocketMqUPPCallBackConfig {
 3. spring中使用的日志框架和springboot使用的日志框架
 4. 抽象层作为门面，通过门面调用具体的实现。日志配置文件使用的是实现层框架自己的配置
 5. 项目开发时，由于maven存在依赖传递，项目中存在多个日志实现层，怎么统一日志框架的使用？
+
+### 六、内嵌web容器
