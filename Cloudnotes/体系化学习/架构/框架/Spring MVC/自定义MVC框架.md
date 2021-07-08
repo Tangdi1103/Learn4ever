@@ -715,6 +715,34 @@ public class ResourcesScanner {
     public static final String CLASS_SUFFIX = ".class";
     private static final Pattern INNER_PATTERN = Pattern.compile("\\$(\\d+).", Pattern.CASE_INSENSITIVE);
 
+    private static void scan(String name,List<String> list) {
+        try {
+            String path = name.replace('.', '/');
+            if (path.startsWith("/")){
+                path = path.substring(path.indexOf("/"));
+            }
+            ArrayList<URL> urls = Collections.list(Thread.currentThread().getContextClassLoader().getResources(path));
+            for (URL url : urls){
+                if ("file".equalsIgnoreCase(url.getProtocol())) {
+                    File file = new File(URLDecoder.decode(url.getPath(),"UTF-8"));
+                    // File file2 = new File(url.toURI());
+                    File[] files = file.listFiles();
+                    for (File f : files){
+                        if (f.isDirectory()){
+                            scan(name + "." + f.getName(),list);
+                        } else if (f.getName().endsWith(".class")){
+                            if (f.getName().contains("$")){
+                                continue;
+                            }
+                            list.add(name + "." + f.getName().replace(".class",""));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     public static void doScanforClass(List<String> result, String pathName) throws IOException {
         Map<String, String> classMap = new HashMap<>(32);
