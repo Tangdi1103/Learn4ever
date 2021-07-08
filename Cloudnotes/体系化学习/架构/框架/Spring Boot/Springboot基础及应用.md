@@ -78,7 +78,10 @@ spring.devtools.restart.exclude=static/**,public/**
 
 ### 四、Springboot全局配置
 
-正如spring项目有applicationContext.xml，springmvc有springmvc.xml一样，SpringBoot也有配置文件：application.properties，这是一个全局配置文件对项目中所有组件生效。
+正如spring项目有applicationContext.xml，springmvc有springmvc.xml一样，SpringBoot也有配置文件：application.properties，这是一个全局配置文件，对项目中所有组件生效。
+
+- **若全局配置中缺省属性值，在自动装配时三方类库bean时，会根据默认值装配。**
+- **若是在全局配置中设置了属性值，在自动装配时三方类库bean时，则会覆盖默认值**
 
 ##### 1.全局配置文件可存放的路径，以及不同路径加载优先级顺序如下
 
@@ -180,19 +183,52 @@ person:
 
 ### 五、属性注入
 
-##### 1.@ConfigurationProperties
+##### 1.@ConfigurationProperties批量注入
 
-每个springboot的jar包META-INF下都会有一个spring.factories文件记录所有的配置类
+在全局配置文件中配置的属性，可通过可**@ConfigurationProperties**批量注入属性
 
-体现面向对象编程，全局配置中所有默认的配置属性都能一一对应一个Javaconfig。通过在全局配置文件中定义属性值，在springboot启动的时候，读取带**@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false)**和**@Component**的配置类，根据注解属性值去全局配置中找对应的属性值，然后通过setter组装到javaconfig中
+- **@ConfigurationProperties**配合**@Component**为类批量注入属性
 
 ```java
+@Component // 将对象存入IoC容器
 @ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false) // 通过setter批量注入属性
-@Component //将对象存入IoC容器
 public class RocketMqUPPCallBackConfig {
+    // field
+    
+    // getter
+    // setter
+}
 ```
 
-若在全局配置文件中配置自定义的属性，可先定义带以上两个注解的javaConfig，然后配置以下依赖，就能在全局配置中自动提醒javaConfig的属性
+- **@ConfigurationProperties**配合**@Configuration和@EnableConfigurationProperties**为类批量注入属性
+
+```java
+@Configuration // 标识为配置类
+@EnableConfigurationProperties(RocketMqUPPCallBackConfig.class)// 开启批量属性注入
+@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false) // 通过setter批量注入属性
+public class RocketMqUPPCallBackConfig {
+     // field
+    
+    // getter
+    // setter
+}
+```
+
+- **@ConfigurationProperties**配合**@bean**为第三方类注入属性
+
+```java
+@Configuration
+public class MyService {
+    
+   @Bean
+   @ConfigurationProperties("another")
+   public AnotherComponent anotherComponent(){
+       return new AnotherComponent();
+   }
+}
+```
+
+- **若是自定义的属性，可配置以下依赖，就能在全局配置中编写属性值时自动提醒javaConfig的属性**
 
 ```xml
 <dependency>
@@ -202,9 +238,47 @@ public class RocketMqUPPCallBackConfig {
 </dependency>
 ```
 
-##### 2.@Value
+##### 2.@Value单个属性注入
+
+```java
+@Component
+public class RocketMqUPPCallBackComponent {
+	
+	@Value("${mq.upp.callback.rocket}")
+    private boolean switchState;
+}
+```
 
 ##### 3.松散绑定
+
+Spring Boot使用一些宽松的规则将环境属性绑定到@ConfigurationProperties bean，因此环境属性名和bean属性名之间不需要完全匹配。
+
+例如：
+
+```java
+@Data
+@Component
+@ConfigurationProperties("acme.my-person.person")
+public class OwnerProperties {
+   private String firstName;
+}
+```
+
+```yml
+acme:
+my-person:
+   person:
+     first-name: 泰森
+```
+
+
+
+| 属性文件中配置                    | 说明                                     |
+| --------------------------------- | ---------------------------------------- |
+| acme.my-project.person.first-name | 羊肉串模式case, 推荐使用                 |
+| acme.myProject.person.firstName   | 标准驼峰模式                             |
+| acme.my_project.person.first_name | 下划线模式                               |
+| ACME_MYPROJECT_PERSON_FIRSTNAME   | 大写下划线，如果使用系统环境时候推荐使用 |
 
 ### 六、日志系统
 
@@ -215,3 +289,9 @@ public class RocketMqUPPCallBackConfig {
 5. 项目开发时，由于maven存在依赖传递，项目中存在多个日志实现层，怎么统一日志框架的使用？
 
 ### 七、内嵌web容器
+
+### 八、自定义Starter
+
+每个springboot的jar包META-INF下都会有一个spring.factories文件记录所有的配置类
+
+体现面向对象编程，全局配置中所有默认的配置属性都能一一对应一个Javaconfig。通过在全局配置文件中定义属性值，在springboot启动的时候，读取带**@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false)**和**@Component**的配置类，根据注解属性值去全局配置中找对应的属性值，然后通过setter组装到javaconfig中

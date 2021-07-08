@@ -1,3 +1,5 @@
+[toc]
+
 # 一、加载方式
 
 ### 1.使用类加载器
@@ -20,7 +22,18 @@ Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResour
 InputStream is = new FileInputStream(System.getProperty("user.dir") + "/WebContent/WEB-INF/" + resource);
 ```
 
-### 3.使用Spring加载外部资源文件
+### 3.使用@Value注入单个属性
+
+```java
+@Component
+public class RocketMqUPPCallBackComponent {
+	
+	@Value("${mq.upp.callback.rocket}")
+    private boolean switchState;
+}
+```
+
+### 4.使用Spring注解@PropertySource加载外部资源文件及@Value属性注入
 
 ```java
 @Configuration
@@ -29,15 +42,23 @@ public class RedisConfig {
 	
 	@Value("${spring.redis.switchState}")
     private boolean switchState;
+    
+    @Value("${spring.redis.ip}")
+    private String ip;
+    
+    @Value("${spring.redis.port}")
+    private String port;
 }
 ```
 
-### 4.使用Springboot批量加载全局配置的属性
+### 5.使用Springboot注解@ConfigurationProperties批量加载全局配置的属性
+
+**注意@ConfigurationProperties使用setter方式注入属性**
 
 ```java
 //注解将配置映射到到实体类
-@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false)
 @Component
+@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false)
 public class RocketMqUPPCallBackConfig {
     private String configUrl;
     private String produceAppName;
@@ -48,32 +69,49 @@ public class RocketMqUPPCallBackConfig {
     //getter
     //setter
 }
-//注解启动加载上述配置映射实体类到该类中
-@Component
-@EnableConfigurationProperties(RocketMqUPPCallBackConfig.class)
-@Configuration
-public class RocketMqUPPCallBackBean {
-private static final Logger LOGGER= LoggerFactory.getLogger(RocketMqUPPCallBackBean.class);
 
-    @Bean
-    MQConsumerFactory callbackMqConsumer(RocketMqUPPCallBackConfig rocketMqUPPCallBackConfig, PamentCallBackMqListener listener){
-        MQConsumerFactory mqConsumerFactory = new MQConsumerFactory();
-        try {
-            mqConsumerFactory.setConfigUrl(rocketMqUPPCallBackConfig.getConfigUrl());
-            mqConsumerFactory.setAppName(rocketMqUPPCallBackConfig.getConsumeAppName());
-            mqConsumerFactory.setTopicName(rocketMqUPPCallBackConfig.getConsumeTopicName());
-            mqConsumerFactory.setListenerConcurrently(listener);
-            mqConsumerFactory.setMessageModel(MessageModel.BROADCASTING);
-            return mqConsumerFactory;
-        } catch (Exception e) {
-            LOGGER.error("初始化rocketmq异常",e);
-        }
-        return mqConsumerFactory;
-    }
+@Configuration // 标识为配置类
+@EnableConfigurationProperties(RocketMqUPPCallBackConfig.class)// 开启批量属性注入
+@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false) // 通过setter批量注入属性
+public class RocketMqUPPCallBackConfig {
+     private String configUrl;
+    private String produceAppName;
+    private String produceTopicName;
+    private String consumeAppName;
+    private String consumeTopicName;
+    
+    //getter
+    //setter
 }
 ```
 
-### 5.使用Spring加载外部资源（国际化）
+**@ConfigurationProperties**配合**@bean**为第三方类注入属性
+
+```java
+@Configuration
+public class MyService {
+    
+   @Bean
+   @ConfigurationProperties("another")
+   public AnotherComponent anotherComponent(){
+       return new AnotherComponent();
+   }
+}
+```
+
+**若是自定义的属性，可配置以下依赖，就能在全局配置中编写属性值时自动提醒javaConfig的属性**
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+    <optional>true</optional>
+</dependency>
+```
+
+
+
+### 6.使用Spring加载外部资源（国际化）
 
 ```java
 org.springframework.core.io.support.PropertiesLoaderUtils.loadAllProperties(i18n/exception_ko.properties);
