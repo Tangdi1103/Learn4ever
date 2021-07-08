@@ -1,16 +1,16 @@
 [toc]
 
-### 一、SpringBoot概念
+## 一、SpringBoot概念
 
-**1.什么SpringBoot**
+#### **1.什么SpringBoot**
 
 SpringBoot是一个用于快速搭建Spring项目的脚手架，能够尽可能快的跑起来项目并且尽可能的减少配置文件。利用约定优于配置原则省去配置繁杂配置文件、利用依赖启动器简化了pom文件的配置、内嵌Tomcat容器使应用可以直接启动。
 
-**2.什么是约定优于配置**
+#### **2.什么是约定优于配置**
 
 约定优于配置是一种约定编程，是一种软件设计规范，对系统、框架中的一些东西设定一个大众化的缺省值（默认值）。如SpringBoot中遵循约定优于配置原则，整合的大部分组件及框架都提供了缺省值，约定的配置满足开发者自身需求的话，可不做任何配置，大大简化了配置文件的编写
 
-**3.SpringBoot有哪些特性（核心），分别具有什么优点**
+#### **3.SpringBoot有哪些特性（核心），分别具有什么优点**
 
 1. 起步依赖（Spring boot starter）
 
@@ -28,21 +28,9 @@ SpringBoot是一个用于快速搭建Spring项目的脚手架，能够尽可能�
 
    SpringBoot内嵌Tomcat、Jetty、undertow三种Web容器，只需一个Java的运行环境，即可直接将SpringBoot项项目跑起来，SpringBoot的项目可打成一个jar包
 
-### 二、关于Spring的一些疑问，以供思考
+## 二、Springboot的热部署
 
-1. starter是什么？我们如何去使用这些starter？
-
-2. 为什么包扫描只会扫描核心启动类所在的包及其子包
-
-3. 在springBoot启动的过程中，是如何完成自动装配的？
-
-4. 内嵌Tomcat是如何被创建及启动的？
-
-5. 使用了web场景对应的starter，springmvc是如何自动装配？  
-
-### 三、Springboot的热部署
-
-##### **1.添加spring-boot-devtools热部署依赖启动器**
+#### **1.添加spring-boot-devtools热部署依赖启动器**
 
 ```xml
 <!-- 引入热部署依赖 -->
@@ -52,7 +40,7 @@ SpringBoot是一个用于快速搭建Spring项目的脚手架，能够尽可能�
 </dependency>
 ```
 
-##### **2.IDEA设置自动编译**
+#### **2.IDEA设置自动编译**
 
 ![image-20210707162350390](images/image-20210707162350390.png)
 
@@ -60,7 +48,7 @@ Ctrl+Alt+Shift+/打开Maintenance  ，选择Registry，找到"compiler.automake.
 
 ![image-20210707163244443](images/image-20210707163244443.png)
 
-##### **3.排除不触发自动加载资源**
+#### **3.排除不触发自动加载资源**
 
 ```properties
 spring.devtools.restart.exclude=static/**,public/**
@@ -68,7 +56,7 @@ spring.devtools.restart.exclude=static/**,public/**
 
 
 
-##### **4.SpringBoot热部署原理**
+#### **4.SpringBoot热部署原理**
 
 1. SpringBootDevtools自定义了两个类加载器：restartClassLoader和baseclassloader
 2. restartClassLoader加载本项目classpath文件
@@ -76,14 +64,14 @@ spring.devtools.restart.exclude=static/**,public/**
 4. restartClassLoader监控classpath文件，若重新编译后classpath发生变化，则重新加载classpath
 5. 重新加载classpath时，无需再加载三方类库，使项目无需重启便能代码生效
 
-### 四、Springboot全局配置
+## 三、Springboot全局配置
 
 正如spring项目有applicationContext.xml，springmvc有springmvc.xml一样，SpringBoot也有配置文件：application.properties，这是一个全局配置文件，对项目中所有组件生效。
 
 - **若全局配置中缺省属性值，在自动装配时三方类库bean时，会根据默认值装配。**
 - **若是在全局配置中设置了属性值，在自动装配时三方类库bean时，则会覆盖默认值**
 
-##### 1.全局配置文件可存放的路径，以及不同路径加载优先级顺序如下
+#### 1.全局配置文件可存放的路径，以及不同路径加载优先级顺序如下
 
 1. **/config**（项目根路径下的config文件夹）
 
@@ -93,7 +81,7 @@ spring.devtools.restart.exclude=static/**,public/**
 
 4. **resources/**（resources目录下）
 
-##### 2.全局配置文件的命名规范及同目录下加载优先级
+#### 2.全局配置文件的命名规范及同目录下加载优先级
 
 - application.yml或者application.properties
 
@@ -110,19 +98,19 @@ spring.devtools.restart.exclude=static/**,public/**
   $ java -jar myproject.jar --spring.config.name=myproject
   ```
 
-##### 3.存在多全局配置文件的情况
+#### 3.存在多全局配置文件的情况
 
 - 存在多个全局配置文件时，若配置属性冲突，以优先读取的属性为准
 
 - 存在多个全局配置文件时，若配置属性不冲突，则共同生效-形成互补
 
-##### 4.指定外部全局配置文件
+#### 4.指定外部全局配置文件
 
 ```sh
 java -jar run-0.0.1-SNAPSHOT.jar --spring.config.location=D:/application.properties
 ```
 
-##### 5.当使用@ConfigurationProperties自定义配置项时，可通过以下依赖，在配置文件中进行书写提示 
+#### 5.当使用@ConfigurationProperties自定义配置项时，可通过以下依赖，在配置文件中进行书写提示 
 
  ```xml
  <dependency>
@@ -132,7 +120,7 @@ java -jar run-0.0.1-SNAPSHOT.jar --spring.config.location=D:/application.propert
  </dependency>
  ```
 
-##### 6.properties书写规范
+#### 6.properties书写规范
 
 ```properties
 #数组
@@ -150,7 +138,7 @@ person.pet.type=狗
 person.pet.name=旺财
 ```
 
-##### 7.yaml书写规范
+#### 7.yaml书写规范
 
 ```yaml
 #数组
@@ -181,9 +169,9 @@ person:
 
 
 
-### 五、属性注入
+## 四、属性注入
 
-##### 1.@ConfigurationProperties批量注入
+#### 1.@ConfigurationProperties批量注入
 
 在全局配置文件中配置的属性，可通过可**@ConfigurationProperties**批量注入属性
 
@@ -238,7 +226,7 @@ public class MyService {
 </dependency>
 ```
 
-##### 2.@Value单个属性注入
+#### 2.@Value单个属性注入
 
 ```java
 @Component
@@ -249,7 +237,7 @@ public class RocketMqUPPCallBackComponent {
 }
 ```
 
-##### 3.松散绑定
+#### 3.松散绑定
 
 Spring Boot使用一些宽松的规则将环境属性绑定到@ConfigurationProperties bean，因此环境属性名和bean属性名之间不需要完全匹配。
 
@@ -280,17 +268,124 @@ my-person:
 | acme.my_project.person.first_name | 下划线模式                               |
 | ACME_MYPROJECT_PERSON_FIRSTNAME   | 大写下划线，如果使用系统环境时候推荐使用 |
 
-### 六、日志系统
+## 五、日志系统
 
-1. 抽象层+实现层组合搭建（若只使用抽象层，意味着日志输出到空 > dev/null）
-2. 常见日志框架及选型：JCL、Log4j、Logback、JUL
-3. spring中使用的日志框架和springboot使用的日志框架
-4. 抽象层作为门面，通过门面调用具体的实现。日志配置文件使用的是实现层框架自己的配置
-5. 项目开发时，由于maven存在依赖传递，项目中存在多个日志实现层，怎么统一日志框架的使用？
+#### 1. 介绍
 
-### 七、内嵌web容器
+通常情况下，日志是由一个抽象层+实现层的组合来搭建的。下表是目前市面最常见的日志框架，包含了抽象层和实现层
 
-### 八、自定义Starter
+Spring 框架选择使用了JCL作为默认日志输出
+
+Spring Boot默认选择了SLF4J 结合 logback
+
+| 日志-抽象层                                                  | 日志-实现层                                           |
+| ------------------------------------------------------------ | ----------------------------------------------------- |
+| JCL（Jakarta Commons Logging）、SLF4J（Simple Logging Facade for Java）、jboss-logging | jul（java.util.logging）、jcl、log4j、logback、log4j2 |
+
+为什么会有抽象层呢？直接使用实现层不是更方便吗？以下以SLF4J为入口讲解
+
+#### 2. SLF4J怎么通配各个日志实现层的？
+
+其实，早在SLF4J抽象层出现前，日志框架五花八门，其API接口命名不尽相同，更换日志框架将带来巨大的工作量。此时，SLF4J日志门面横空出世，定义了一套日志框架的API，由具体的实现层去实现这些规范。
+
+SLF4J 的作者也是log4j的作者，他对log4j框架有所不满，便**重新开发了一套日志框架-logback，顺便定义了SLF4J作为logback的API接口层**。为了方便开发者**无缝切换日志框架**，使用SLF4J抽象层**整合了一系列流行的日志实现层框架（通过编写对应的SLF4J适配器去调用对应的实现层对象）**，从而实现了仅需一个日志门面，就来通配各种日志实现层框架。**适配器如下：**
+
+- slf4j-log412.jar
+- slfj-jdk12.jar
+
+下图是SLF4J 结合各种日志框架的官方示例，从图中可以清晰的看出SLF4J API 永远作为日志的门面，直接应用与应用程序中。
+
+![image-20210708234704267](images/image-20210708234704267.png)
+
+**注意：日志的配置文件使用的还是各实现层框架自己的配置文件**
+
+#### 3. 由于maven的依赖传递，各个框架中使用日志实现层不尽相同，怎么统一日志框架的使用呢？
+
+如：A项目（slf4J + logback）-> Spring（commons logging）-> Hibernate（jboss-logging）
+
+[官方方案步骤如下](http://www.slf4j.org/legacy.html)：
+
+1. 排除各个依赖中不同的日志框架依赖。
+2. 添加对应的替换包（over），将调用转发至slf4j的API。
+3. 导入我们选择的SLF4J 实现。
+
+![image-20210709002121495](images/image-20210709002121495.png)
+
+#### 4.spring-boot-starter-logging的原理
+
+##### 4.1 日志架构为SLF4j + LogBack及默认的配置文件
+
+![image-20210709004413930](images/image-20210709004413930.png)
+
+##### 4.2 排除其他日志框架
+
+![image-20210709004913208](images/image-20210709004913208.png)
+
+##### 4.3 统一框架引入替换包
+
+```xml
+<dependencies>
+   <dependency>
+     <groupId>ch.qos.logback</groupId>
+     <artifactId>logback-classic</artifactId>
+     <version>1.2.3</version>
+     <scope>compile</scope>
+   </dependency>
+   <dependency>
+     <groupId>org.apache.logging.log4j</groupId>
+     <artifactId>log4j-to-slf4j</artifactId>
+     <version>2.13.3</version>
+     <scope>compile</scope>
+   </dependency>
+   <dependency>
+     <groupId>org.slf4j</groupId>
+     <artifactId>jul-to-slf4j</artifactId>
+     <version>1.7.30</version>
+     <scope>compile</scope>
+   </dependency>
+ </dependencies>
+```
+
+##### 4.4 自定义配置
+
+```properties
+# 日志配置
+# 指定具体包的日志级别
+logging.level.com.lagou=debug
+# 控制台输出格式
+logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n
+# 日志文件输出格式
+logging.pattern.file=%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n
+# 日志输出路径，
+logging.path=/var/log
+# 日志文件名，缺省默认为spring.log
+logging.file=./log.log
+```
+
+##### 4.5 如何替换掉SpringBoot默认的spring-boot-starter-logging
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    <exclusions>
+        <exclusion>
+            <artifactId>spring-boot-starter-logging</artifactId>
+            <groupId>org.springframework.boot</groupId>
+        </exclusion>
+    </exclusions>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-log4j2</artifactId>
+</dependency>
+```
+
+
+
+### 六、内嵌web容器
+
+### 七、自定义Starter
 
 每个springboot的jar包META-INF下都会有一个spring.factories文件记录所有的配置类
 

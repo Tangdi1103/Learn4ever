@@ -1,50 +1,68 @@
 [toc]
 
+## 一、我们带着以下疑问看源码
+
+1. starter是什么？我们如何去使用这些starter？
+2. 为什么包扫描只会扫描核心启动类所在的包及其子包
+3. 在springBoot启动的过程中，是如何完成自动装配的？
+4. 内嵌Tomcat是如何被创建及启动的？
+5. 使用了web场景对应的starter，springmvc是如何自动装配？  
+
+## 二、spring-boot-starter
+
+spring-boot-starter也称依赖起步器，每个功能的starter都封装了所需的所有依赖，并且通过spring-boot-dependencies统一依赖管理项目进行统一的依赖管理。
+
+springboot整合了众多starter，基于Maven的依赖传递原理，比如我们现在进行Web项目开发，只需依赖一个sping-boot-starter-web包并且可以不配置版本号，就能快速进行web项目开发。sping-boot-starter-web包含了spring、springmvc、tomcat、jackson等依赖下所有的jar包。
 
 
-# 一、SpringBoot启动流程
 
-# 二、自动配置原理
+## 二、SpringBoot启动流程
 
-### 1.@SpringBootApplication注解由以下注解组合而成
+## 三、SpringBoot自动配置原理
+
+### 1.SpringBoot的启动配置类往往是由@SpringBootApplication注解所标注的类，通过该类的main方法启动SpringBoot应用
 
 ![image-20210706230528670](images/image-20210706230528670.png)
 
+##### 1.1 @SpringBootApplication注解由以下三个注解组合而成
+
 ![image-20210706230558354](images/image-20210706230558354.png)
 
-##### 1.1@SpringBootConfiguration-标识为配置类
+##### 1.2 @SpringBootConfiguration-标识为配置类
 
 ![image-20210706230615750](images/image-20210706230615750.png)
 
-##### 1.2@EnableAutoConfiguration-开启自动配置
+##### 1.3 @EnableAutoConfiguration-开启自动配置
 
 ![image-20210706230632549](images/image-20210706230632549.png)
 
-##### 1.3@ComponentScan-注解扫描
+##### 1.4 @ComponentScan-注解扫描路径
 
 ![image-20210706230825276](images/image-20210706230825276.png)
 
-### 2.@EnableAutoConfiguration是自动配置的核心注解
+### 2.@EnableAutoConfiguration是自动配置的核心
 
-**由@AutoConfigurationPackage和@Import(AutoConfigurationImportSelector.class)组合成。**
+由@AutoConfigurationPackage和@Import(AutoConfigurationImportSelector.class)组合成。
 
-![image-20210706230632549](images/image-20210706230632549.png)
-
-**@AutoConfigurationPackage使用@Import向SpringIoC容器注册了一个basePackage，默认是启动配置类的包路径。**
+##### 2.1 @AutoConfigurationPackage使用@Import向SpringIoC容器注册了一个basePackage，默认是启动配置类的包路径。
 
 ![image-20210706230949300](images/image-20210706230949300.png)
 
-**@Import(AutoConfigurationImportSelector.class)向容器注册了一个selector组件**，用于加载各个starter（jar包）下META-INF/spring.factories文件，该文件配置了每个包需要被自动加载对象的全限定路径名。被IoC容器加载后，根据类上的注解@ConditionOnXXX判断是否满足需求，然后决定是否注册到beanDefinition注册表中
+##### 2.2 (自动配置核心组件)@Import(AutoConfigurationImportSelector.class)向容器注册了一个Selector组件
 
 ### 3.自动配置的核心逻辑在DeferredImportSelectorGrouping#getImports方法中
 
 ![image-20210706230426773](images/image-20210706230426773.png)
 
-##### **3.1执行org.springframework.boot.autoconfigure.AutoConfigurationImportSelector.AutoConfigurationGroup#process**
+##### 3.1 调用org.springframework.boot.autoconfigure.AutoConfigurationImportSelector.AutoConfigurationGroup#process
+
+该方法内部会查找所有jar包下的META-INF/spring.factories文件，并读取该文件配置属性”EnableAutoConfiguration“的值，得到需要被自动加载bean的全限定类名。通过反射得到bean信息，然后根据类注解@ConditionOnXXX，将满足条件的反射对象存储
 
 ![image-20210706231135731](images/image-20210706231135731.png)
 
-# 三、内嵌Web容器原理
+### 4.具体的逻辑触发时机以及后续beanDefinition注册请查看[SpringIoC源码剖析步骤6.4](../Spring/SpringIoC/源码解析)
+
+## 四、内嵌Web容器原理
 
 ![image-20210707005142384](images/image-20210707005142384.png)
 
@@ -106,7 +124,7 @@
 
 ![image-20210707005610821](images/image-20210707005610821.png)
 
-# 四、自动装配SpringMVC
+## 五、自动装配SpringMVC
 
 ### 1.SpringBoot是如何在不配置web.xml的情况下将DispatchServlet注册到Web容器的ServletContext中的？
 
