@@ -142,5 +142,22 @@
 
 # 三、RequestBody和ResponseBode注解
 
-1. RequestBody绑定参数时通过遍历方法传入的MethodParmeter，根据Parmeter的类型获取对应的MethodParmeterResoler参数解析器（判断该MethodParmeter是否含@RequestBody注解），然后进行解析（根据MethodParmeter的的类型和请求的JSON进行封装）。
+通过请求URL从mappingHandler中获得对应的Handler对象
 
+通过Handler对象获得MethodParmeter(封装了该Handler的参数信息)
+
+遍历所有MethodParmeterResoler参数解析器，根据MethodParmeter的信息以及否含@RequestBody注解，获取处理@RequestBody注解的参数解析器
+
+参数解析器解析入参，从HttpServletRequest获得字符读取流，通过Jackson转换成对象（MethodParmeter中有参数的类型），最终在执行handler方法时，将得到的对象作为参数传递到invoke方法中
+
+**注意：**Handler的参数顺序，由Handler的属性ParamIndexMapping来维护
+
+## 参数绑定的完整流程：
+
+从**HttpServletRequest**获得**BufferedReader**和**parameterMap**，遍历**Handler**的**MethodParameter(封装了handler的参数信息及顺序)**，按顺序获得MethodParmeter相应参数的值。
+
+若带**@RequestBody**注解，则读取字符输入流，解析并通过Jackson将JSON转换成相应参数类型的对象
+
+若带**@RequestParam**注解，则根据注解的值作为KEY获取parameterMap中对应的值
+
+按照MethodParameter参数的坐标顺序，分别将得到的对象或者基础类型数据，封装到一个数组，传递给invoke执行Handler

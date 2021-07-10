@@ -1,20 +1,21 @@
-1、src不是classpath, WEB-INF/classes,lib才是classpath，WEB-INF/ 是资源目录, 客户端不能直接访问。
+以下为个人见解
 
-2、WEB-INF/classes目录存放src目录java文件编译之后的class文件，xml、properties等资源配置文件，这是一个定位资源的入口。
+**使用IDEA工具进行本地编译时**
 
-3、引用classpath路径下的文件，只需在文件名前加classpath:
+`classpath`的路径取决于项目的构建工具，是`gradle`还是`maven`。
 
-```
-<param-value>classpath:applicationContext-*.xml</param-value> 
-<!-- 引用其子目录下的文件,如 -->
-<param-value>classpath:context/conf/controller.xml</param-value>
-```
-4、lib和classes同属classpath，两者的访问优先级为: lib>classes。
+- `gradle`得到的classpath路径为`/build/classes`
+- `maven`得到的classpath路径为`/target/classes`
 
-5、classpath 和 classpath* 区别：
+**当项目集成为一个文件包时，如JAR、WAR文件**
 
+`classpath`的路径取决于打包的插件
 
-```
-classpath：只会到你的class路径中查找找文件;
-classpath*：不仅包含class路径，还包括jar文件中(class路径)进行查找。
-```
+- `maven-shade-plugin`得到的classpath即为JAR包里的根路径，可通过classLoader.getResource进行验证
+
+![image-20210710173331024](images/image-20210710173331024.png)
+
+- `spring-boot-maven-plugin`得到的classpath在JAR包的BOOT-INF/classes中，可通过classLoader.getResource进行验证
+
+![image-20210710173509028](images/image-20210710173509028.png)
+

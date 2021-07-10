@@ -14,7 +14,9 @@ URL url = Thread.currentThread().getContextClassLoader().getResources("com/tangd
 Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResource("com/tangdi");
 ```
 
-线程上下文类加载器默认使用的是AppClassloader，而AppClassloader只加载classpath路径下的资源，所以该方式不默认加载的路径就在classpath下。如传入path为""——空字符串，则加载的路径为classpath目录
+线程上下文类加载器默认使用的是AppClassloader，而AppClassloader只加载classpath路径下的资源，所以该方式默认加载的路径就在classpath下
+
+##### 注意：虽然可以正常加载到流以及url路径，但如果后续对url进行解析时，需要注意该URL可能是个JAR中的路径。就得对JAR文件解析，而不能使用File文件流来解析
 
 ### 2.使用文件流（需绝对路径）
 
@@ -150,5 +152,24 @@ root.attributeValue("xxx")//获取attribute
 ResourceBundle bundleCN = ResourceBundle.getBundle("props.messages",new Locale("zh","CN"));
 ResourceBundle bundleUS = ResourceBundle.getBundle("props.messages",new Locale("en","US"));
 msg=bundleCN.getString("payment.no.selfService");
+```
+
+### 4.解析jar文件
+
+```java
+List<URL> urls = Collections.list(Thread.currentThread().getContextClassLoader().getResources(newpath));
+
+for (URL u : urls) {
+    if ("jar".equals(u.getProtocol())){
+        JarFile jarFile = ((JarURLConnection) u.openConnection()).getJarFile();
+        List<JarEntry> entries = Collections.list(jarFile.entries());
+        for (JarEntry e : entries) {
+            String name = e.getName();
+            if (name.replace('/','.').startsWith(path) && name.endsWith(".class") && !name.contains("$")){
+                list.add(name.replace(".class","").replace('/','.'));
+            }
+        }
+    }
+}
 ```
 

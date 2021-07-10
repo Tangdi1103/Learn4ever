@@ -537,7 +537,7 @@ public class WebApplicationContext {
             ComponentScan annotation = clazz.getAnnotation(ComponentScan.class);
             String[] pathArray = annotation.value();
             for (String path : pathArray) {
-                ResourcesScanner.doScanforClass(classNames,path);
+                ResourcesScanner.doScanClass(classNames,path);
             }
         }
         for (String className : classNames ) {
@@ -553,7 +553,7 @@ public class WebApplicationContext {
     }
 
     protected void loadConfig(String resourcePath) throws IOException, ClassNotFoundException {
-        ResourcesScanner.doScanforClass(classNames,resourcePath);
+        ResourcesScanner.doScanClass(classNames,resourcePath);
 
         for (String className : classNames ) {
             // 通过反射技术实例化对象
@@ -693,120 +693,91 @@ public class WebApplicationContext {
 ```java
 package com.tangdi.mvcframework.component;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
 /**
- * @program: lagou-transfer
+ * @program: imvc
  * @description: 扫描Class包
  * @author: Wangwentao
  * @create: 2021-06-17 11:09
  **/
 public class ResourcesScanner {
 
-    public static final String CLASS_SUFFIX = ".class";
-    private static final Pattern INNER_PATTERN = Pattern.compile("\\$(\\d+).", Pattern.CASE_INSENSITIVE);
+    private static final Logger logger = LoggerFactory.getLogger(ResourcesScanner.class);
 
-    private static void scan(String name,List<String> list) {
-        try {
-            String path = name.replace('.', '/');
-            if (path.startsWith("/")){
-                path = path.substring(path.indexOf("/"));
+    public static final String CLASS_SUFFIX = ".class";
+    private static final Pattern INNER_PATTERN = Pattern.compile("\\$(\\d+)", Pattern.CASE_INSENSITIVE);
+
+
+    public static List<String> doScanClass(List<String> classNames,String path) throws IOException {
+
+        String newpath = path.replace('.', '/');
+        if (newpath.startsWith("/")){
+            newpath = newpath.substring(1);
+        }
+
+        List<URL> urls = getResources(newpath);
+        for (URL u : urls) {
+            if (u == null){
+                continue;
             }
-            ArrayList<URL> urls = Collections.list(Thread.currentThread().getContextClassLoader().getResources(path));
-            for (URL url : urls){
-                if ("file".equalsIgnoreCase(url.getProtocol())) {
-                    File file = new File(URLDecoder.decode(url.getPath(),"UTF-8"));
-                    // File file2 = new File(url.toURI());
-                    File[] files = file.listFiles();
-                    for (File f : files){
-                        if (f.isDirectory()){
-                            scan(name + "." + f.getName(),list);
-                        } else if (f.getName().endsWith(".class")){
-                            if (f.getName().contains("$")){
-                                continue;
-                            }
-                            list.add(name + "." + f.getName().replace(".class",""));
+            logger.info("[ResourcesScanner] doScan url:" + u.getFile());
+
+            // IDEA中直接编译运行，则该资源目录为文件
+            if ("file".equals(u.getProtocol())){
+                File file = new File(URLDecoder.decode(u.getFile(), "utf-8"));
+                File[] files = file.listFiles();
+                if (files == null){
+                    continue;
+                }
+
+                for (File f : files) {
+                    String fileName = f.getName();
+                    // 若为目录则继续解析
+                    if (f.isDirectory()){
+                        doScanClass(classNames,path+ "." + fileName);
+                    }
+                    else {
+                        logger.info("[ResourcesScanner] doScan file:" + f.getPath());
+                        if (fileName.endsWith(CLASS_SUFFIX) && !INNER_PATTERN.matcher(fileName).find()){
+                            classNames.add(path+ "." + fileName.replace(".class",""));
                         }
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void doScanforClass(List<String> result, String pathName) throws IOException {
-        Map<String, String> classMap = new HashMap<>(32);
-
-        String path = pathName.replace('.', '/');
-        List<URL> urls = getResources(path);
-        for (URL url : urls) {
-            InputStream is = null;
-            try {
-                if ("file".equals(url.getProtocol())){
-                    File file = new File(URLDecoder.decode(url.getFile(),"UTF-8"));
-                    parseClassFile(file,path,classMap);
-                }
-            } finally {
-                if (is != null) {
-                    try {
-                        is.close();
-                    } catch (Exception e) {
-                        // Ignore
+            // 若将该项目打成jar包，则该资源目录为jar
+            else if ("jar".equals(u.getProtocol())){
+                // 获取Jar文件下所有条目
+                JarFile jarFile = ((JarURLConnection) u.openConnection()).getJarFile();
+                List<JarEntry> entries = Collections.list(jarFile.entries());
+                for (JarEntry entry : entries) {
+                    // 过滤内部类
+                    if (entry.getName().replace('/','.').startsWith(path)
+                            && !INNER_PATTERN.matcher(entry.getName()).find()
+                            && entry.getName().endsWith(CLASS_SUFFIX)){
+                        logger.info("[ResourcesScanner] doScan file:" + entry.getName());
+                        classNames.add(entry.getName().replace(".class","").replace('/','.'));
                     }
                 }
             }
         }
-        result.addAll(classMap.values());
+        return classNames;
     }
 
     private static List<URL> getResources(String path) throws IOException {
         return Collections.list(Thread.currentThread().getContextClassLoader().getResources(path));
     }
-
-    private static void parseClassFile(File dir, String packageName, Map<String, String> classMap){
-        if(dir.isDirectory()){
-            File[] files = dir.listFiles();
-            for (File file : files) {
-                parseClassFile(file, packageName, classMap);
-            }
-        } else if(dir.getName().endsWith(CLASS_SUFFIX)) {
-            String name = dir.getPath();
-            name = name.substring(name.indexOf("classes")+8).replace("\\", ".");
-            System.out.println("file:"+dir+"\t class:"+name);
-            addToClassMap(name, classMap);
-        }
-    }
-
-    private static boolean addToClassMap(String name, Map<String, String> classMap){
-
-        //过滤掉匿名内部类
-        if(INNER_PATTERN.matcher(name).find()){
-            System.out.println("anonymous inner class:"+name);
-            return false;
-        }
-        System.out.println("class:"+name);
-        //内部类
-        if(name.indexOf("$")>0){
-            System.out.println("inner class:"+name);
-        }
-        if(!classMap.containsKey(name)){
-            //去掉.class
-            classMap.put(name, name.substring(0, name.length()-6));
-        }
-        return true;
-    }
-
-
 }
 
 ```
@@ -1254,6 +1225,7 @@ imvc.interceptor.mapping.path=/**
       <param-name>loadConfigLocation</param-name>
       <param-value>imvc.properties</param-value>
     </init-param>
+    <load-on-startup>1</load-on-startup>
   </servlet>
 
   <servlet-mapping>

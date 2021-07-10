@@ -138,7 +138,15 @@ public ModelAndView handlePut(@PathVariable("id") Integer id,@PathVariable("name
 <!--json数据交互所需jar， end-->
 ```
 
+#### 原理：http-get请求以及http-post请求(JSON)
 
+从**HttpServletRequest**获得**BufferedReader**和**parameterMap**，遍历**Handler**的**MethodParameter(封装了handler的参数信息及顺序)**，按顺序获得MethodParmeter相应参数的值。
+
+若带**@RequestBody**注解，则读取字符输入流，解析并通过Jackson将JSON转换成相应参数类型的对象
+
+若带**@RequestParam**注解，则根据注解的值作为KEY获取parameterMap中对应的值
+
+按照MethodParameter参数的坐标顺序，分别将得到的对象或者基础类型数据，封装到一个数组，传递给invoke执行Handler
 
 ## 六、高级特性
 
@@ -386,6 +394,8 @@ public String handleRedirect(String name,RedirectAttributes redirectAttributes) 
 ## 八、启动配置
 
 **配置web.xml启动SpringMVC的DispatchServlet**
+
+告诉Web容器需要启动的Servlet的全限定名、外部资源的路径、处理的url、立即启动
 
 ```xml
 <!--springmvc启动-->

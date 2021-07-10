@@ -154,8 +154,14 @@ public interface BeanFactory {
 ​	提供类名第一个字母大写方法
 
 ```java
+package com.tangdi.factory;
+
+
 import com.alibaba.druid.util.StringUtils;
-import com.lagou.edu.annotation.*;
+import com.tangdi.annotation.Autowired;
+import com.tangdi.annotation.Component;
+import com.tangdi.annotation.Repository;
+import com.tangdi.annotation.Service;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -164,10 +170,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * @description:容器接口实现模板
- * @author: Wangwentao
- * @create: 2021-06-17 11:04
- **/
+ * @program: lagou-transfer
+ * @description:
+ * @author: Wangwt
+ * @create: 21:02 2021/6/17
+ */
 public abstract class AbstractBeanFactory implements BeanFactory {
 
     protected static String ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE = BeanFactory.class.getName() + ".ROOT";
@@ -201,10 +208,18 @@ public abstract class AbstractBeanFactory implements BeanFactory {
         }
 
         // 封装事务的代理对象
+        // 此时事务代理对象无法注入到属性依赖中（A依赖B，B是先创建的原类型对象，单例池中的B才是代理对象）
+        // 因为servlet层暂时没有实现被IoC容器管理，而是直接在servlet层获取beanFactory去单例池拿的service的代理对象，所以能起到管理事务的作用
+        // 后续有时间的话再改进
+        // TODO 1.在getBean方法实例化bean对象后，通过该方法包装后，将包装后的bean对象然后放入三级缓存（若需代理则放入的是代理对象，否则是实例化后的对象）
+        // TODO 2.实例化得到的原bean对象继续装配属性，调用的getBean创建bean或从缓存中取bean，可得到代理后的bean，然后注入到Field中
+        // TODO 3.getBean第一步获取缓存，先从三级缓存获取，若有值则将值存入二级缓存，并返回
+        // TODO 4.装配完后从二级缓存中取bean，若二级中有bean，则说明当前bean存在代理后的对象，将代理后对象覆盖原来的实例化来的bean
+        // TODO 5.将最终成熟的bean存入单例池中，同时清除二级三级缓存
         transactionProxy();
     }
 
-   protected abstract void loadConfig(Class<?> clazz) throws IOException, ClassNotFoundException;
+    protected abstract void loadConfig(Class<?> clazz) throws IOException, ClassNotFoundException;
 
     protected abstract void transactionProxy();
 
@@ -337,11 +352,12 @@ public abstract class AbstractBeanFactory implements BeanFactory {
 
 ```java
 import com.alibaba.druid.util.StringUtils;
-import com.lagou.edu.annotation.*;
-import com.lagou.edu.factory.AbstractBeanFactory;
-import com.lagou.edu.factory.BeanFactory;
-import com.lagou.edu.factory.ProxyFactory;
-import com.lagou.edu.utils.ScanClassUtil;
+import com.tangdi.factory.AbstractBeanFactory;
+import com.tangdi.factory.BeanFactory;
+import com.tangdi.factory.ProxyFactory;
+import com.tangdi.utils.ResourcesScanner;
+import com.tangdi.annotation.ComponentScan;
+import com.tangdi.annotation.Transactional;
 
 
 import javax.servlet.ServletContext;
@@ -350,9 +366,10 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * @description:注解管理bean容器实现
+ * @program: lagou-transfer
+ * @description:
  * @author: Wangwentao
- * @create: 2021-06-17 11:15
+ * @create: 2021-06-17 11:12
  **/
 public class AnnotationConfigApplicationContext extends AbstractBeanFactory {
 
@@ -364,7 +381,7 @@ public class AnnotationConfigApplicationContext extends AbstractBeanFactory {
         try {
             start(clazz);
             if (servletContext != null){
-                servletContext.setAttribute(ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE,this);
+                servletContext.setAttribute(AnnotationConfigApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE,this);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -379,6 +396,7 @@ public class AnnotationConfigApplicationContext extends AbstractBeanFactory {
      * @throws IOException
      * @throws ClassNotFoundException
      */
+    @Override
     public void loadConfig(Class<?> clazz) throws IOException, ClassNotFoundException {
         List<String> list = new ArrayList<>();
 
@@ -388,7 +406,7 @@ public class AnnotationConfigApplicationContext extends AbstractBeanFactory {
             ComponentScan annotation = clazz.getAnnotation(ComponentScan.class);
             String[] pathArray = annotation.value();
             for (String path : pathArray) {
-                ScanClassUtil.getClassName(list,path);
+                ResourcesScanner.doScanClass(list,path);
             }
         }
         for (String className : list ) {
@@ -406,6 +424,7 @@ public class AnnotationConfigApplicationContext extends AbstractBeanFactory {
     /**
      * 事务代理
      */
+    @Override
     protected void transactionProxy() {
         for (String beanName : beanNames.keySet()) {
 
@@ -629,7 +648,101 @@ public @interface Transactional {
    }
 ```
 
-### 1.4 TransactionManager
+
+
+### 1.4 ResourcesScanner扫描器
+
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.net.JarURLConnection;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.regex.Pattern;
+
+/**
+ * @program: transfer
+ * @description: 扫描Class包
+ * @author: Wangwentao
+ * @create: 2021-06-17 11:09
+ **/
+public class ResourcesScanner {
+
+    private static final Logger logger = LoggerFactory.getLogger(ResourcesScanner.class);
+
+    public static final String CLASS_SUFFIX = ".class";
+    private static final Pattern INNER_PATTERN = Pattern.compile("\\$(\\d+)", Pattern.CASE_INSENSITIVE);
+
+
+    public static List<String> doScanClass(List<String> classNames,String path) throws IOException {
+
+        String newpath = path.replace('.', '/');
+        if (newpath.startsWith("/")){
+            newpath = newpath.substring(1);
+        }
+
+        List<URL> urls = getResources(newpath);
+        for (URL u : urls) {
+            if (u == null){
+                continue;
+            }
+            logger.info("[ResourcesScanner] doScan url:" + u.getFile());
+
+            // IDEA中直接编译运行，则该资源目录为文件
+            if ("file".equals(u.getProtocol())){
+                File file = new File(URLDecoder.decode(u.getFile(), "utf-8"));
+                File[] files = file.listFiles();
+                if (files == null){
+                    continue;
+                }
+
+                for (File f : files) {
+                    String fileName = f.getName();
+                    // 若为目录则继续解析
+                    if (f.isDirectory()){
+                        doScanClass(classNames,path+ "." + fileName);
+                    }
+                    else {
+                        logger.info("[ResourcesScanner] doScan file:" + f.getPath());
+                        if (fileName.endsWith(CLASS_SUFFIX) && !INNER_PATTERN.matcher(fileName).find()){
+                            classNames.add(path+ "." + fileName.replace(".class",""));
+                        }
+                    }
+                }
+            }
+            // 若将该项目打成jar包，则该资源目录为jar
+            else if ("jar".equals(u.getProtocol())){
+                // 获取Jar文件下所有条目
+                JarFile jarFile = ((JarURLConnection) u.openConnection()).getJarFile();
+                List<JarEntry> entries = Collections.list(jarFile.entries());
+                for (JarEntry entry : entries) {
+                    // 过滤内部类
+                    if (entry.getName().replace('/','.').startsWith(path)
+                            && !INNER_PATTERN.matcher(entry.getName()).find()
+                            && entry.getName().endsWith(CLASS_SUFFIX)){
+                        logger.info("[ResourcesScanner] doScan file:" + entry.getName());
+                        classNames.add(entry.getName().replace(".class","").replace('/','.'));
+                    }
+                }
+            }
+        }
+        return classNames;
+    }
+
+    private static List<URL> getResources(String path) throws IOException {
+        return Collections.list(Thread.currentThread().getContextClassLoader().getResources(path));
+    }
+}
+```
+
+
+
+### 1.5 TransactionManager
 
 ​	提供事务管理，包括关闭自动提交、提交事务、回滚事务
 
@@ -671,7 +784,7 @@ public class TransactionManager {
 
 
 
-### 1.5 ProxyFactory
+### 1.6 ProxyFactory
 
 1. 代理工厂提供多种代理对象的创建
 
@@ -779,7 +892,7 @@ public class ProxyFactory {
 
 ```
 
-### 1.6 创建配置入口类
+### 1.7 创建配置入口类
 
 定义了bean的扫描路径，暂无实现@Bean注入三方类
 
@@ -819,33 +932,35 @@ public class SpringConfig {
 
 ```
 
-### 1.7 创建Servlet监听器
+### 1.8 创建Servlet监听器
 
 **创建监听器类**
 
 ```java
-import com.lagou.edu.SpringConfig;
-import com.lagou.edu.factory.AbstractBeanFactory;
-import com.lagou.edu.factory.BeanFactory;
+import com.tangdi.SpringConfig;
+import com.tangdi.factory.BeanFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
-import java.io.IOException;
 
 /**
+ * @program: lagou-transfer
  * @description: 自定义监听器
  * @author: Wangwentao
  * @create: 2021-06-17 10:38
  **/
 public class MyContextLoaderListener implements ServletContextListener {
 
+    private static final Logger logger = LoggerFactory.getLogger(MyContextLoaderListener.class);
+
     @Override
     public void contextInitialized(ServletContextEvent servletContextEvent) {
-            long start = System.currentTimeMillis();
-            System.out.println("MyContextLoaderListener initialization start");
-            BeanFactory context = new AnnotationConfigApplicationContext(SpringConfig.class,servletContextEvent.getServletContext());
-            System.out.println("MyContextLoaderListener initialization end in " + (System.currentTimeMillis() - start) + "ms");
+        long start = System.currentTimeMillis();
+        logger.info("MyContextLoaderListener initialization start");
+        BeanFactory context = new AnnotationConfigApplicationContext(SpringConfig.class,servletContextEvent.getServletContext());
+        logger.info("MyContextLoaderListener initialization end in " + (System.currentTimeMillis() - start) + "ms");
     }
 
     @Override
@@ -875,7 +990,7 @@ public class MyContextLoaderListener implements ServletContextListener {
 
 ```
 
-### 1.8 测试类以及MVC层创建
+### 1.9 测试类以及MVC层创建
 
 **Servlet层**
 
