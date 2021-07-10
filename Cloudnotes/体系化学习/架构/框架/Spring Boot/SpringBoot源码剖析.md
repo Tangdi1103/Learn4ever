@@ -16,7 +16,7 @@ springboot整合了众多starter，基于Maven的依赖传递原理，比如我�
 
 
 
-## 二、SpringBoot启动流程
+## 二、SpringBoot启动流程（未作）
 
 ## 三、SpringBoot自动配置原理
 
@@ -54,11 +54,33 @@ springboot整合了众多starter，基于Maven的依赖传递原理，比如我�
 
 ![image-20210706230426773](images/image-20210706230426773.png)
 
-##### 3.1 调用org.springframework.boot.autoconfigure.AutoConfigurationImportSelector.AutoConfigurationGroup#process
+##### 3.1 调用AutoConfigurationImportSelector.AutoConfigurationGroup#process，再调用AutoConfigurationImportSelector#selectImports
 
-该方法内部会查找所有jar包下的META-INF/spring.factories文件，并读取该文件配置属性”EnableAutoConfiguration“的值，得到需要被自动加载bean的全限定类名。通过反射得到bean信息，然后根据类注解@ConditionOnXXX，将满足条件的反射对象存储
+selectImports方法是ImportSelector组件获取自动配置bean信息的核心方法，得到所有的自动配置bean信息后放入Map中
 
-![image-20210706231135731](images/image-20210706231135731.png)
+![image-20210710231458941](images/image-20210710231458941.png)
+
+![image-20210711002501568](images/image-20210711002501568.png)
+
+##### 3.2 调用AutoConfigurationMetadataLoader#loadMetadata(java.lang.ClassLoader)读取相关文件
+
+该方法读取所有jar包下的META-INF/spring-autoconfigure-metadata.properties文件，作为后续bean过滤的条件
+
+![image-20210711000023732](images/image-20210711000023732.png)
+
+##### 3.3 调用AutoConfigurationImportSelector#getCandidateConfigurations，再调用SpringFactoriesLoader#loadFactoryNames
+
+该方法读取所有jar包下的META-INF/spring.factories文件，并读取该文件配置属性”EnableAutoConfiguration“的值，得到需要被自动加载bean的全限定类名。
+
+![image-20210711000141694](images/image-20210711000141694.png)
+
+![image-20210711000447016](images/image-20210711000447016.png)
+
+##### 3.4 调用AutoConfigurationImportSelector#filter将不符合条件的bean信息过滤
+
+根据配置中得到的ConditionOnXXX等过滤条件过滤不符合条件的自动配置bean
+
+![image-20210711001510802](images/image-20210711001510802.png)
 
 ### 4.具体的逻辑触发时机以及后续beanDefinition注册请查看[SpringIoC源码剖析步骤6.4](../Spring/SpringIoC/源码解析)
 
@@ -72,7 +94,7 @@ springboot整合了众多starter，基于Maven的依赖传递原理，比如我�
 
 通过自动配置注入ServletWebServerFactory的自动配置类，该自动配置类通过@Import注入Tomcat、jetty、undertow组件（根据ConditionOnXXX判断是否注入容器）
 
-### 2.SpringIoC容器执行AbstractApplicationContext#refresh进行容器刷新时，其中有一步调用onRefresh方法进行特殊bean的处理
+### 1.SpringIoC容器执行AbstractApplicationContext#refresh进行容器刷新时，其中有一步调用onRefresh方法进行特殊bean的处理
 
 ![image-20210707005500421](images/image-20210707005500421.png)
 
@@ -82,7 +104,7 @@ springboot整合了众多starter，基于Maven的依赖传递原理，比如我�
 
 ![image-20210707000459166](images/image-20210707000459166.png)
 
-##### 2.由于刚启动所有没有servletContext和webServer，先获得工厂，然后创建web服务
+##### 2.由于刚启动所以没有servletContext和webServer，先获得工厂，然后创建web服务
 
 ![image-20210707000744795](images/image-20210707000744795.png)
 
@@ -124,7 +146,7 @@ springboot整合了众多starter，基于Maven的依赖传递原理，比如我�
 
 ![image-20210707005610821](images/image-20210707005610821.png)
 
-## 五、自动装配SpringMVC
+## 五、自动装配SpringMVC（未作）
 
 ### 1.SpringBoot是如何在不配置web.xml的情况下将DispatchServlet注册到Web容器的ServletContext中的？
 

@@ -18,13 +18,23 @@ Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResour
 
 ##### 注意：虽然可以正常加载到流以及url路径，但如果后续对url进行解析时，需要注意该URL可能是个JAR中的路径。就得对JAR文件解析，而不能使用File文件流来解析
 
+
+
 ### 2.使用文件流（需绝对路径）
 
 ```java
 InputStream is = new FileInputStream(System.getProperty("user.dir") + "/WebContent/WEB-INF/" + resource);
 ```
 
-### 3.使用@Value注入单个属性
+
+
+### 3.使用Spring核心组件ResourceUtils加载资源（底层就是使用类加载器加载）
+
+
+
+
+
+### 4.使用Spring的@Value注入单个属性
 
 ```java
 @Component
@@ -35,7 +45,9 @@ public class RocketMqUPPCallBackComponent {
 }
 ```
 
-### 4.使用Spring注解@PropertySource加载外部资源文件及@Value属性注入
+
+
+### 5.使用Spring注解@PropertySource加载外部资源文件及@Value属性注入
 
 ```java
 @Configuration
@@ -53,7 +65,9 @@ public class RedisConfig {
 }
 ```
 
-### 5.使用Springboot注解@ConfigurationProperties批量加载全局配置的属性
+
+
+### 6.使用Springboot注解@ConfigurationProperties批量加载全局配置的属性
 
 **注意@ConfigurationProperties使用setter方式注入属性**
 
@@ -113,7 +127,7 @@ public class MyService {
 
 
 
-### 6.使用Spring加载外部资源（国际化）
+### 7.使用Spring加载外部资源（国际化）
 
 ```java
 org.springframework.core.io.support.PropertiesLoaderUtils.loadAllProperties(i18n/exception_ko.properties);
@@ -123,7 +137,26 @@ org.springframework.core.io.support.PropertiesLoaderUtils.loadAllProperties(i18n
 
 # 二、解析方式
 
-### 1.解析java.util.properties
+### 1.使用Java原生API解析java.net.URL
+
+参考ClassLoader中的方法即可，因为ClassLoader加载资源时，最终都是解析的的URL
+
+```java
+InputStream in = url.openStream();
+InputStream in = url.openConnection().getInputStream();
+```
+
+
+
+### 2.使用Spring的UrlResource解析java.net.URL（底层就是使用URL）
+
+
+
+### 3.使用Spring的PropertiesLoaderUtils解析java.util.properties（封装各种properties操作）
+
+
+
+### 4.解析java.util.properties
 
 **Properties的处理方式是将其作为一个映射表,而且这个类表示了一个持久的属性集,他是继承HashTable这个类**
 
@@ -134,7 +167,9 @@ p.load(is);
 System.out.println(p.get("payment.no.selfService"));
 ```
 
-### 2.解析xml(使用dom4j)
+
+
+### 5.解析xml(使用dom4j)
 
 ```java
 Document document = new SAXReader().read(in);
@@ -143,7 +178,9 @@ root.selectNodes(//xxx) //获取整个报文所有xxx
 root.attributeValue("xxx")//获取attribute
 ```
 
-### 3.解析java.util.ResourceBundle
+
+
+### 6.解析java.util.ResourceBundle
 
 **ResourceBundle本质上也是一个映射，但是它提供了国际化的功能。**
 
@@ -154,7 +191,9 @@ ResourceBundle bundleUS = ResourceBundle.getBundle("props.messages",new Locale("
 msg=bundleCN.getString("payment.no.selfService");
 ```
 
-### 4.解析jar文件
+
+
+### 7.解析jar文件
 
 ```java
 List<URL> urls = Collections.list(Thread.currentThread().getContextClassLoader().getResources(newpath));
