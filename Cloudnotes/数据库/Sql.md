@@ -27,7 +27,7 @@ EXPLAIN SELECT COUNT(id)   FROM temp_orders force index (PRIMARY)；
 
 ##### 使用存储过程插入数据
 
-```
+```sql
 DELIMITER ;;
 CREATE PROCEDURE insert_student()
     BEGIN
@@ -54,7 +54,7 @@ delete from tableName where aaa="111";
 ```
 
 ##### MySQL中通过表注释来查找表名
-```
+```sql
 SELECT
 	table_name 表名,
 	TABLE_COMMENT 表注释
@@ -67,7 +67,7 @@ AND TABLE_COMMENT LIKE '%注解%';
 
 
 ##### MySQL中通过字段注释来查找表名
-```
+```sql
 SELECT
 	table_name 表名,
 	COLUMN_NAME 字段名,
@@ -80,13 +80,13 @@ AND COLUMN_COMMENT LIKE '%注解%';
 ```
 
 ##### MySQL中通过字段来查找表名
-```
+```sql
 SELECT table_name 表名,TABLE_COMMENT '表注解' FROM INFORMATION_SCHEMA.COLUMNS WHERE COLUMN_NAME = '要查找的字段名称';
 ```
 
 ##### 导出数据库文档
 
-```
+```sql
 SELECT
 TABLE_NAME 表名,
 COLUMN_NAME 列名,

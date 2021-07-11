@@ -14,7 +14,7 @@ SpringBoot是一个用于快速搭建Spring项目的脚手架，能够尽可能�
 
 1. 起步依赖（Spring boot starter）
 
-   起步依赖将某功能常用的依赖进行整合，合并到一个依赖中，版本由起步依赖统一管理，简化了繁杂的pom配置以及依赖冲突的管理
+   起步依赖将某功能常用的依赖与SpringBoot进行整合，合并到一个依赖中，版本由起步依赖统一管理，简化了繁杂的pom配置以及依赖冲突的管理，并且为外部项目所需的配置提供缺省的默认属性，减少了配置文件的配置
 
 2. JavaConfig
 
@@ -28,7 +28,157 @@ SpringBoot是一个用于快速搭建Spring项目的脚手架，能够尽可能�
 
    SpringBoot内嵌Tomcat、Jetty、undertow三种Web容器，只需一个Java的运行环境，即可直接将SpringBoot项项目跑起来，SpringBoot的项目可打成一个jar包
 
-## 二、Springboot的热部署
+
+
+## 二、通过Starter与SpringBoot整合
+
+#### 1.Starter是SpringBoot整合三方类库的核心，引入带Starter的依赖，将无需三方类库的xml配置文件和手动注入三方类库bean
+
+#### 2.将三方类库的依赖统一集成进Starter，由Starter统一版本管理，利用依赖传递原理，相当于使用端项目直接依赖了这些三方类库
+
+#### 3.使用Starter的包，会自动配置三方类库的bean到Spring容器中，并提供缺省的默认属性，也可在全局配置中为属性写值。
+
+#### 4.Starter就是一个外部的项目，我们需要使用它的时候就可以在当前springboot项目中引入它。
+
+如因为整合SpringBoot的redis，
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+```
+
+#### 5.自定义Starter
+
+##### 5.1 自定义starter的命名规则
+
+SpringBoot提供的starter以`spring-boot-starter-xxx `的方式命名的。
+
+官方建议自定义的starter使用 `xxx-spring-boot-starter` 命名规则。以区分SpringBoot生态提供的starter
+
+##### 5.2 创建一个Maven工程zdy-spring-boot-starter，导入SpringBoot自动配置依赖
+
+```xml
+<dependencies>
+   <dependency>
+       <groupId>org.springframework.boot</groupId>
+       <artifactId>spring-boot-autoconfigure</artifactId>
+       <version>2.2.9.RELEASE</version>
+   </dependency>
+</dependencies>
+```
+
+##### 5.3 编写一个JavaBean（相当于一个第三方类）
+
+```java
+@EnableConfigurationProperties(SimpleBean.class)
+@ConfigurationProperties(prefix = "simplebean")
+public class SimpleBean {
+   private int id;
+   private String name;
+  
+    //getter...
+    //setter...
+}
+```
+
+##### 5.4 编写自动配置实现类
+
+```java
+@Configuration
+public class MyAutoConfiguration {
+   static {
+       System.out.println("MyAutoConfiguration init....");
+   }
+    
+   @Bean
+   public SimpleBean simpleBean(){
+       return new SimpleBean();
+   }
+}
+```
+
+##### 5.5 resources下创建/MET A-INF/spring.factories
+
+```xml
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.lagou.config.MyAutoConfiguration
+```
+
+#### 6.SpringBoot项目整合自定义Starter
+
+##### 6.1 导入自定义Starter依赖
+
+```xml
+<dependency>
+  <groupId>com.lagou</groupId>
+  <artifactId>zdy-spring-boot-starter</artifactId>
+  <version>1.0-SNAPSHOT</version>
+</dependency>
+```
+
+##### 6.2 在全局配置文件中配置属性值
+
+```properties
+simplebean.id=1
+simplebean.name=自定义starter
+```
+
+##### 6.3 测试
+
+```java
+//测试自定义starter
+@Autowired
+private SimpleBean simpleBean;
+@Test
+public void zdyStarterTest(){
+  System.out.println(simpleBean);
+}
+```
+
+#### 7. 定义EnableXXX注解实现组件热插拔
+
+##### 7.1 新增标记类ConfigMarker
+
+```java
+public class ConfigMarker {
+ 
+}
+```
+
+##### 7.2 新增EnableRegisterServer注解
+
+```java
+@Target({ElementType.TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Import({ConfigMarker.class})
+public @interface EnableRegisterServer {
+}
+```
+
+##### 7.3 自动配置实现类新增条件注解
+
+```java
+@Configuration
+@ConditionalOnBean(ConfigMarker.class)
+public class MyAutoConfiguration {
+   static {
+       System.out.println("MyAutoConfiguration init....");
+   }
+    
+   @Bean
+   public SimpleBean simpleBean(){
+       return new SimpleBean();
+   }
+}
+```
+
+##### 7.4 使用EnableRegisterServer
+
+在启动类上新增@EnableImRegisterServer注解，启动zdy工程就会自动装配 `SimpleBean`，反之则不装配。
+
+## 三、Springboot的热部署
 
 #### **1.添加spring-boot-devtools热部署依赖启动器**
 
@@ -48,7 +198,7 @@ Ctrl+Alt+Shift+/打开Maintenance  ，选择Registry，找到"compiler.automake.
 
 ![image-20210707163244443](images/image-20210707163244443.png)
 
-#### **3.排除不触发自动加载资源**
+#### **3.排除不触发热部署资源**
 
 ```properties
 spring.devtools.restart.exclude=static/**,public/**
@@ -64,7 +214,7 @@ spring.devtools.restart.exclude=static/**,public/**
 4. restartClassLoader监控classpath文件，若重新编译后classpath发生变化，则重新加载classpath
 5. 重新加载classpath时，无需再加载三方类库，使项目无需重启便能代码生效
 
-## 三、Springboot全局配置
+## 四、Springboot全局配置
 
 正如spring项目有applicationContext.xml，springmvc有springmvc.xml一样，SpringBoot也有配置文件：application.properties，这是一个全局配置文件，对项目中所有组件生效。
 
@@ -169,7 +319,7 @@ person:
 
 
 
-## 四、属性注入
+## 五、属性注入
 
 #### 1.@ConfigurationProperties批量注入
 
@@ -268,7 +418,7 @@ my-person:
 | acme.my_project.person.first_name | 下划线模式                               |
 | ACME_MYPROJECT_PERSON_FIRSTNAME   | 大写下划线，如果使用系统环境时候推荐使用 |
 
-## 五、日志系统
+## 六、日志系统
 
 #### 1. 介绍
 
@@ -383,10 +533,40 @@ logging.file=./log.log
 
 
 
-### 六、切换内嵌web容器
+## 七、引入web容器和SpringMVC
 
-### 七、自定义Starter
+##### 1. SpringBoot默认支持Tomcat，Jetty，和Undertow作为底层容器。
 
-每个springboot的jar包META-INF下都会有一个spring.factories文件记录所有的配置类
+而SpringBoot默认使用Tomcat，一旦引入spring-boot-starter-web模块，就默认使用Tomcat容器。
 
-体现面向对象编程，全局配置中所有默认的配置属性都能一一对应一个Javaconfig。通过在全局配置文件中定义属性值，在springboot启动的时候，读取带**@ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false)**和**@Component**的配置类，根据注解属性值去全局配置中找对应的属性值，然后通过setter组装到javaconfig中
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
+spring-boot-starter-web这个starter中又引入了spring-boot-starter-tomcat和SpringMVC
+
+![image-20210711124401984](images/image-20210711124401984.png)
+
+##### 2.切换Web容器
+
+```xml
+<dependency>
+   <groupId>org.springframework.boot</groupId>
+   <artifactId>spring-boot-starter-web</artifactId>
+   <exclusions>
+       <exclusion>
+           <!--移除spring-boot-starter-web中的tomcat-->
+           <artifactId>spring-boot-starter-tomcat</artifactId>
+           <groupId>org.springframework.boot</groupId>
+       </exclusion>
+   </exclusions>
+</dependency>
+<dependency>
+   <groupId>org.springframework.boot</groupId>
+   <!--引入jetty-->
+   <artifactId>spring-boot-starter-jetty</artifactId>
+</dependency>
+```
