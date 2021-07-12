@@ -270,6 +270,42 @@ ConfigurableApplicationContext 调用refresh()方法之前，回调这个类的i
 
 在Spring容器启动过程中，会加载所有@Import注解配置的组件到容器中
 
+###### 所有@EnableXXX注解都基于@Import实现，如以下@EnableXXX都会注册一个ImportSelector，最终执行该组件
+
+- **@EnableAutoConfiguration**
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Inherited
+@AutoConfigurationPackage
+@Import(AutoConfigurationImportSelector.class)
+public @interface EnableAutoConfiguration {
+```
+
+- **@EnableConfigurationProperties**
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Import(EnableConfigurationPropertiesImportSelector.class)
+public @interface EnableConfigurationProperties {
+```
+
+- **@EnableTransactionManagement**
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Import(TransactionManagementConfigurationSelector.class)
+public @interface EnableTransactionManagement {
+```
+
+
+
 [详情查看SpringIoC源码剖析步骤6.4](../Spring/SpringIoC/源码解析)
 
 [自动配置实现ImportSelector具体逻辑](###4.自动配置的核心逻辑在DeferredImportSelectorGrouping#getImports方法中)
@@ -376,7 +412,7 @@ SpringIoC容器执行AbstractApplicationContext#refresh进行容器刷新时，�
 
 ![image-20210707000744795](images/image-20210707000744795.png)
 
-##### 3.通过beanFactory获得ServletWebServerFactory的对象
+##### 3.通过beanFactory获得ServletWebServerFactory的对象，由于目前前端尚未进行bean初始化，所以通过getBean进入bean的初始化流程以及会初始化其依赖的bean
 
 ![image-20210707001149454](images/image-20210707001149454.png)
 
@@ -493,7 +529,13 @@ public class MyWebApplicationInitializer implements WebApplicationInitializer {
 
 ![image-20210711162922306](images/image-20210711162922306.png)
 
-##### 4. 最终调用父类RegistrationBean#onStartup方法
+##### 4.调用ServletWebServerApplicationContext#getServletContextInitializerBeans
+
+通过调用栈发现在执行getServletContextInitializerBeans方法中，执行了getBean，进入SpringMVC自动配置类及相关依赖属性的bean生命周期
+
+![image-20210712235614212](images/image-20210712235614212.png)
+
+##### 5 最终调用父类RegistrationBean#onStartup方法
 
 通过getDescription()，获取当前环境到底是一个filter 还是一个servlet 还是一个listener
 

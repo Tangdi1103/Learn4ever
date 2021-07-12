@@ -114,6 +114,10 @@
 
 ##### 4.4调用org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter#handle执行handler方法
 
+由适配器适配对应的handlerMethod
+
+将Request中的参数最终转换为handler的参数形式，最后通过反射调用handler的方法（method.invoke(args...)）
+
 ![image-20210628200913092](images/image-20210628200913092.png)
 
 ##### 4.5调用applyDefaultViewName设置视图名
