@@ -327,6 +327,8 @@ person:
 
 - **@ConfigurationProperties**配合**@Component**为类批量注入属性
 
+  通过@Component将该类注册为bean
+
 ```java
 @Component // 将对象存入IoC容器
 @ConfigurationProperties(prefix = "mq.upp.callback.rocket", ignoreUnknownFields = false) // 通过setter批量注入属性
@@ -339,6 +341,8 @@ public class RocketMqUPPCallBackConfig {
 ```
 
 - **@ConfigurationProperties**配合**@Configuration和@EnableConfigurationProperties**为类批量注入属性
+
+  通过@EnableConfigurationProperties将@ConfigurationProperties注解的类注册为bean
 
 ```java
 @Configuration // 标识为配置类
