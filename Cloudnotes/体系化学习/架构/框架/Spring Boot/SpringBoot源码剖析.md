@@ -372,6 +372,18 @@ selectImports方法是ImportSelector组件获取自动配置bean信息的核心�
 
 ### 5.具体的逻辑触发时机以及后续beanDefinition注册请查看[SpringIoC源码剖析步骤6.4](../Spring/SpringIoC/源码解析)
 
+### 6.注册自动配置类的bean
+
+通过SpringIoC的启动过程中，可知ConfigurationClassParser#processConfigurationClass为扫描解析或读取注解值得到所有bean的反射对象并存储的处理。
+
+在这里将递归调用，扫描所有类的注解配置
+
+![image-20210717165230328](images/image-20210717165230328.png)
+
+执行ConfigurationClassParser#processDeferredImportSelectors，得到所有的@Import配置的组件后，通过ConfigurationClassParser#processImports注册自动配置相关的bean
+
+![image-20210717165717761](images/image-20210717165717761.png)
+
 ## 五、SpringBoot自动配置并启动内嵌Web容器原理
 
 ![image-20210707005142384](images/image-20210707005142384.png)

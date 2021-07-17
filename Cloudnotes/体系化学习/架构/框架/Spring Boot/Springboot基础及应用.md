@@ -359,7 +359,7 @@ public class RocketMqUPPCallBackConfig {
 - **@ConfigurationProperties**配合**@bean**为第三方类注入属性
 
 ```java
-@Configuration
+//@Configuration
 public class MyService {
     
    @Bean

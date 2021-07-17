@@ -82,7 +82,7 @@ AOP本质：在不改变原有业务逻辑的情况下增强横切逻辑，横�
 
 ## 4.2 切入点的AspectJ表达式
 
-### 全限定⽅法名
+#### 全限定⽅法名
 
 ```java
 // 全匹配⽅式
@@ -134,7 +134,7 @@ void com.lagou.service.impl.TransferServiceImpl.updateAccountByCardNo(com.lagou.
 
 ## 4.4 纯注解配置（xml配置太麻烦。。）
 
-**在配置类中使⽤如下注解**
+##### 在配置类中使⽤如下注解
 
 ```java
 /**
@@ -147,7 +147,7 @@ public class SpringConfiguration{
 }
 ```
 
-
+##### 案例
 
 ```java
 /**
@@ -166,8 +166,11 @@ public class LogUtil{
     * 1.在引⽤切⼊点表达式时，必须是⽅法名+()，例如"pointcut()"。
     * 2.在当前切⾯中使⽤，可以直接写⽅法名。在其他切⾯中使⽤必须是全限定⽅法名。
     */
+    //@Pointcut("this(com.csair.common.BaseWebApi)")继承BaseWebApi接口的切
+    //@Pointcut("@annotation(org.springframework.web.bind.annotation.PostMapping)")对该注解切
     @Pointcut("execution(* com.lagou.service.impl.*.*(..))")
     public void pointcut(){}
+    
     
     // 前置通知
     @Before("pointcut()")
@@ -203,6 +206,8 @@ public class LogUtil{
     * @return
     */
     @Around("pointcut()")
+    // @Around("@annotation(with)")
+    // public Object aroundPrintLog(ProceedingJoinPoint pjp,RoutingWith with){
     public Object aroundPrintLog(ProceedingJoinPoint pjp){
         //定义返回值
         Object rtValue = null;
@@ -225,5 +230,8 @@ public class LogUtil{
         }
         return rtValue;
 	}
+                           
+
+    
 ```
 
