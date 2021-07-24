@@ -42,9 +42,27 @@ XShell 可以在 Windows 界面下用来访问远端不同系统下的服务器�
 ![image](https://note.youdao.com/yws/public/resource/c5be5802daf0385d18fbdfde57d959e9/xmlnote/F24A1C581B3C40B79238399A161453D9/715)
 
 ### 遇到的问题
-Xshell连接不上虚拟机提示ssh服务器拒绝了密码，请再试一次
+
+##### 1.修改SSH默认端口
+
+vim /etc/ssh/sshd_config
+
+将Port注释放开，修改端口
+
+开放修改的端口：firewall-cmd --zone=public --add-port=1212/tcp --permanent 
+
+重启防火墙：firewall-cmd --reload
+
+临时关闭SElinux ：setenforce 0
+
+重启ssh：systemctl restart sshd.service
+
+
+
+##### 1.Xshell连接不上虚拟机提示ssh服务器拒绝了密码，请再试一次
 
 用Xshell root连接时linux时提示ssh服务器拒绝了密码，应该sshd设置了不允许root用户用密码远程登录 
+
 修改 /etc/ssh/sshd_config文件，注意，安装了openssh才会有这个文件，如果文件不存在请检查是否安装了openssh。
 
 
@@ -67,8 +85,26 @@ StrictModes yes
 ```
 重启ssh服务
 ```
-/etc/init.d/ssh restart
+systemctl restart sshd.service
 ```
 
 
+
+##### 2.使用xshell连接服务器很慢
+
+vi /etc/ssh/sshd_config
+
+2.按/命令进行检索查询DNS，找到useDNS
+
+3.将useDNS的注释#去掉，同时将yes改为no
+
+4.重启ssh
+
+```
+systemctl restart sshd.service
+```
+
+
+
+##### 3.防火墙配置白名单
 

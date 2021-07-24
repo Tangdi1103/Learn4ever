@@ -29,6 +29,16 @@ tree  >>	D:/tree.txt 只有文件夹
 tree /f >>	D:/tree.txt 包括文件夹和文件
 ```
 
+
+
+临时关闭SElinux
+
+```sh
+setenforce 0
+```
+
+
+
 ##### 查看防火墙状态
 
 ```

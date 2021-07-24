@@ -22,3 +22,4 @@ yum install net-tools
 此时就可以上网了。（如果不知怎样判断能否上网，ping 一下网址就可以，就是这么简单，例如命令：ping www.baidu.com）
 
 这样yum，wget等等都可以用啦
+
