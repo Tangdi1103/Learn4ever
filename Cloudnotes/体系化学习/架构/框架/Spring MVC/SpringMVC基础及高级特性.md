@@ -234,6 +234,8 @@ public class MyIntercepter01 implements HandlerInterceptor{
 }
 ```
 
+**XML配置拦截器**
+
 ```xml
 <mvc:interceptors>
     <mvc:interceptor>
@@ -246,6 +248,34 @@ public class MyIntercepter01 implements HandlerInterceptor{
     </mvc:interceptor>
 </mvc:interceptors>
 ```
+
+**Javaconfig配置拦截器**
+
+```java
+import com.tangdi.itoken.web.admin.interceptor.WebAdminInterceptor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebAdminInterceptorConfig implements WebMvcConfigurer {
+
+    @Bean
+    MyIntercepter01 myIntercepter01() {
+        return new MyIntercepter01();
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(myIntercepter01())
+                .addPathPatterns("/**")
+                .excludePathPatterns("/static");
+    }
+}
+```
+
+
 
 
 
