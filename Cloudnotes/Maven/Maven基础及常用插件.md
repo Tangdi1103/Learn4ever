@@ -95,6 +95,29 @@ Maven 本质上是一个插件执行框架，所有的工作都是由插件完�
 </plugin>
 ```
 
+**maven-war-plugin**
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-war-plugin</artifactId>
+            <configuration>
+                <warSourceExcludes>src/main/resources/**</warSourceExcludes>
+                <warName>LoginProject</warName>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+
+
 ### 3.项目编译插件
 
 目前默认`source`设置为`1.6`，默认`target`设置为`1.6`，与运行 Maven 的 JDK 无关
