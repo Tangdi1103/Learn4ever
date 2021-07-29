@@ -1,0 +1,16 @@
+tomcat启动，执行Bootstrap类的main方法。实例化Catlina然后解析server.xml，根据server.xml配置初始化Server、连接池、Connector、ProtocolProcessor(EndPoint、Processer)、Adapter、Engine、Host、Context等组件。
+
+根据Host配置的baseApp目录个数，创建对应数量的类加载器WebAppClassloader并加载baseApp下的项目。加载项目下class文件并解析资源文件web.xml
+
+解析web.xml，根据配置的监听器去初始化spring容器，[进入Spring初始化流程](框架/spring/springIoC/源码解析)（Spring父容器创建）。然后根据Servlet配置去初始化DispatchServlet，调用init方法[进入SpringMVC初始化流程](框架/spring mvc/springmvc源码解析)（mvc子容器创建、DispatchServlet组件初始化）。
+
+根据Host、Connector、Context和Servlet配置的urlPattern将DispatchServlet实例封装进Mapper组件
+
+Tomcat监听端口，等待Socket接收请求
+
+当Tomcat收到请求，通过EndPoint解析TCP协议，得到输入流。Processer通过输入流解析HTTP协议，得到原始的Request和Response对象。通过Adapter将Request和Response转成Servlet能处理的HttpServletRequest和HttpServletResponse。然后根据URL和Method方式从Mapper取出对应的Servlet来处理请求。
+
+请求到达DispatchServlet，调用service方法，进入[进入SpringMVC处理请求流程](框架/spring mvc/springmvc源码解析)。根据Request获取对应Handler和Filter，执行拦截器pre方法
+
+RequestParameterHandler处理Requset请求参数，SpringMVC默认使用Jackson格式来接收Ajax Post请求的参数，通过Jackson将入参字符串反序列化为Handler的入参对象，调用HandlerAdapter执行对应handler，然后将结果序列化为Jackson格式的字符串，返回给前端。（前后端分离架构，基本告别了View，此处只有model的交互）
+
