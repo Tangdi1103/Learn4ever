@@ -4,7 +4,7 @@ Socket ---> 客户端
 
 
 
-### BIO：
+## BIO：
 
 ##### 缺点：
 
@@ -16,7 +16,7 @@ Socket ---> 客户端
 
 ##### 阻塞点
 
-**一、服务端监听端口，并等待客户端的连接**
+**一、（连接阻塞）服务端监听端口，并等待客户端的连接**
 
 ```java
 ServerSockt serverSockt = new ServerSockt (port);
@@ -35,7 +35,7 @@ Sockt  sockt  = new  Sockt (host,port);
 
 
 
-**二、服务端获取InputStream，并执行read读取数据**
+**二、（读写阻塞）服务端获取InputStream，并执行read读取数据**
 
 ```java
 InputStream inputStream = socket.getInputStream()
@@ -61,9 +61,17 @@ inputStream.read(bytes)
 
 
 
-### NIO
+## NIO
 
-##### 优点：
+### 优点：
 
 - **一千个请求同时过来，可能只需十几个线程就能完成处理**
+- **通过selector监听连接事件和读写事件，只有发生读写事件时，才会交给线程处理，大大节省了系统资源**
 
+### 缓存区(Buffer)
+
+缓冲区对象创建：allocate、wrap
+
+缓冲区对象添加数据：position()/position(intnewPosition)、limit/limit(int newLimit)、capacity、remaining、put(byte b)/put(byte[] src)
+
+缓冲区对象读取数据：flip、clear、get
