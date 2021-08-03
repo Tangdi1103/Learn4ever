@@ -446,6 +446,7 @@ bean:com.lagou.edu.factory.CompanyFactoryBean@53f6fd09
 7. 执行实现**BeanPostProcessor**接口后置处理器的**postProcessAfterInitialization**方法
 
 ```java
+@Component
 public class MyBeanPostProcessor implements BeanPostProcessor {
 
 	public MyBeanPostProcessor() {
