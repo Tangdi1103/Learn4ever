@@ -9,7 +9,12 @@ cp -r 目标目录   目的目录
 ```
 
 ##### 查找文件
+
+```sh
 which xxx
+
+find / -name xxxxx
+```
 
 ##### 文件复制
 
