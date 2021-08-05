@@ -267,8 +267,273 @@ public class GetBufferDemo {
 
 ## 五、通道(Channel)
 
+### 5.1 NIO基于通道操作IO流
 
+- 通道可以读也可以写，流一般来说是单向的（只能读或者写，所以之前我们用流进行IO操作的时候需要分别创建一个输入流和一个输出流）
+- 通道可以异步读写
+- 通道总是基于缓冲区Buffer来读写
+
+![image-20210805213114775](images/image-20210805213114775.png)
+
+### 5.2 Channel常用类介绍
+
+#### 5.2.1 Channel接口
+
+常 用 的Channel实现类类 有 ：**FileChannel** , **DatagramChannel** ,**ServerSocketChannel**和**SocketChannel** 。
+
+- FileChannel 用于文件的数据读写
+
+- DatagramChannel 用于 UDP 的数据读写
+
+- ServerSocketChannel 和SocketChannel 用于 TCP 的数据读写。
+
+**【ServerSocketChanne类似 ServerSocket , SocketChannel 类似 Socket】** 
+
+#### 5.2.2 SocketChannel 与ServerSocketChannel
+
+类似 Socke和ServerSocket,可以完成客户端与服务端数据的通信工作
+
+
+
+### 5.3 ServerSocketChannel 代码案例
+
+```java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * 服务端
+ */
+public class NIOServer {
+    public static void main(String[] args) throws IOException, InterruptedException {
+        //1. 打开一个服务端通道
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        //2. 绑定对应的端口号
+        serverSocketChannel.bind(new InetSocketAddress(9999));
+        //3. 通道默认是阻塞的，需要设置为非阻塞
+        serverSocketChannel.configureBlocking(false);
+        System.out.println("服务端启动成功....");
+        while (true) {
+            //4. 检查是否有客户端连接 有客户端连接会返回对应的通道
+            SocketChannel socketChannel = serverSocketChannel.accept();
+            if (socketChannel == null) {
+                System.out.println("没有客户端连接...我去做别的事情");
+                Thread.sleep(2000);
+                continue;
+            }
+            //5. 获取客户端传递过来的数据,并把数据放在byteBuffer这个缓冲区中
+            ByteBuffer allocate = ByteBuffer.allocate(1024);
+            //返回值
+            //正数: 表示本地读到有效字节数
+            //0: 表示本次没有读到数据
+            //-1: 表示读到末尾
+            int read = socketChannel.read(allocate);
+            System.out.println("客户端消息:" + new String(allocate.array(), 0,
+                    read, StandardCharsets.UTF_8));
+            //6. 给客户端回写数据
+            socketChannel.write(ByteBuffer.wrap("没钱".getBytes(StandardCharsets.UTF_8)));
+            //7. 释放资源
+            socketChannel.close();
+        }
+    }
+}
+```
+
+
+
+### 5.4 SocketChannel 代码案例
+
+```java
+package com.lagou.channel;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * 客户端
+ */
+public class NIOClient {
+    public static void main(String[] args) throws IOException {
+        //1. 打开通道
+        SocketChannel socketChannel = SocketChannel.open();
+        //2. 设置连接IP和端口号
+        socketChannel.connect(new InetSocketAddress("127.0.0.1", 9999));
+        //3. 写出数据
+        socketChannel.write(ByteBuffer.wrap("老板.还钱吧!".getBytes(StandardCharsets.UTF_8)));
+        //4. 读取服务器写回的数据
+        ByteBuffer allocate = ByteBuffer.allocate(1024);
+        int read = socketChannel.read(allocate);
+        System.out.println("服务端消息:" +
+                new String(allocate.array(), 0, read, StandardCharsets.UTF_8));
+        //5. 释放资源
+        socketChannel.close();
+    }
+}
+```
 
 
 
 ## 六、选择器/多路复用器(Selector)
+
+### 6.1 基本介绍
+
+可以用一个线程，处理多个的客户端连接，就会使用到NIO的Selector(选择器). Selector 能够检测多个注册的服务端通道上是否有事件发生，如果有事件发生，便获取事件然后针对每个事件进行相应的处理。这样就可以只用一个单线程去管理多个通道，也就是管理多个连接和请求。
+
+**在这种没有选择器的情况下，对应每个连接对应一个处理线程，但是连接并不能马上就会发送信息，所以还会产生资源浪费，如下图**
+
+![image-20210805215236927](images/image-20210805215236927.png)
+
+**只有在通道真正有读写事件发生时，才会进行读写，就大大地减少了系统开销，并且不必为每个连接都创建一个线程，不用去维护多个线程，避免了多线程之间的上下文切换导致的开销**
+
+
+
+![image-20210805215327785](images/image-20210805215327785.png)
+
+
+
+### 6.2 常用API介绍
+
+##### Selector 类是一个抽象类，常用方法如下：
+
+- Selector.open() : 得到一个选择器对象
+
+- selector.select() : 阻塞 监控所有注册的通道,当有对应的事件操作时, 会将SelectionKey放入集合内部并返回事件数量
+
+- selector.select(1000): 阻塞 1000 毫秒，监控所有注册的通道,当有对应的事件操作时, 会将SelectionKey放入集合内部并返回
+
+- selector.selectedKeys() : 返回存有SelectionKey的集合
+
+##### SelectionKey 类是选择器内的事件，常用方法如下
+
+- SelectionKey.isAcceptable(): 是否是连接继续事件
+
+- SelectionKey.isConnectable(): 是否是连接就绪事件
+
+- SelectionKey.isReadable(): 是否是读就绪事件
+
+- SelectionKey.isWritable(): 是否是写就绪事件
+
+##### SelectionKey中定义的4种事件：
+
+- SelectionKey.OP_ACCEPT —— 接收连接继续事件，表示服务器监听到了客户连接，服务器可以接收这个连接了
+
+- SelectionKey.OP_CONNECT —— 连接就绪事件，表示客户端与服务器的连接已经建立成功
+
+- SelectionKey.OP_READ —— 读就绪事件，表示通道中已经有了可读的数据，可以执行读操作了（通道目前有数据，可以进行读操作了）
+
+- SelectionKey.OP_WRITE —— 写就绪事件，表示已经可以向通道写数据了（通道目前可以用于写操作）
+
+### 6.3 代码实现
+
+#### 6.3.1 Server
+
+```java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.Set;
+
+/**
+ * 服务端-选择器
+ */
+public class NIOSelectorServer {
+    public static void main(String[] args) throws IOException {
+        //1. 打开一个服务端通道
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        //2. 绑定对应的端口号
+        serverSocketChannel.bind(new InetSocketAddress(9999));
+        //3. 通道默认是阻塞的，需要设置为非阻塞
+        serverSocketChannel.configureBlocking(false);
+        //4. 创建选择器
+        Selector selector = Selector.open();
+        //5. 将服务端通道注册到选择器上,并指定注册监听的事件为OP_ACCEPT
+        serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+        System.out.println("服务端启动成功.....");
+        while (true) {
+            //6. 检查选择器是否有事件
+            int select = selector.select(2000);
+            if (select == 0) {
+                System.out.println("没有事件发生....");
+                continue;
+            }
+            //7. 获取事件集合
+            Set<SelectionKey> selectionKeys = selector.selectedKeys();
+            Iterator<SelectionKey> iterator = selectionKeys.iterator();
+            while (iterator.hasNext()) {
+                //8. 判断事件是否是客户端连接事件SelectionKey.isAcceptable()
+                SelectionKey key = iterator.next();
+                if (key.isAcceptable()) {
+                    //9. 得到客户端通道,并将通道注册到选择器上, 并指定监听事件为OP_READ
+                    SocketChannel socketChannel = serverSocketChannel.accept();
+                    System.out.println("有客户端连接.....");
+                    //将通道必须设置成非阻塞的状态.因为selector选择器需要轮询监听每个通道的事件
+                    socketChannel.configureBlocking(false);
+                    //指定监听事件为OP_READ 读就绪事件
+                    socketChannel.register(selector, SelectionKey.OP_READ);
+                }
+                //10. 判断是否是客户端读就绪事件SelectionKey.isReadable()
+                if (key.isReadable()) {
+                    //11.得到客户端通道,读取数据到缓冲区
+                    SocketChannel socketChannel = (SocketChannel) key.channel();
+                    ByteBuffer allocate = ByteBuffer.allocate(1024);
+                    int read = socketChannel.read(allocate);
+                    if (read > 0) {
+                        System.out.println("客户端消息:" + new String(allocate.array(), 0, read
+                                , StandardCharsets.UTF_8));
+                        //12. 给客户端回写数据
+                        socketChannel.write(ByteBuffer.wrap("没钱".getBytes(StandardCharsets.UTF_8)));
+                        socketChannel.close();
+                    }
+                }
+                //13. 从集合中删除对应的事件, 因为防止二次处理.
+                iterator.remove();
+            }
+        }
+    }
+}
+```
+
+#### 6.3.2 Client
+
+```java
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * 客户端
+ */
+public class NIOClient {
+    public static void main(String[] args) throws IOException {
+        //1. 打开通道
+        SocketChannel socketChannel = SocketChannel.open();
+        //2. 设置连接IP和端口号
+        socketChannel.connect(new InetSocketAddress("127.0.0.1", 9999));
+        //3. 写出数据
+        socketChannel.write(ByteBuffer.wrap("老板.还钱吧!".getBytes(StandardCharsets.UTF_8)));
+        //4. 读取服务器写回的数据
+        ByteBuffer allocate = ByteBuffer.allocate(1024);
+        int read = socketChannel.read(allocate);
+        System.out.println("服务端消息:" +
+                new String(allocate.array(), 0, read, StandardCharsets.UTF_8));
+        //5. 释放资源
+        socketChannel.close();
+    }
+}
+```
+

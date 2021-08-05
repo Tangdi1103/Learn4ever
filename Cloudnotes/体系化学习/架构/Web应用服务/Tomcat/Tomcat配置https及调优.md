@@ -69,7 +69,6 @@ keytool -genkey -alias lagou -keyalg RSA -keystore lagou.keystore
 #### 3.Tomcat优化从两个⽅⾯进⾏
 
 1. JVM虚拟机优化（优化内存模型）
-
 2. **Tomcat**⾃身配置的优化（⽐如是否使⽤了共享线程池？IO模型？）
 
 
