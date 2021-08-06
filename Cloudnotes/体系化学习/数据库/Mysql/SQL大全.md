@@ -45,6 +45,7 @@ CALL insert_student();
 
 
 ##### 基操
+
 ```
 insert into tableName value(1,2,3);
 
@@ -83,6 +84,7 @@ ALTER TABLE table_name DROP COLUMN index_name;
 
 
 ##### MySQL中通过表注释来查找表名
+
 ```sql
 SELECT
 	table_name 表名,
@@ -96,6 +98,7 @@ AND TABLE_COMMENT LIKE '%注解%';
 
 
 ##### MySQL中通过字段注释来查找表名
+
 ```sql
 SELECT
 	table_name 表名,
@@ -109,6 +112,7 @@ AND COLUMN_COMMENT LIKE '%注解%';
 ```
 
 ##### MySQL中通过字段来查找表名
+
 ```sql
 SELECT table_name 表名,TABLE_COMMENT '表注解' FROM INFORMATION_SCHEMA.COLUMNS WHERE COLUMN_NAME = '要查找的字段名称';
 ```
@@ -116,41 +120,17 @@ SELECT table_name 表名,TABLE_COMMENT '表注解' FROM INFORMATION_SCHEMA.COLUM
 ##### 导出数据库文档
 
 ```sql
-SELECT
-TABLE_NAME 表名,
-COLUMN_NAME 列名,
-COLUMN_COMMENT 注释,
-COLUMN_TYPE 数据类型,
-IF(IS_NULLABLE='NO','是','否') AS '是否必填'
-FROM
-information_schema.`COLUMNS`
-WHERE
-TABLE_SCHEMA='database_name'//数据库名称
-AND 
-table_name like 't_fms%'//表名称
+SELECTTABLE_NAME 表名,COLUMN_NAME 列名,COLUMN_COMMENT 注释,COLUMN_TYPE 数据类型,IF(IS_NULLABLE='NO','是','否') AS '是否必填'FROMinformation_schema.`COLUMNS`WHERETABLE_SCHEMA='database_name'//数据库名称AND table_name like 't_fms%'//表名称
 ```
 
 ##### 授权
 
 ```
-1)授权命令 grant,语法格式(SQL语句不区分大小写):
-Grant  <权限>  on  表名[(列名)]  to  用户 With  grant  option
-
-或 GRANT <权限> ON <数据对象> FROM <数据库用户>  
-
-//数据对象可以是表名或列名
-
-//权限表示对表的操作，如select,update,insert,delete
-
-表:
-grant select on sync_mode.FSS_EBANK_INSTRUCT to vdmuser
-
-模式
-grant all on schema sync_mode to vdmuser
+1)授权命令 grant,语法格式(SQL语句不区分大小写):Grant  <权限>  on  表名[(列名)]  to  用户 With  grant  option或 GRANT <权限> ON <数据对象> FROM <数据库用户>  //数据对象可以是表名或列名//权限表示对表的操作，如select,update,insert,delete表:grant select on sync_mode.FSS_EBANK_INSTRUCT to vdmuser模式grant all on schema sync_mode to vdmuser
 ```
+
 ##### 回收
 
 ```
-2)回收权限 revoke
-REVOKE <权限> ON <数据对象>  FROM <数据库用户名>
+2)回收权限 revokeREVOKE <权限> ON <数据对象>  FROM <数据库用户名>
 ```
