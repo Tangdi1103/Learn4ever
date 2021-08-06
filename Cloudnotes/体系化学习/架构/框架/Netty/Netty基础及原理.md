@@ -176,12 +176,36 @@ ChannelHandler 接口定义了许多事件处理的方法，我们可以通过�
 
 Netty开发中需要自定义一个 Handler 类去实现 ChannelHandle接口或其子接口或其实现类，然后通过重写相应方法实现业务逻辑，我们接下来看看一般都需要重写哪些方法
 
+##### 入站接口ChannelInboundHandler
+
+**方法**
+
 | 方法名                                                       | 说明             |
 | ------------------------------------------------------------ | ---------------- |
 | void channelActive(ChannelHandlerContext ctx)                | 通道就绪事件     |
 | void channelRead(ChannelHandlerContext ctx, Object msg)      | 通道读取数据事件 |
 | void channelReadComplete(ChannelHandlerContext ctx)          | 数据读取完毕事件 |
 | void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) | 通道发生异常事件 |
+
+##### 入站接口实现类SimpleChannelInboundHandler
+
+**方法**
+
+| 方法名                                                      | 说明                    |
+| ----------------------------------------------------------- | ----------------------- |
+| channelRead0(ChannelHandlerContext ctx, String msg)         | 通道读取数据事件        |
+| channelActive(ChannelHandlerContext ctx)                    | 通道就绪事件            |
+| channelInactive(ChannelHandlerContext ctx)                  | 通道未就绪--channel下线 |
+| exceptionCaught(ChannelHandlerContext ctx, Throwable cause) | 通道发生异常事件        |
+
+**设置ChannerHandler的消息对象（前提是添加了编解码器）与handler共享**
+
+```java
+@ChannelHandler.Sharable
+public class NettyHttpServerHandler extends SimpleChannelInboundHandler<HttpObject> {
+```
+
+
 
 
 
