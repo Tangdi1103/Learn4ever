@@ -258,7 +258,7 @@ dubbo 底层使用了 Netty 作为网络通讯框架，要求用 Netty 实现一
   - 提供给调用者主动关闭worker线程组和通道的方法
   - 提供消息发送的方法（底层通过线程池执行handler的写），并同步获得响应结果（读）
 - 客户端业务处理类RpcClientHandler：客户端具体业务处理类[===>>>](#客户端业务处理类RpcClientHandler)
-  - 实现Callbale接口，由NettyClient通过线程池执行此handler，执行消息出站并通过wait()当前线程，等待消息入站然后唤醒线程返回结果
+  - 实现Callbale接口，由NettyClient通过线程池执行此handler，并通过wait()当前线程，等待消息入站然后唤醒线程返回结果
 - Rpc配置类及全局配置[===>>>](#Rpc配置类及全局配置)
 - 注解RpcRefrence：Controller中依赖注入外部接口[===>>>](#注解RpcRefrence)
 - 编写beanPostProcess：后置处理Controller的依赖注入[===>>>](#编写beanPostProcess)
@@ -776,7 +776,7 @@ public class RpcClient {
 
 ##### 客户端业务处理类RpcClientHandler
 
-实现Callbale接口，由NettyClient通过线程池执行此handler，执行消息出站并通过wait()当前线程，等待消息入站然后唤醒线程返回结果
+实现Callbale接口，由NettyClient通过线程池执行此handler，并通过wait()当前线程，等待消息入站然后唤醒线程返回结果
 
 ```java
 import io.netty.channel.ChannelHandlerContext;
@@ -1039,12 +1039,3 @@ public class ClientBootStrap {
 }
 
 ```
-
-
-
-
-
-
-
-
-
