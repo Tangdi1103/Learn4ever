@@ -1,18 +1,32 @@
 [toc]
 
-### 一、ZAB协议
+### 一、ZAB协议(Zookeeper Atomic Broadcast-Zookeeper原⼦消息⼴播协议）
 
-分布式数据的一致性由**zab协议**保证，具体分为以下两种模式
+该协议是Zookeeper集群中分布式数据一致性的核⼼算法，具体分为以下两种模式
 
-#### 1. 消息广播模式（保证数据一致性）
+#### 2. 消息广播模式（保证数据一致性）
 
-在消息⼴播过程中，**Leader服务**器会为每⼀个Follower服务器都各⾃分配⼀个单ᇿ的队列，然后将需要⼴播的事务 **Proposal** 依次放⼊这些队列中去，并且根据 **FIFO**策略进⾏消息发送。每⼀个**Follower服务器**在接收到这个事务Proposal之后，都会⾸先将其以事务⽇志的形式写⼊到本地磁盘中去，并且在成功写⼊后反馈给Leader服务器⼀个**Ack响应**。当Leader服务器接收到超过半数Follower的Ack响应后，就会⼴播⼀个**Commit**消息给所有的Follower服务器以通知其进⾏事务提交，同时Leader⾃身也会完成对事务的提交，⽽每⼀个Follower服务器在接收到Commit消息后，也会完成对事务的提交
+Zookeeper只允许Leader服务器来处理所有事务请求，Leader服务器在接收到客户端的事务请求后，会⽣成对应的事务提议并发起⼀轮⼴播协议，⽽如果集群中的其他机器收到客户端的事务请求后，那么这些⾮Leader服务器会⾸先将这个事务请求转发给Leader服务器。
+
+当⼀台同样遵守ZAB协议的服务器启动后加⼊到集群中，如果此时集群中已经存在⼀个Leader服务器在负责进⾏消息⼴播，那么加⼊的服务器就会⾃觉地进⼊数据恢复模式：找到**Leader**所在的服务器，并与其进⾏数据同步，然后⼀起参与到消息⼴播流程中去。
+
+**Leader服务器**会为每⼀个Follower服务器都各⾃分配⼀个单独的队列，然后将需要⼴播的事务 **Proposal** 依次放⼊这些队列中去，并且根据 **FIFO**策略进⾏消息发送。每⼀个**Follower服务器**在接收到这个事务Proposal之后，都会⾸先将其以事务⽇志的形式写⼊到本地磁盘中去，并且在成功写⼊后反馈给Leader服务器⼀个**Ack响应**。当Leader服务器接收到超过半数Follower的Ack响应后，就会⼴播⼀个**Commit**消息给所有的Follower服务器以通知其进⾏事务提交，同时Leader⾃身也会完成对事务的提交，⽽每⼀个Follower服务器在接收到Commit消息后，也会完成对事务的提交
+
+整个消息⼴播协议是基于具有FIFO特性的TCP协议来进⾏⽹络通信的，因此能够很容易保证消息⼴播过程中消息接受与发送的顺序性。
+
+事务Proposal包含⼀个全局单调递增的唯⼀ID，称之为事务ID（**ZXID**），由于ZAB协议需要保证每个消息严格的因果关系，因此必须将每个事务Proposal按照其ZXID的先后顺序来进⾏排序和处理。
 
 ![image-20210808223854368](images/image-20210808223854368.png)
 
-#### 2. 崩溃恢复模式（leader崩溃或者与一半Follower失去联系）
+#### 3. 崩溃恢复模式（leader崩溃或者与一半Follower失去联系）
 
-根据上⾯的内容，我们了解到，ZAB协议规定了如果⼀个事务Proposal在⼀台机器上被处理成功，那么应该在所有的机器上都被处理成功，哪怕机器出现故障崩溃。接下来我们看看在崩溃恢复过程中，可能会出现的两个数据不⼀致性的隐患及针对这些情况ZAB协议所需要保证的特性。
+当集群中Leader服务器宕机或与一般Follower失去联系，ZAB协议就会进⼊崩溃恢复模式，同时选举产⽣新的Leader服务器。当选举产⽣了新的Leader服务器，同时集群中已经有过半的机器与该Leader服务器完成了数据同步之后，ZAB协议就会退出恢复模式。
+
+**ZAB协议的崩溃恢复模式包含以下两点**
+
+- ZAB协议需要确保那些已经在Leader服务器上提交的事务最终被所有服务器都提交（收到ACK后，在发送commit指令给Follower前leader挂了）
+
+- ZAB协议需要确保丢弃那些只在Leader服务器上被提出的事务（leader提交事务后，在发送Proposal提议前挂了）
 
 **数据同步**
 
@@ -42,7 +56,63 @@
 
 
 
-### 三、ZAB协议-服务器运行时状态
+
+
+### 三、服务器角色
+
+#### Leader
+
+Leader服务器是Zookeeper集群⼯作的核⼼，其主要⼯作有以下两个：
+
+- 事务请求的唯⼀调度和处理者，保证集群事务处理的顺序性。
+
+- 集群内部各服务器的调度者。
+
+使⽤责任链来处理每个客户端的请求是Zookeeper的特⾊，Leader服务器的请求处理链如下
+
+![image-20210811092455430](images/image-20210811092455430.png)
+
+1. **PrepRequestProcessor**。请求预处理器，也是leader服务器中的第⼀个请求处理器。在Zookeeper中，那些会改变服务器状态的请求称为事务请求（创建节点、更新数据、删除节点、创建会话等），PrepRequestProcessor能够识别出当前客户端请求是否是事务请求。对于事务请求，PrepRequestProcessor处理器会对其进⾏⼀系列预处理，如创建请求事务头、事务体、会话检查、ACL检查和版本检查等。
+2. **ProposalRequestProcessor**。事务投票处理器。也是Leader服务器事务处理流程的发起者，对于⾮事务性请求，ProposalRequestProcessor会直接将请求转发到CommitProcessor处理器，不再做任何处理，⽽对于事务性请求，处理将请求转发到CommitProcessor外，还会根据请求类型创建对应的Proposal提议，并发送给所有的Follower服务器来发起⼀次集群内的事务投票。同时，ProposalRequestProcessor还会将事务请求交付给SyncRequestProcessor进⾏事务⽇志的记录。
+3. **SyncRequestProcessor**。事务⽇志记录处理器。⽤来将事务请求记录到事务⽇志⽂件中，同时会触发Zookeeper进⾏数据快照。
+4. **AckRequestProcessor**。负责在SyncRequestProcessor完成事务⽇志记录后，向Proposal的投票收集器发送ACK反馈，以通知投票收集器当前服务器已经完成了对该Proposal的事务⽇志记录。
+5. **CommitProcessor**。事务提交处理器。对于⾮事务请求，该处理器会直接将其交付给下⼀级处理器处理；对于事务请求，其会等待集群内 针对Proposal的投票直到该Proposal可被提交，利⽤CommitProcessor，每个服务器都可以很好地控制对事务请求的顺序处理。
+6. **ToBeCommitProcessor**。该处理器有⼀个toBeApplied队列，⽤来存储那些已经被CommitProcessor处理过的可被提交的Proposal。其会将这些请求交付给FinalRequestProcessor处理器处理，待其处理完后，再将其从toBeApplied队列中移除。
+7. **FinalRequestProcessor**。⽤来进⾏客户端请求返回之前的操作，包括创建客户端请求的响应，针对事务请求，该处理器还会负责将事务应⽤到内存数据库中。
+
+
+
+#### Follower
+
+Follower服务器是Zookeeper集群状态中的跟随者，其主要⼯作有以下三个：
+
+- 处理客户端⾮事务性请求（读取数据），转发事务请求给Leader服务器。
+
+- 参与事务请求Proposal的投票。
+
+- 参与Leader选举投票
+
+和leader⼀样，Follower也采⽤了责任链模式组装的请求处理链来处理每⼀个客户端请求，由于不需要对事务请求的投票处理，因此Follower的请求处理链会相对简单，其处理链如下
+
+![image-20210811092827938](images/image-20210811092827938.png)
+
+1. **FollowerRequestProcessor**。其⽤作识别当前请求是否是事务请求，若是，那么Follower就会将该请求转发给Leader服务器，Leader服务器在接收到这个事务请求后，就会将其提交到请求处理链，按照正常事务请求进⾏处理。
+
+2. **SendAckRequestProcessor**。其承担了事务⽇志记录反馈的⻆⾊，在完成事务⽇志记录后，会向Leader服务器发送ACK消息以表明⾃身完成了事务⽇志的记录⼯作
+
+
+
+#### Observer
+
+Observer服务器与Follower服务器基本一致，区别在于Observer不参与事务请求Proposal的投票和Leader选举投票，但会从leader同步数据
+
+Observer服务器只提供⾮事务服务，通常⽤于在**不影响集群事务处理能⼒的前提下提升集群的⾮事务处理能⼒**，其处理链如下
+
+![image-20210811093436586](images/image-20210811093436586.png)
+
+Observer 服务器在初始化阶段会将SyncRequestProcessor处理器也组装上去，但是在实际运⾏过程中，Leader服务器不会将事务请求的投票发送给Observer服务器
+
+### 四、ZAB协议-服务器运行时状态
 
 在ZAB协议的设计中，每个进程有如下三种状态
 
@@ -54,7 +124,7 @@
 
 
 
-### 四、服务器启动
+### 五、服务器启动
 
 #### 3.1 服务端整体架构图
 
@@ -187,7 +257,7 @@
 
 
 
-### 五、leader选举具体实现
+### 六、leader选举具体实现
 
 ##### 4.1 Zookeeper集群中的⼀台服务器出现以下两种情况之⼀时，需要进⼊Leader选举
 
