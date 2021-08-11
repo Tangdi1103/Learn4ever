@@ -875,7 +875,7 @@ public class Test {
 
 ## 4.3. resultMap标签-实体属性与表字段的映射关系，格式如下
 
-```
+```sql
 <resultMap id="orderMap" type="com.lagou.domain.Order">
    <result property="id" column="id"></result>
    <result property="ordertime" column="ordertime"></result>

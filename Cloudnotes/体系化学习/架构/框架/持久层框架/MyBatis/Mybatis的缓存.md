@@ -1,15 +1,24 @@
 [toc]
 # 一、一级缓存
-1. 作用于SqlSession，SqlSession -> BaseExecutor -> Perpetualcache -> HashMap 
+
+1. 作用于SqlSession，SqlSession -> BaseExecutor -> Perpetualcache -> HashMap
+
+   一个sqlsession对应一个baseExecutor对应一个连接池的连接 
+
 2. 执行查询时，根据statementId和入参组成cacheKey，查询是否有缓存
+
 3. 无缓存则查库，然后写入缓存
+
 4. 一级缓存默认开启，若开启二级缓存，二级缓然优先于一级缓存(若开启了二级缓存则执行器为CachingExecutor)
+
 5. 一级缓存作用域SqlSession，执行数据库操作时将结果存于HashMap中
+
 6. 执行commit、close，才会清空SqlSession中的缓存
+
 7. 缓存只在autoCommit关闭时生效，在调用commit方法时，先清空缓存，再commit事务
 
 
-```
+```java
 Override
 public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds
         rowBounds, ResultHandler resultHandler) throws SQLException {
