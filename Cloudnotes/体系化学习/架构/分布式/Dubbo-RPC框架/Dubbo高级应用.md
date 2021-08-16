@@ -37,6 +37,8 @@ Dubbo项目中大量使用Dubbo SPI ，定义了一些接口服务，如协议�
 
 ### 3.使用Dubbo SPI自定义扩展实现
 
+`SPI `自定义的扩展实现中，`SPI`声明文件以 `key-value` 形式存储，**key代表了某个扩展实现的标识**，**value为扩展实现的全限定类名**
+
 ##### 创建API工程
 
 1. pom文件添加dubbo依赖
@@ -134,7 +136,7 @@ public class DubboSpiMain {
 
 ### 4.Dubbo SPI的Adaptive功能
 
-Dubbo中的Adaptive功能，是动态的选择具体的扩展点。通过getAdaptiveExtension 统一对指定接口对应的所有扩展点进行封装，通过URL的方式对扩展点来进行动态选择。 (dubbo中所有的注册信息都是通过URL的形式进行处理的。)这里同样采用相同的方式进行实现
+Dubbo中的Adaptive功能，是动态的选择具体的扩展点。通过getAdaptiveExtension 统一对指定接口对应的所有扩展点进行封装，通过URL的方式对扩展点来进行动态选择。 (dubbo中所有的注册信息都是通过URL的形式进行处理的)这里同样采用相同的方式进行实现
 
 ##### 在上面的基础上更改API工程
 
@@ -210,12 +212,62 @@ public class DubboAdaptiveMain {
 
 
 
-##二、
+### 5.基于Dubbo SPI的Dubbo过滤器功能
 
-##三、
 
-##四、
 
-##五、
+##二、负载均衡策略
 
-##六、
+[Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/loadbalance/)
+
+
+
+##三、异步调用
+
+[Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/async-call/)
+
+从 2.7.0 开始，Dubbo 的所有异步编程接口开始以 [CompletableFuture](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html) 为基础
+
+基于 NIO 的非阻塞实现并行调用，客户端不需要启动多线程即可完成并行调用多个远程服务，相对多线程开销较小
+
+![image-20210816235737413](images/image-20210816235737413.png)
+
+
+
+##四、线程池
+
+[Dubbo官方文档 - 线程池配置](https://dubbo.apache.org/zh/docs/references/xml/dubbo-provider/)
+
+### 1 Dubbo提供以下两种方式
+
+##### 1.1 fifix（Dubbo默认）：固定大小线程池，启动时建立线程，不关闭，一直持有，默认创建的执行线程数为200，并且没有任何等待队列
+
+在极端的情况下可能会存在问题，比如某个操作大量执行时，可能存在堵塞的情况。后面也会讲相关的处理办法。
+
+##### 1.2 cache:：缓存线程池，空闲一分钟自动删除，当线程不足时，会自动创建新的线程。
+
+如果突然有高TPS的请求过来，方法没有及时完成，则会造成大量的线程创建，极度消耗系统资源，拖慢系统性能甚至导致OOM
+
+##### 1.3 limit：可伸缩线程池，但池中的线程数只会增长不会收缩。只增长不收缩的目的是为了避免收缩时突然来了大流量引起的性能问题
+
+##### 1.4 eager：优先创建`Worker`线程池。
+
+在任务数量大于`corePoolSize`但是小于`maximumPoolSize`时，优先创建`Worker`来处理任务。当任务数量大于`maximumPoolSize`时，将任务放入阻塞队列中。阻塞队列充满时抛出`RejectedExecutionException`。(相比于`cached`:`cached`在任务数量超过`maximumPoolSize`时直接抛出异常而不是将任务放入阻塞队列)
+
+
+
+### 2 自定义Dubbo线程池
+
+由于线程池的使用对于业务开发人员是无感的，只有fix模式的线程池中的线程不够处理请求或者cache模式的线程池创建大量线程导致程序OOM，引起的系统故障，业务开发人员才能得知发生问题了。
+
+##### 现在要实现当线程池数量不够用，或者创建了大量线程超过阈值，发生告警
+
+自定义线程池及实现线程池阈值告警
+
+
+
+##五、路由规则
+
+
+
+##六、服务降级

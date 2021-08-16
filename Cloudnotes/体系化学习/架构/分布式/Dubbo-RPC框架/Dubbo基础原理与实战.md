@@ -740,11 +740,11 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 #####dubbo:method对应`org.apache.dubbo.confifig.MethodConfifig`
 
-用于在制定的 dubbo:service 或者 dubbo:reference 中的更具体一个层级，指定具体方法级别在进行RPC操作时候的配置，可以理解为对这上面层级中的配置针对于具体方法的特殊处理。
+**用于在制定的 dubbo:service 或者 dubbo:reference 中的更具体一个层级**，指定具体方法级别在进行RPC操作时候的配置，可以理解为对这上面层级中的配置针对于具体方法的特殊处理。
 
 1. name : 指定方法名称，用于对这个方法名称的RPC调用进行特殊配置。
 
-2. async: 是否异步 默认false
+2. **async: 是否异步 默认false**
 
 #####dubbo:service和dubbo:reference详解(与dubbo:provider和dubbo:consumer相似)
 
