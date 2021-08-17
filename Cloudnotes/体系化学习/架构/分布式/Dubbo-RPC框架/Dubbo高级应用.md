@@ -216,13 +216,13 @@ public class DubboAdaptiveMain {
 
 
 
-##二、负载均衡策略
+## 二、负载均衡策略
 
 [Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/loadbalance/)
 
 
 
-##三、异步调用
+## 三、异步调用
 
 [Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/async-call/)
 
@@ -234,7 +234,7 @@ public class DubboAdaptiveMain {
 
 
 
-##四、线程池
+## 四、线程池
 
 [Dubbo官方文档 - 线程池配置](https://dubbo.apache.org/zh/docs/references/xml/dubbo-provider/)
 
@@ -266,8 +266,8 @@ public class DubboAdaptiveMain {
 
 
 
-##五、路由规则
+## 五、路由规则
 
 
 
-##六、服务降级
+## 六、服务降级
