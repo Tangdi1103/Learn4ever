@@ -218,13 +218,13 @@ public class DubboAdaptiveMain {
 
 ## 二、负载均衡策略
 
-[Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/loadbalance/)
+### [Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/loadbalance/)
 
 
 
 ## 三、异步调用
 
-[Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/async-call/)
+### [Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/async-call/)
 
 从 2.7.0 开始，Dubbo 的所有异步编程接口开始以 [CompletableFuture](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/CompletableFuture.html) 为基础
 
@@ -236,7 +236,7 @@ public class DubboAdaptiveMain {
 
 ## 四、线程池
 
-[Dubbo官方文档 - 线程池配置](https://dubbo.apache.org/zh/docs/references/xml/dubbo-provider/)
+### [Dubbo官方文档 - 线程池配置](https://dubbo.apache.org/zh/docs/references/xml/dubbo-provider/)
 
 ### 1 Dubbo提供以下两种方式
 
@@ -268,6 +268,85 @@ public class DubboAdaptiveMain {
 
 ## 五、路由规则
 
+### 基本路由规则介绍
 
+##### [具体查看Dubbo官网](https://dubbo.apache.org/zh/docs/advanced/routing-rule/)
+
+本质上就是通过在zookeeper中保存一个节点数据，来记录路由规则。消费者会通过监听这个服务的路径，来感知整个服务的路由规则配置，然后进行适配
+
+路由规则在发起一次RPC调用前起到过滤目标服务器地址的作用，过滤后的地址列表，将作为消费端最终发起RPC调用的备选地址。
+
+- 条件路由。支持以服务或 Consumer 应用为粒度配置路由规则。
+- 标签路由。以 Provider 应用为粒度配置路由规则。
+
+**2.6.x以上版本**随时在服务治理控制台 [Dubbo-Admin](https://github.com/apache/dubbo-admin) 写入路由规则
+
+### Dubbo在不同场景下使用的路由方案
+
+##### [具体查看Dubbo官网](https://dubbo.apache.org/zh/docs/examples/routing/)
+
+##### [动态路由](https://dubbo.apache.org/zh/docs/examples/routing/dynamic-rule-deployment/)
+
+类groovy脚本动态路由。
+
+##### [权重路由](https://dubbo.apache.org/zh/docs/examples/routing/weight-rule-deployment/)
+
+基于用户自定权重实现路由功能。
+
+##### [使用案例](https://dubbo.apache.org/zh/docs/examples/routing/demo-rule-deployment/)
+
+基于实际情况来制定路由规则。
+
+##### [蓝绿部署](https://dubbo.apache.org/zh/docs/examples/routing/blue-green-deployment/)
+
+在线上的老版本继续运行的前提下，直接部署新版本然后进行测试，当新版本测试通过以后，将流量切到新版本，最后将老版本同时也升级到新版本。
+
+##### [Ab测试](https://dubbo.apache.org/zh/docs/examples/routing/ab-testing-deployment/)
+
+在线上的老版本继续运行的前提下，直接部署新版本然后进行测试，当新版本测试通过以后，将流量切到新版本，最后将老版本同时也升级到新版本。
+
+##### [金丝雀部署](https://dubbo.apache.org/zh/docs/examples/routing/canary-deployment/)
+
+在原有版本可用的情况下，同时部署一个新版本应用作为“金丝雀”，测试新版本的性能和表现，在保障整体系统稳定的前提下，尽早发现、及时调整。
+
+
+
+### 路由与上线系统结合
+
+通过路由的规则，把预发布(灰度)的机器进行从机器列表中移除。并且等待一定的时间，让其把现有的请求处理完成之后再进行关闭服务。同时，在启动时，同样需要等待一定的时间，以免因为尚未重启结束，就已经注册上去。等启动到达一定时间之后，再进行开启流量操作
+
+##### 实现主体思路
+
+1. 利用zookeeper的路径感知能力，在服务准备进行重启之前将当前机器的IP地址和应用名写入 zookeeper。 
+
+2. 服务消费者监听该目录，读取其中需要进行关闭的应用名和机器IP列表并且保存到内存中。 
+
+3. 当前请求过来时，判断是否是请求该应用，如果是请求重启应用，则将该提供者从服务列表中移除。
+
+##### 具体实现
+
+1. 引入 Curator 框架，用于方便操作Zookeeper 
+
+2. 编写Zookeeper的操作类，用于方便进行zookeeper处理
+
+3. 编写需要进行预发布的路径管理器，用于缓存和监听所有的待灰度机器信息列表。
+
+4. 编写路由类(实现 org.apache.dubbo.rpc.cluster.Router )，主要目的在于对ReadyRestartInstances 中的数据进行处理，并且移除路由调用列表中正在重启中的服务。
+
+5. 由于 Router 机制比较特殊，所以需要利用一个专门的 RouterFactory 来生成，原因在于并不是所有的都需要添加路由，所以需要利用 @Activate 来锁定具体哪些服务才需要生成使用。
+
+6. 对 RouterFactory 进行注册，同样放入到META-INF/dubbo/org.apache.dubbo.rpc.cluster.RouterFactory 文件中
+
+7. 将dubbo-spi-router项目引入至 consumer 项目的依赖中。
+
+8. 这时直接启动程序，还是利用上面中所写好的 consumer 程序进行执行，确认各个 provider 可以正常执行。
+
+9. 单独写一个 main 函数来进行将某台实例设置为启动中的状态，比如这里我们认定为当前这台机器中的 service-provider 这个提供者需要进行重启操作。
+
+10. 执行完成后，再次进行尝试通过 consumer 进行调用，即可看到当前这台机器没有再发送任何请求
+
+11. 情况下，当机器重启到一定时间后，我们可以再通过 removeRestartingInstance 方法对这个机器设定为既可以继续执行。
+
+12. 调用完成后，我们再次通过 consumer 去调用，即可看到已经再次恢当前机器的请求参数。
 
 ## 六、服务降级
