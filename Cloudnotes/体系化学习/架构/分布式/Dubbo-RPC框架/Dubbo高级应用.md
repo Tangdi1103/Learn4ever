@@ -214,11 +214,75 @@ public class DubboAdaptiveMain {
 
 ### 5.基于Dubbo SPI的Dubbo过滤器功能
 
+与很多框架一样，Dubbo也存在拦截（过滤）机制，可以通过该机制在执行目标程序前后执行我们指定的代码。
 
+Dubbo的Filter机制，是专门为服务提供方和服务消费方调用过程进行拦截设计的，每次远程方法执行，该拦截都会被执行。这样就为开发者提供了非常方便的扩展性，比如为dubbo接口实现ip白名单功能、监控功能 、日志记录等。
+
+##### 步骤如下：
+
+1. 实现 `org.apache.dubbo.rpc.Filter` 接口
+
+2. 使用 `org.apache.dubbo.common.extension.Activate` 接口进行对类进行注册 通过group 可以指定生产端 消费端
+
+3. 处理逻辑代码实现
+
+   ```java
+   import org.apache.dubbo.common.constants.CommonConstants;
+   import org.apache.dubbo.common.extension.Activate;
+   import org.apache.dubbo.rpc.*;
+   
+   
+   @Activate(group = {CommonConstants.CONSUMER,CommonConstants.PROVIDER})
+   public class DubboInvokeFilter implements Filter {
+       @Override
+       public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+           long   startTime  = System.currentTimeMillis();
+           try {
+               // 执行方法
+               return invoker.invoke(invocation);
+           } finally {
+               System.out.println("invoke time:"+(System.currentTimeMillis()-startTime) + "毫秒");
+           }
+   
+       }
+   }
+   ```
+
+4. 在 `META-INF.dubbo `中新建 `org.apache.dubbo.rpc.Filter `文件，并将扩展实现类的全名写入
+
+   ```
+   timeFilter=com.lagou.filter.DubboInvokeFilter
+   ```
+
+**注意：一般类似于这样的功能都是单独开发依赖的，所以再使用方的项目中只需要引入依赖，在调用接口时，该方法便会自动拦截**
 
 ## 二、负载均衡策略
 
 ### [Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/loadbalance/)
+
+##### Random LoadBalance-随机
+
+按权重设置随机概率。在一个截面上碰撞的概率高，但调用量越大分布越均匀，而且按概率使用权重后也比较均匀，有利于动态调整提供者权重。
+
+##### RoundRobin LoadBalance-轮询
+
+**缺点：**存在慢的提供者累积请求的问题，比如：第二台机器很慢，但没挂，当请求调到第二台时就卡在那，久而久之，所有请求都卡在调到第二台上。
+
+##### LeastActive LoadBalance-最少活跃调用数
+
+相同活跃数的随机，活跃数指调用前后计数差。
+
+**优点：**使慢的提供者收到更少请求，因为越慢的提供者的调用前后计数差会越大。
+
+##### ConsistentHash LoadBalance-一致性 Hash
+
+[具体查看一致性hash](../集群及分布式解决方案汇总/集群及分布式解决方案汇总)
+
+相同参数的请求总是发到同一提供者。
+
+- 当某一台提供者挂时，原本发往该提供者的请求，基于虚拟节点，平摊到其它提供者，不会引起剧烈变动。
+- 缺省只对第一个参数 Hash，如果要修改，请配置 `<dubbo:parameter key="hash.arguments" value="0,1" />`
+- 缺省用 160 份虚拟节点，如果要修改，请配置 `<dubbo:parameter key="hash.nodes" value="320" />`
 
 
 
