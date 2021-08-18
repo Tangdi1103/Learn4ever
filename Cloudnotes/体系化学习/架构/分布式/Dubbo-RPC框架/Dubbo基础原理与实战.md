@@ -29,7 +29,7 @@ Apache Dubbo是一款高性能的Java RPC框架。前身是阿里开源的高性
 
 Registry（服务注册中心）在其中起着至关重要的作用。Dubbo官方推荐使用Zookeeper作为服务注册中心。Zookeeper 是 Apache Hadoop 的子项目，作为 Dubbo 服务的注册中心，工业强度较高，可用于生产环境
 
-![image-20210815131932482](images/image-20210815131932482.png)
+![image-20210819002044853](images/image-20210819002044853.png)
 
 1. 服务提供者在服务容器启动时 向注册中心 注册自己提供的服务
 
