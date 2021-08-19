@@ -1,6 +1,6 @@
 [toc]
 
-## 单一职责原则(Single Responsibility Principle)
+## 一、单一职责原则(Single Responsibility Principle)
 
 #### 1. 单一职责原则的定义
 
@@ -26,7 +26,7 @@
 
 
 
-## 开闭原则(Open-closed Principle)
+## 二、开闭原则(Open-closed Principle)
 
 #### 1. 开闭原则的定义
 
@@ -56,7 +56,7 @@
 
 
 
-## 里氏替换原则 (The Liskov Substitution Principle)
+## 三、里氏替换原则 (The Liskov Substitution Principle)
 
 #### 7.4.1 里氏替换原则的定义
 
@@ -76,7 +76,7 @@
 
 
 
-## 接口隔离原则 (Interface Segregation Principle)
+## 四、接口隔离原则 (Interface Segregation Principle)
 
 #### 7.3.1 接口隔离原则的定义
 
@@ -121,11 +121,13 @@
 
 
 
-## 依赖倒置原则 (Dependence Inversion Principle)
+## 五、依赖倒置原则 (Dependence Inversion Principle)
 
 #### 7.5.1 依赖倒置原则定义
 
 高层模块不应该依赖低层模块，两者都应该依赖其抽象；**抽象不应该依赖细节，细节应该依赖抽象**。
+
+依赖倒置原则是区分过程式编程和面向对象编程的分水岭，过程式编程的依赖没有倒置。
 
 **其核心思想是：要面向接口编程，不要面向实现编程。**
 
@@ -169,3 +171,8 @@ class Customer {
 做法是，将所有的商店实现同一个商店接口
 
 ![image-20210818230354401](images/image-20210818230354401.png)
+
+## 六、总结
+
+总的来说，单独应用SOLID的某一个原则并不能让收益最大化。应该把它作为一个整体来理解和应用，从而更好地指导你的软件设计。**单一职责是所有设计原则的基础**，**开闭原则是设计的终极目标**。**里氏替换原则强调的是子类替换父类后程序运行时的正确性，它用来帮助实现开闭原则**。而**接口隔离原则用来帮助实现里氏替换原则，同时它也体现了单一职责**。**依赖倒置原则是过程式编程与OO编程的分水岭，同时它也被用来指导接口隔离原则**。
+
