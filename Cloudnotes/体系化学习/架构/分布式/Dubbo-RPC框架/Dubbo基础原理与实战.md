@@ -299,8 +299,9 @@ public class HelloServiceImpl implements HelloService {
 ##### 编写服务提供者的配置文件dubbo-provider.properties ，放入到resources 目录下
 
 ```properties
-dubbo.application.name=xxx-provider
-# dubbo.protocol.name=dubbo
+# dubbo-provider.properties
+dubbo.application.name=demo-provider
+dubbo.registry.address=zookeeper://127.0.0.1:2181
 dubbo.protocol.name=dubbo
 dubbo.protocol.port=20889
 dubbo.application.owner=wwt
@@ -315,30 +316,31 @@ dubbo.application.owner=wwt
 ##### 编写启动的 main 函数，使用的本机2181端口来作为注册中心
 
 ```java
-import org.apache.dubbo.config.RegistryConfig;
 import org.apache.dubbo.config.spring.context.annotation.EnableDubbo;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
+import java.io.IOException;
+
+/**
+ * @program: dubbo-demo
+ * @description:
+ * @author: Wangwentao
+ * @create: 2021-08-19 17:25
+ **/
 public class DubboPureMain {
-    public static void main(String[] args) throws  Exception{
+
+    public static void main(String[] args) throws IOException {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ProviderConfiguration.class);
-        context.start();
         System.in.read();
     }
+
     @Configuration
-    @EnableDubbo(scanBasePackages = "com.lagou.service.impl")
+    @EnableDubbo(scanBasePackages = "com.tangdi.impl")
     @PropertySource("classpath:dubbo-provider.properties")
-    static class  ProviderConfiguration{
-        @Bean
-        public RegistryConfig   registryConfig(){
-            RegistryConfig  registryConfig  = new RegistryConfig();
-            registryConfig.setAddress("zookeeper://127.0.0.1:2181?timeout=10000");
-            //registryConfig.setTimeout(10000);
-            return registryConfig;
-        }
+    static public class ProviderConfiguration {
+
     }
 
 }
@@ -423,9 +425,11 @@ public class ComsumerComponet {
 ##### 编写消费者的配置文件，消费者通过这个注册中心地址，会注册并根据这个注册中心找到服务提供者列表
 
 ```properties
-dubbo.application.name=service-consumer
+# dubbo-consumer.properties
+dubbo.application.name=demo-consumer
 dubbo.registry.address=zookeeper://127.0.0.1:2181
-dubbo.consumer.timeout=4000
+dubbo.consumer.timeout=3000
+
 
 dubbo.application.qosEnable=true
 dubbo.application.qosPort=33333
@@ -449,7 +453,6 @@ public class AnnotationConsumerMain  {
     public static void main(String[] args) throws  Exception {
         System.out.println("-------------");
         AnnotationConfigApplicationContext   context = new AnnotationConfigApplicationContext(ConsumerConfiguration.class);
-        context.start();
         // 获取消费者组件
         ComsumerComponet  service = context.getBean(ComsumerComponet.class);
         while(true){
@@ -458,11 +461,12 @@ public class AnnotationConsumerMain  {
              System.out.println("result:"+hello);
         }
     }
+    
     @Configuration
-    @PropertySource("classpath:/dubbo-consumer.properties")
-    @ComponentScan(basePackages = "com.lagou.bean")
     @EnableDubbo
-    static  class  ConsumerConfiguration{
+    @PropertySource("classpath:dubbo-consumer.properties")
+    @ComponentScan(basePackages = "com.tangdi.component")
+    static public class ConsumerConfiguration {
 
     }
 }
@@ -546,7 +550,6 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 public class ProviderApplication {
     public static void main(String[] args) throws  Exception{
         ClassPathXmlApplicationContext   applicationContext  = new ClassPathXmlApplicationContext("classpath:dubbo-provider.xml");
-        applicationContext.start();
         System.in.read();
     }
 }
@@ -603,7 +606,6 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 public class ConsumerApplication {
     public static void main(String[] args) throws  Exception{
         ClassPathXmlApplicationContext applicationContext  = new ClassPathXmlApplicationContext("classpath:dubbo-comsumer.xml");
-        //applicationContext.start();
         HelloService  helloService  = applicationContext.getBean("helloService",HelloService.class);
         System.in.read();
         String result = helloService.sayHello("world");
