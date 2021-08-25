@@ -2,13 +2,13 @@
 
 ## 一、Nginx简介
 
-#### Nginx 是什么?
+#### 1. Nginx 是什么?
 
 Nginx是一个高性能的HTTP、反向代理、负载均衡的Web服务器
 
 
 
-####Nginx 可以做？
+#### 2. Nginx 可以做？
 
 Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
@@ -36,7 +36,7 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
   Tomcat 处理项目动态资源如：servlet、jsp等后端资源文件；
 
-#### Nginx 有哪些优点？
+#### 3. Nginx 有哪些优点？
 
 - 跨平台：Nginx可以在⼤多数类unix操作系统上编译运⾏，⽽且也有windows版本
 
@@ -48,7 +48,7 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
 ## 二、Nginx安装及主要命令
 
-#### 安装
+#### 1. 安装
 
 - 上传nginx安装包到linux服务器，nginx安装包(.tar⽂件)下载地址：http://nginx.org
 
@@ -83,7 +83,7 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
   ./nginx
   ```
 
-#### 主要命令
+#### 2. 主要命令
 
 - **./nginx**
 
@@ -101,16 +101,16 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
 ## 三、Nginx使用场景及配置
 
-### 1.反向代理
+### 1. 反向代理
 
-#### 与正向代理的区别：
+#### 1.1 与正向代理的区别：
 
 - 正向代理：与客户端组成一个整体，客户端已知目标服务器站点，通过正向代理请求目标站点
 - 反向代理：与服务端组成一个整体，客户端不知道目标服务器站点。反向代理服务器相当于后端服务器的一个门面。客户端直接请求反向代理服务器即可
 
 
 
-#### 反向代理配置：
+#### 1.2 反向代理配置：
 
 配置location块，使用`proxy_pass http://ip:port`配置反向代理，转发请求到目标服务器
 
@@ -128,13 +128,13 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
 
 
-### 2.负载均衡
+### 2. 负载均衡
 
-#### 同机器多实例Tomcat修改配置
+#### 2.1 同机器多实例Tomcat修改配置
 
 分别要修改server.xml的server端口，所有Connector端口
 
-#### 负载策略
+#### 2.2 负载策略
 
 - 轮询
 
@@ -180,21 +180,54 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
   
 
-###3.动静分离
+### 3. 动静分离
 
 动静分离就是讲动态资源和静态资源的请求处理分配到不同的服务器上，⽐较经典的组合就是Nginx+Tomcat架构（Nginx处理静态资源请求，Tomcat处理动态资源请求）
 
 ![image-20210724210206398](images/image-20210724210206398.png)
 
-#### Nginx配置
+#### 3.1 Nginx配置
 
 ![image-20210724210451346](images/image-20210724210451346.png)
 
 
 
+### 4. 解决跨域
+
+```
+location / {
+	# 设置跨域url
+	set $cors_origin "";
+	if ($http_origin ~* "^http://api.xxx.com$"){
+        set $cors_origin $http_origin;
+	}
+
+    add_header Access-Control-Allow-Origin $cors_origin always;
+    add_header Access-Control-Allow-Credentials true always;
+    add_header Access-Control-Max-Age 86400 always;
+    add_header Access-Control-Allow-Methods GET,POST,OPTIONS always;
+    add_header Access-Control-Allow-Headers $http_access_control_request_headers;
+
+	# 预检请求处理
+	if ($request_method = OPTIONS){
+        return 200;
+	}
+
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+
+    # 解决代理后Swagger无法使用
+    proxy_pass http://myweb;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Port $server_port;
+}
+```
 
 
-### 四、Nginx底层进程机制剖析
+
+## 四、Nginx底层进程机制剖析
 
 #### Nginx底层模型
 
