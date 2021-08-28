@@ -194,7 +194,7 @@ Actuator 监控分成两类：原生端点和用户自定义端点；自定义�
 | GET      | /mappings       | 描述全部的 URI路径，以及它们和控制器(包含Actuator端 点)的映射关系 |
 | GET      | /threaddump     | 获取线程活动的快照                                           |
 
-### 2.3 使用Acturator
+### 2.3 使用Actuator
 
 ##### pom.xml中添加如下依赖
 
