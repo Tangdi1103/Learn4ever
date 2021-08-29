@@ -30,9 +30,13 @@ Hystrix为每个被声明的方法设置一个线程池。如果该线程池请�
 <!--熔断器Hystrix-->
 <dependency>
     <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-netflixhystrix</artifactId>
+    <artifactId>spring-cloud-starter-netflix-hystrix</artifactId>
 </dependency>
 ```
+
+
+
+
 
 ### 2. 服务消费者⼯程的启动类中添加熔断器开启注解@EnableCircuitBreaker
 

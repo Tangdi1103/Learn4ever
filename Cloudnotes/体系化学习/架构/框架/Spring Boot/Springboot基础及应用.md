@@ -221,7 +221,12 @@ spring.devtools.restart.exclude=static/**,public/**
 - **若全局配置中缺省属性值，在自动装配时三方类库bean时，会根据默认值装配。**
 - **若是在全局配置中设置了属性值，在自动装配时三方类库bean时，则会覆盖默认值**
 
-#### 1.全局配置文件可存放的路径，以及不同路径加载优先级顺序如下
+#### 1.全局配置文件的类型-bootstrap和application
+
+- **==bootstrap==** 开头的是系统级别的配置文件，在系统启动时优先加载
+- **==application==** 开头的是应用级别的配置文件
+
+#### 2.全局配置文件可存放的路径，以及不同路径加载优先级顺序如下
 
 1. **/config**（项目根路径下的config文件夹）
 
@@ -231,7 +236,7 @@ spring.devtools.restart.exclude=static/**,public/**
 
 4. **resources/**（resources目录下）
 
-#### 2.全局配置文件的命名规范及同目录下加载优先级
+#### 3.全局配置文件的命名规范及同目录下加载优先级
 
 - application.yml或者application.properties
 
@@ -248,19 +253,19 @@ spring.devtools.restart.exclude=static/**,public/**
   $ java -jar myproject.jar --spring.config.name=myproject
   ```
 
-#### 3.存在多全局配置文件的情况
+#### 4.存在多全局配置文件的情况
 
 - 存在多个全局配置文件时，若配置属性冲突，以优先读取的属性为准
 
 - 存在多个全局配置文件时，若配置属性不冲突，则共同生效-形成互补
 
-#### 4.指定外部全局配置文件
+#### 5.指定外部全局配置文件
 
 ```sh
 java -jar run-0.0.1-SNAPSHOT.jar --spring.config.location=D:/application.properties
 ```
 
-#### 5.当使用@ConfigurationProperties自定义配置项时，可通过以下依赖，在配置文件中进行书写提示 
+#### 6.当使用@ConfigurationProperties自定义配置项时，可通过以下依赖，在配置文件中进行书写提示 
 
  ```xml
  <dependency>
@@ -270,7 +275,7 @@ java -jar run-0.0.1-SNAPSHOT.jar --spring.config.location=D:/application.propert
  </dependency>
  ```
 
-#### 6.properties书写规范
+#### 7.properties书写规范
 
 ```properties
 #数组
@@ -288,7 +293,7 @@ person.pet.type=狗
 person.pet.name=旺财
 ```
 
-#### 7.yaml书写规范
+#### 8.yaml书写规范
 
 ```yaml
 #数组

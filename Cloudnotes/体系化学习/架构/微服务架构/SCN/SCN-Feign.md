@@ -16,6 +16,8 @@ SpringCloud对Feign进⾏了增强，产生了**==OpenFeign==**，它**==⽀持S
 
 
 
+
+
 ## 二、Feign 简单应用及注意事项
 
 ### 1. 消费者
@@ -95,6 +97,8 @@ public void testFeignClient(){
 
 
 
+
+
 ## 三、Feign 对Ribbon负载均衡的⽀持
 
 Feign内部集成了Ribbon以及自动配置，所以无需额外引入依赖。相关设置只需在全局配置文件配置即可
@@ -144,6 +148,8 @@ feign:
 
 
 
+
+
 ### 2. 熔断的相关配置
 
 针对超时这⼀点，当前有两个超时时间设置（Feign/hystrix），熔断是根据最小的超时时间为主，最先熔断进⼊回退降级逻辑
@@ -167,6 +173,8 @@ hystrix:
             # 熔断超时设置，默认为1秒。与ribbon的超时时长比较，最短的生效
             timeoutInMilliseconds: 10000
 ```
+
+
 
 
 
