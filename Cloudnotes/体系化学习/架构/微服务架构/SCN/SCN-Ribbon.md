@@ -6,7 +6,7 @@
 
 ### 1. 简介
 
-**==Ribbon是Netflflix发布的负载均衡器==**。Eureka⼀般配合Ribbon进⾏使⽤，**==Ribbon利⽤从Eureka中读取到服务信息，在调⽤服务提供者提供的服务时，会根据⼀定的算法进⾏负载==**
+**==Ribbon是Netflflix发布的负载均衡器==**。Eureka⼀般配合Ribbon进⾏使⽤，**==Ribbon从Eureka中读取到服务信息，在调⽤服务提供者提供的服务时，会根据⼀定的算法进⾏负载==**
 
 ### 2. 用法
 
@@ -90,12 +90,16 @@ lagou-service-resume:
 ![image-20210828130305255](images/image-20210828130305255.png)
 
 - RestTemplate执行调用方法时，被Ribbon的拦截器拦截
-- Ribbon 从**==本地或者Eureka Client==**获取服务列表，根据URL的applicationName得到所有的服务实例
+- Ribbon **==定时从Eureka Client获取服务列表并缓存本地==**，根据URL的applicationName得到所有的服务实例
 - 根据配置的负载均衡策略选择一个服务实例
 - 最后执行RestTemplate的方法调用服务端的RestFul接口
 
 ### 2. Ribbon源码剖析
 
-#### 利用SpringBoot的自动装配原理，在Ribbon的jar包下，有/META-INF/spring.factories
+#### 2.1 利用SpringBoot的自动装配原理，在Ribbon的jar包下，有/META-INF/spring.factories
 
-后续略。。
+#### 2.2 获取服务实例
+
+**ServerListUpdater** 是Ribbon中负责服务实例更新的组件，默认的实现是 **PollingServerListUpdater**，通过线程定时去更新实例信息，定时刷新的时间间隔默认是30秒
+
+刷新间隔的参数通过 getRefreshIntervalMs ⽅法来获取的，⽅法中的逻辑从Ribbon 的配置中进⾏取值的

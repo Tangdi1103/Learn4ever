@@ -20,11 +20,11 @@ Spring Cloud Confifig是⼀个分布式配置管理⽅案，包含了 Server端�
 
 ## 三、Spring Cloud Config 应用
 
-#### 1. 在远程Git仓库创建项目：confifig-repo
+#### 1. 在远程Git仓库创建项目：config-repo
 
 
 
-#### 2. 上传配置文件至confifig-repo，命名规范如下
+#### 2. 上传配置文件至config-repo，命名规范如下
 
 {application}-{profifile}.yml 
 
@@ -116,12 +116,12 @@ eureka:
 
 spring:
   application:
-    name: lagou-cloud-configserver
+    name: configserver
   cloud:
     config:
       server:
         git:
-          uri: https://github.com/5173098004/lagou-config-repo.git #配置git服务地址
+          uri: https://github.com/5173098004/config-repo.git #配置git服务地址
           username: 495003879@qq.com #配置git用户名
           password: 123456 #配置git密码
           search-paths:

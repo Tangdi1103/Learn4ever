@@ -19,13 +19,15 @@ Eureka 包含两个组件
 
 ### 2. 具体流程
 
+#### [可查看SCN的常见问题](SCN-常见问题)
+
 ![image-20210828010414296](images/image-20210828010414296.png)
 
 Eureka Server集群
 
 - 每个Eureka Server同时也是Eureka Client，将自身注册到其他注册中心，以便数据互相同步
 - 当有服务通过Eureka Client注册到Eureka Server时，Eureka Server集群会进行数据同步
-- Eureka Server接收到服务的注册信息，将服务信息缓存在ConcurrentHashMap中，有两级缓存
+- Eureka Server接收到服务的注册信息，将服务信息缓存在**==registry注册表（ConcurrentHashMap）==**中，并且还额外提供两级缓存，分别是一级（只读缓存）和二级（读写缓存），**==一级缓存默认30秒从二级缓存拉取一次信息==**。**==二级缓存默认180秒从注册表拉取一次==**
 - **==每隔 60S（默认值） 扫描一次服务列表==**，若服务**==超过 90S（默认值）  未续约==**，则**==剔除该服务==**
 
 
@@ -35,6 +37,7 @@ Eureka Client
 1. 服务启动时，将信息注册到注册中心
 2. **==每隔 30S（默认值）==**，发送一次**==心跳/renew（续约）==**
 3. **==每隔 30S（默认值）==**，从**==注册中心拉取服务列表并缓存在本地==**
+4. **==Ribbon每隔 30S（默认值）==**，从Eureka Client获取服务信息并缓存在本地
 
 
 
@@ -307,6 +310,8 @@ public class LagouEurekaServerApp8761 {
 
 #### 2.3 全局配置文件及说明
 
+在 ⼀个实例中，把另外的实例作为了集群中的镜像节点，那么这个http://EurekaServerB:8762/eureka URL 中的EurekaServerB 就要和其它个profifile 中的eureka.instance.hostname 保持⼀致
+
 ```yaml
 #eureka server服务端口
 server:
@@ -317,12 +322,12 @@ spring:
 # eureka 客户端配置（和Server交互），Eureka Server 其实也是一个Client
 eureka:
   instance:
-    hostname: LagouCloudEurekaServerA  # 当前eureka实例的主机名
+    hostname: EurekaServerA  # 当前eureka实例的主机名
   client:
     service-url:
       # 配置客户端所交互的Eureka Server的地址（Eureka Server集群中每一个Server其实相对于其它Server来说都是Client）
       # 集群模式下，defaultZone应该指向其它Eureka Server，如果有更多其它Server实例，逗号拼接即可
-      defaultZone: http://localhost:8762/eureka
+      defaultZone: http://EurekaServerB:8762/eureka
     register-with-eureka: true  # 集群模式下可以改成true,是否注册到注册中心
     fetch-registry: true # 集群模式下可以改成true
   dashboard:
@@ -582,3 +587,12 @@ eureka-server的jar包，META-INF下⾯有spring.factories配置⽂件，配置�
 ![image-20210828030553737](images/image-20210828030553737.png)
 
 ##### 1.3 EurekaServerAutoConfifiguration注入相关RestFul接口
+
+
+
+
+
+### 2. EurekaClient定时拉取服务
+
+EurekaClient的**com.netflflix.discovery.DiscoveryClient.initScheduledTasks() **⽅法中，初始化了⼀个 **CacheRefreshThread 定时任务**专⻔⽤来拉取 Eureka Server 的实例信息到本地。
+

@@ -73,7 +73,7 @@ Spring Cloud GateWay由Spring官方开发的网关，目的是替代Netflix Zuul
 
 GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
 
-#### 1. 创建网关工程，pom.xml文件
+### 1. 创建网关工程，pom.xml文件
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -81,8 +81,9 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-    <modelVersion>4.0.0</modelVersion>
-    <artifactId>com.tangdi</artifactId>
+    <groupId>com.tangdi</groupId>
+    <artifactId>scn-gateway</artifactId>
+    <version>1.0-SNAPSHOT</version>
 
     <!--spring boot 父启动器依赖-->
     <parent>
@@ -213,7 +214,7 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
 
 
 
-#### 2. 创建启动类
+### 2. 创建启动类
 
 ```java
 import org.springframework.boot.SpringApplication;
@@ -232,7 +233,7 @@ public class GateWayApplication {
 
 
 
-#### 3. 全局配置文件及说明
+### 3. 全局配置文件及说明
 
 ```yaml
 server:
