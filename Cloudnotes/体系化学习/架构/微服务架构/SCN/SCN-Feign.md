@@ -24,6 +24,8 @@ SpringCloud对Feign进⾏了增强，产生了**==OpenFeign==**，它**==⽀持S
 
 #### 1.1 pom文件引入openFeign
 
+若引入openFein，则无需额外引入Hystrix的依赖了
+
 ```xml
 <dependency>
     <groupId>org.springframework.cloud</groupId>

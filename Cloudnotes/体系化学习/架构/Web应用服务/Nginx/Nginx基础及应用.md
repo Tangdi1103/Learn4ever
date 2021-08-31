@@ -116,11 +116,11 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
 生效nginx配置，使用`nginx -s reload`
 
-![image-20210724203947378](images/image-20210724203947378.png)
+![image-20210901021454092](images/image-20210901021454092.png)
+
+**注意：配置反向代理时，指定反向代理路径使用proxy_pass，当location的路径匹配后，如图请求路径为localhost:80/api/xxx，则实际路由到`http://localhost:9002/api/xxx`**
 
 `location /favicon.ico`代表将浏览器的一个加载小图标请求空输出，不请求到后端
-
-![image-20210727010622061](images/image-20210727010622061.png)
 
 **转发路由到后端服务器时，把原HTTP请求头的信息带过过去**
 
@@ -190,6 +190,10 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
 ![image-20210724210451346](images/image-20210724210451346.png)
 
+![image-20210901021454092](images/image-20210901021454092.png)
+
+**注意：配置动静分离时，指定前端路径使用alias，当location的路径匹配后，路由到的真实路径都是alisa指定的路径**
+
 
 
 ### 4. 解决跨域
@@ -219,6 +223,7 @@ location / {
     # 解决代理后Swagger无法使用
     proxy_pass http://myweb;
     proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Port $server_port;
