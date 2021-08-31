@@ -101,7 +101,9 @@ eureka:
 eureka:
   server:
     # 定时扫描服务列表，若服务在一定时间内没有续约（默认90秒），则会注销此实例，默认60秒
-    eviction-interval-timer-in-ms: 60
+    eviction-interval-timer-in-ms: 60000
+    # 关闭一级缓存
+    use-read-only-response-cache: false
     # 关闭⾃我保护模式（缺省为打开）
     enable-self-preservation: false 
   instance:

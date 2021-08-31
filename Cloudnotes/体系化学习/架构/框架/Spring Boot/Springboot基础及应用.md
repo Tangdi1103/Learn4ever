@@ -275,7 +275,19 @@ java -jar run-0.0.1-SNAPSHOT.jar --spring.config.location=D:/application.propert
  </dependency>
  ```
 
-#### 7.properties书写规范
+#### 7.多环境profiles的加载优先级
+
+- 若有指定profiles，则优先加载相应的application-{profile}配置文件（程序启动时指定或者在公共配置文件中指定）
+
+  - 启动时指定--spring.profiles.active=xxx
+
+  - 公共配置文件application.yml的spring.profiles.active=xxx
+
+- 再加载公共配置文件application.yml
+
+
+
+#### 8.properties书写规范
 
 ```properties
 #数组
@@ -293,7 +305,7 @@ person.pet.type=狗
 person.pet.name=旺财
 ```
 
-#### 8.yaml书写规范
+#### 9.yaml书写规范
 
 ```yaml
 #数组

@@ -99,6 +99,8 @@ public class ConfigServerApplication9006 {
 
 ##### 3.3 全局配置文件
 
+`search-paths` 属性代表在仓库下的哪些目录寻找配置，若全都无法匹配，则在仓库的根目录下找
+
 ```yaml
 server:
   port: 9006
@@ -124,8 +126,12 @@ spring:
           uri: https://github.com/5173098004/config-repo.git #配置git服务地址
           username: 495003879@qq.com #配置git用户名
           password: 123456 #配置git密码
+          # 属性代表在仓库下的哪些目录寻找配置，若全都无法匹配，则在仓库的根目录下找
           search-paths:
-            - config-repo
+            - user-repo
+            - code-repo
+            - email-repo
+            - scn-gateway-repo
       # 读取分支
       label: master
   rabbitmq:
@@ -175,11 +181,24 @@ spring:
   cloud:
     # config客户端配置,和ConfigServer通信，并告知ConfigServer希望获取的配置信息在哪个⽂件中
     config:
-      name: lagou-service-resume #配置⽂件名称
+      name: email-service #配置⽂件名称
       profile: dev #后缀名称
       label: master #分⽀名称
-      uri: http://localhost:9006 #ConfigServer配置中⼼地址
+      #ConfigServer配置中⼼地址
+#      uri: http://scn-config-server
+      # 从注册中心获取配置中心地址
+      discovery:
+        enabled: true
+        service-id: scn-config-server
 ```
+
+
+
+##### 4.3 配置的加载优先级说明
+
+1. 首先加载bootstrap.yml配置信息，然后去分布式配置中心拉取{application}-{profifile}.yml 配置
+2. 优先加载从配置中心下载的配置，再加载application-{profifile}.yml配置，最后加载公共application.yml配置
+3. 若配置中心找不到配置，则加载application-{profifile}.yml配置，最后加载公共application.yml配置
 
 
 

@@ -80,6 +80,7 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.tangdi</groupId>
     <artifactId>scn-gateway</artifactId>
@@ -97,10 +98,19 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-commons</artifactId>
         </dependency>
+
+        <!--eureka client 客户端依赖引入-->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
         </dependency>
+
+        <!--分布式配置中心config client-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-client</artifactId>
+        </dependency>
+
         <!--GateWay 网关-->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -196,8 +206,8 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>11</source>
-                    <target>11</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                     <encoding>utf-8</encoding>
                 </configuration>
             </plugin>

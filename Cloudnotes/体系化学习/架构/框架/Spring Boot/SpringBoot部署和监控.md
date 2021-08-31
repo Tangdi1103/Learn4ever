@@ -148,6 +148,12 @@ Springboot的资源配置文件除了application.properties之外，还可以有
 
 不同的properties配置文件也可以在 `applcation.properties`文件中来激活 profile:`spring.profiles.active = test`
 
+**加载顺序**
+
+- 先根据spring.profiles.active加载对应黄静的配置文件
+
+- 再加载公共配置文件 
+
 ## 2. SpringBoot监控
 
 微服务的特点决定了功能模块的部署是分布式的，大部分功能模块都是运行在不同的机器上，彼此通过服务调用进行交互，前后台的业务流会经过很多个微服务的处理和传递，出现了异常如何快速定位是哪个环节出现了问题？
