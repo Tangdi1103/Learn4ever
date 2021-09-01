@@ -232,6 +232,20 @@ location / {
 
 
 
+### 5. Nginx重构请求头，转发真实ip
+
+```
+location / {
+	proxy_pass http://myweb;
+	#重构请求头，获取客户端请求的IP地址
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+
+
 ## 四、Nginx底层进程机制剖析
 
 #### Nginx底层模型

@@ -152,6 +152,11 @@ public Integer findResumeOpenStateTimeoutFallback(@PathVariable Long userId) {
 
 ```yaml
 hystrix:
+  threadpool:
+    default:
+      coreSize: 10 #并发执行的最大线程数，默认10
+      maxQueueSize: 1500 #BlockingQueue的最大队列数，默认值-1
+      queueSizeRejectionThreshold: 1000 #拒绝阈值，默认值5，即使未达到maxQueueSize，之后的所有请求也都会被拒绝
   command:
     default:
       circuitBreaker:

@@ -65,6 +65,8 @@ lagou-service-resume:
 #针对的被调用方微服务名称,不加就是全局生效
 lagou-service-resume:
   ribbon:
+    # 从eureka client拉取注册信息的时间间隔
+    ServerListRefreshInterval: 30000
     #请求连接超时时间
     ConnectTimeout: 2000
     #请求处理超时时间,Feign超时时长设置。与Hystrix超时时长比较，取最短的生效
@@ -100,6 +102,6 @@ lagou-service-resume:
 
 #### 2.2 获取服务实例
 
-**ServerListUpdater** 是Ribbon中负责服务实例更新的组件，默认的实现是 **PollingServerListUpdater**，通过线程定时去更新实例信息，定时刷新的时间间隔默认是30秒
+**ServerListUpdater** 是Ribbon中负责服务实例更新的组件，默认的实现是 **PollingServerListUpdater**，通过线程定时去更新实例信息，定时刷新的时间间隔默认是30秒，通过 `ribbon.ServerListRefreshInterval` 配置
 
 刷新间隔的参数通过 getRefreshIntervalMs ⽅法来获取的，⽅法中的逻辑从Ribbon 的配置中进⾏取值的

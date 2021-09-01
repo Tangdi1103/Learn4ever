@@ -47,7 +47,7 @@ Eureka 服务发现慢的原因主要有两个
 
 ##### 2.2 Ribbon
 
-- 缩短Ribbon定时拉取服务信息的时间间隔
+- 缩短Ribbon定时拉取服务信息的时间间隔（`ribbon.server-list-refresh-interval `）
 - 开启重试并设置重试次数
 
 

@@ -510,7 +510,10 @@ public class BlackListFilter implements GlobalFilter, Ordered {
         ServerHttpResponse response = exchange.getResponse();
 
         // 从request对象中获取客户端ip
-        String clientIp = request.getRemoteAddress().getHostString();
+        // String clientIp = request.getRemoteAddress().getHostString();
+        // 从nginx获取客户端真实ip
+        String clientIp = request.getHeaders().getFirst("X-Real-IP");
+        
         // 拿着clientIp去黑名单中查询，存在的话就决绝访问
         if(blackList.contains(clientIp)) {
             // 决绝访问，返回
@@ -536,4 +539,89 @@ public class BlackListFilter implements GlobalFilter, Ordered {
     }
 }
 ```
+
+#### 4. 基于令牌漏桶算法的限流过滤器
+
+Spring cloud gateway官方提供了基于令牌桶的限流算法，基于内部的过滤器工厂RequestRateLimiterGatewayFilterFactory实现。
+
+##### 目前RequestRateLimiterGatewayFilterFactory的实现依==赖于 Redis，所以我们还要引入spring-boot-starter-data-redis-reactive==
+
+```xml
+<dependency> 
+    <groupId>org.springframework.cloud</groupId> 
+    <artifactId>spring-cloud-starter-gateway</artifactId>
+</dependency> 
+<dependency> 
+    <groupId>org.springframework.boot</groupId> 
+    <artifatId>spring-boot-starter-data-redis- reactive</artifactId> 
+</dependency>
+```
+
+##### 配置文件
+
+```yaml
+server: 
+  port: 8080
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: limit_route
+          uri: http://httpbin.org:80/get
+          predicates:
+            - After=2019-02-26T00:00:00+08:00[Asia/Shanghai]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: '#{@userKeyResolver}' #获取请求用户id作为限流key
+                redis-rate-limiter.replenishRate: 50 #令牌桶每秒填充平均速率
+                redis-rate-limiter.burstCapacity: 300 #令牌桶总容量
+  application:
+    name: scn-gateway
+  redis:
+    host: localhost
+    port: 6379 
+    database: 0
+```
+
+配置了RequestRateLimiter的限流过滤器，该过滤器需要配置三个参数
+
+- redis-rate-limiter.burstCapacity：令牌桶总容量。
+
+- redis-rate-limiter.replenishRate：令牌桶每秒填充平均速率。
+- key-resolver：用于限流的键的解析器的 Bean 对象的名字。它使用 SpEL表达式根据#{@beanName}从 Spring 容器中获取 Bean 对象。
+
+##### 限流key解析器bean对象的声明
+
+```java
+@Configuration
+public class KeyResolverConfiguration {
+    /*** 接口限流： * 获取请求地址的uri作为限流key。 */
+    @Bean
+    public KeyResolver pathKeyResolver() {
+        return new KeyResolver() {
+            @Override
+            public Mono<String> resolve(ServerWebExchange exchange) {
+                return Mono.just(exchange.getRequest().getPath().toString());
+            }
+        };
+    }
+
+    /*** 用户限流： * 获取请求用户id作为限流key。 */
+    @Bean
+    public KeyResolver userKeyResolver() {
+        return exchange -> Mono.just(exchange.getRequest().getQueryParams().getFirst("userId"));
+    }
+
+    /**
+     * IP限流： * 获取请求用户ip作为限流key。
+     */
+    @Bean
+    public KeyResolver hostAddrKeyResolver() {
+        return exchange -> Mono.just(exchange.getRequest().getRemoteAddress().getHostName());
+    }
+}
+```
+
+
 

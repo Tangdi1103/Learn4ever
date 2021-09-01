@@ -27,7 +27,7 @@ Eureka Server集群
 
 - 每个Eureka Server同时也是Eureka Client，将自身注册到其他注册中心，以便数据互相同步
 - 当有服务通过Eureka Client注册到Eureka Server时，Eureka Server集群会进行数据同步
-- Eureka Server接收到服务的注册信息，将服务信息缓存在**==registry注册表（ConcurrentHashMap）==**中，并且还额外提供两级缓存，分别是一级（只读缓存）和二级（读写缓存），**==一级缓存默认30秒从二级缓存拉取一次信息==**。**==二级缓存默认180秒从注册表拉取一次==**
+- Eureka Server接收到服务的注册信息，将服务信息缓存在**==registry注册表（ConcurrentHashMap）==**中，并且还额外提供两级缓存，分别是一级（只读缓存）和二级（读写缓存），**==一级缓存默认30秒从二级缓存拉取一次信息==**。**==二级缓存与注册表实时同步==**
 - **==每隔 60S（默认值） 扫描一次服务列表==**，若服务**==超过 90S（默认值）  未续约==**，则**==剔除该服务==**
 
 
@@ -40,6 +40,45 @@ Eureka Client
 4. **==Ribbon每隔 30S（默认值）==**，从Eureka Client获取服务信息并缓存在本地
 
 
+
+### 3.Eureka Server的三级缓存
+
+[详情查看Eureka Server配置](#3.Eureka Server配置)
+
+Eureka Server存在三个变量：
+
+- registry
+- readWriteCacheMap
+- readOnlyCacheMap
+
+客户端注册到Eureka Server后，默认情况下定时任务**==每30s将readWriteCacheMap同步至readOnlyCacheMap==**，**==每60s清理超过90s未续约的节点==**
+
+![image-20210902005556333](images/image-20210902005556333.png)
+
+| **缓存**              | 类型                       | 说明                                                         |
+| --------------------- | -------------------------- | ------------------------------------------------------------ |
+| **registry**          | ConcurrentHashMap          | **实时更新**，类AbstractInstanceRegist成员变量，UI端请求的是这里的服务注册信息 |
+| **readWriteCacheMap** | Guava /Cache /LoadingCache | **实时更新**，类ResponseCacheImpl成员变量，缓存时间180秒。当服务下线、过期、注册、状态变更，都会来清除此缓存中的数据。 |
+| **readOnlyCacheMap**  | ConcurrentHashMap          | **周期更新**，类ResponseCacheImpl成员变量，默认每30s从readWriteCacheMap更新，Eureka client默认从这里更新服务注册信息，可配置直接从readWriteCacheMap更新 |
+
+
+
+### 4.Eureka Client的两级缓存
+
+[详情查看Eureka Client配置](#2.Eureka Client配置)
+
+Eureka Client存在两种角色：
+
+- 服务消费者，默认情况下 **==每30s从Eureka Server一级缓存readOnlyCacheMap拉取服务注册信息==**
+
+- **==Ribbon 默认每30s 从Eureka Client拉取注册信息==**，通过`ribbon.server-list-refresh-interval`配置
+
+
+
+| **缓存**            | 类型              | 说明                                                         |
+| ------------------- | ----------------- | ------------------------------------------------------------ |
+| localRegionApps     | AtomicReference   | **周期更新** ，类DiscoveryClient成员变量，Eureka Client保存服务注册信息，启动后立即向Server全量更新，默认每30s增量更新 |
+| upServerListZoneMap | ConcurrentHashMap | **周期更新** ，类LoadBalancerStats成员变量，Ribbon保存使用且状态为UP的服务注册信息，启动后延时1s向Client更新，默认每30s更新 |
 
 
 
@@ -102,12 +141,16 @@ eureka:
   server:
     # 定时扫描服务列表，若服务在一定时间内没有续约（默认90秒），则会注销此实例，默认60秒
     eviction-interval-timer-in-ms: 60000
-    # 关闭一级缓存
+    # 关闭一级缓存readOnlyCacheMap
     use-read-only-response-cache: false
+    # readOnlyCacheMap从二级缓存拉取注册信息间隔
+    responsec-cache-update-interval-ms: 30000
     # 关闭⾃我保护模式（缺省为打开）
     enable-self-preservation: false 
   instance:
     hostname: LagouCloudEurekaServerA  # 当前eureka实例的主机名
+    # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
+    lease-expiration-duration-in-seconds: 90
   client:
     service-url:
       # 配置客户端所交互的Eureka Server的地址（Eureka Server集群中每一个Server其实相对于其它Server来说都是Client）
@@ -598,3 +641,8 @@ eureka-server的jar包，META-INF下⾯有spring.factories配置⽂件，配置�
 
 EurekaClient的**com.netflflix.discovery.DiscoveryClient.initScheduledTasks() **⽅法中，初始化了⼀个 **CacheRefreshThread 定时任务**专⻔⽤来拉取 Eureka Server 的实例信息到本地。
 
+### 3.注册表
+
+com.netflix.eureka.registry.AbstractInstanceRegistry，保存服务注册信息， 持有registry和 responseCache成员变量 
+
+com.netflix.eureka.registry.ResponseCacheImpl ，持有readWriteCacheMap 和readOnlyCacheMap 成员变量
