@@ -123,7 +123,7 @@ eureka:
     #使⽤ip注册，否则会使⽤主机名注册了（此处考虑到对⽼版本的兼容，新版本经过实验都是ip）
     prefer-ip-address: true  
     # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
     # 租约续约间隔时间，默认30秒
     lease-renewal-interval-in-seconds: 30
     # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
@@ -358,23 +358,29 @@ public class LagouEurekaServerApp8761 {
 在 ⼀个实例中，把另外的实例作为了集群中的镜像节点，那么这个http://EurekaServerB:8762/eureka URL 中的EurekaServerB 就要和其它个profifile 中的eureka.instance.hostname 保持⼀致
 
 ```yaml
-#eureka server服务端口
 server:
   port: 8761
 spring:
   application:
-    name: lagou-cloud-eureka-server # 应用名称，应用名称会在Eureka中作为服务名称
+    name: scn-eureka-server
 # eureka 客户端配置（和Server交互），Eureka Server 其实也是一个Client
 eureka:
+  server:
+    # 定时扫描服务列表，若服务在一定时间内没有续约（默认90秒），则会注销此实例，默认60秒
+    eviction-interval-timer-in-ms: 30000
+    # 关闭一级缓存
+    use-read-only-response-cache: false
   instance:
-    hostname: EurekaServerA  # 当前eureka实例的主机名
+    hostname: EurekaServerB  # 当前eureka实例的主机名
   client:
     service-url:
       # 配置客户端所交互的Eureka Server的地址（Eureka Server集群中每一个Server其实相对于其它Server来说都是Client）
       # 集群模式下，defaultZone应该指向其它Eureka Server，如果有更多其它Server实例，逗号拼接即可
-      defaultZone: http://EurekaServerB:8762/eureka
-    register-with-eureka: true  # 集群模式下可以改成true,是否注册到注册中心
-    fetch-registry: true # 集群模式下可以改成true
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
+    # 集群模式下可以改成true,是否注册到注册中心
+    register-with-eureka: true
+    # 集群模式下可以改成true
+    fetch-registry: true
   dashboard:
     enabled: true
 ```
@@ -395,21 +401,147 @@ eureka:
 
 
 
-### 3.创建Eureka Client-服务提供者工程
+
+
+### 3.创建公共API工程
 
 #### 3.1 pom.xml
 
 ```xml
-<!--eureka client 客户端依赖引入-->
-<dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-</dependency>
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>scn-demo</artifactId>
+        <groupId>com.tangdi</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>api-service</artifactId>
+
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!--链路追踪-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-sleuth</artifactId>
+        </dependency>
+        <!--Zipkin Client聚合链路sleuth-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-zipkin</artifactId>
+        </dependency>
+    </dependencies>
+</project>
 ```
 
 
 
-#### 3.2 启动类及说明
+#### 3.2 创建domain以及接口interface
+
+```java
+import lombok.Data;
+
+import javax.persistence.*;
+import java.util.Date;
+
+@Table(name="auth_code")
+@Entity
+@Data
+public class AuthCode {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+    private String email;
+    private String code;
+    private Date createtime;
+    private Date expiretime;
+
+}
+```
+
+```java
+package com.tangdi.service.email;
+
+
+import com.tangdi.domain.email.MailEntity;
+
+public interface MailService {
+    void sendSimpleMail(MailEntity entity);
+}
+```
+
+
+
+
+
+### 4.创建Eureka Client-服务提供者工程
+
+#### 4.1 pom.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>scn-demo</artifactId>
+        <groupId>com.tangdi</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>code-service</artifactId>
+
+
+    <dependencies>
+        <dependency>
+            <groupId>com.tangdi</groupId>
+            <artifactId>api-service</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!--eureka client 客户端依赖引入-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- &lt;!&ndash;分布式配置中心config client&ndash;&gt;
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-client</artifactId>
+        </dependency>
+
+        &lt;!&ndash;openfeign&ndash;&gt;
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>-->
+    </dependencies>
+</project>
+```
+
+
+
+#### 4.2 启动类及说明
 
 从Spring Cloud Edgware版本开始，@EnableDiscoveryClient 或@EnableEurekaClient 可省略
 
@@ -430,9 +562,9 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 //@EnableEurekaClient  // 开启Eureka Client（Eureka独有）
 // 说明：从SpringCloud的Edgware版本开始，不加注解也ok，但是建议大家加上
 @EnableDiscoveryClient // 开启注册中心客户端 （通用型注解，比如注册到Eureka、Nacos等）                
-public class LagouResumeApplication8080 {
+public class CodeServiceApplication {
     public static void main(String[] args) {
-        SpringApplication.run(LagouResumeApplication8080.class,args);
+        SpringApplication.run(CodeServiceApplication.class,args);
     }
 
 }
@@ -444,16 +576,44 @@ public class LagouResumeApplication8080 {
 #### 3.3 全局配置文件及说明
 
 ```yaml
+server:
+  port: 7071
+  servlet:
+    context-path: /code
+
+spring:
+  application:
+    name: code-service
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/demo_jpa?useSSL=false&characterEncoding=utf-8&serverTimezone=GMT
+    username: root
+    password: 123456
+  jpa:
+    database: MySQL
+    show-sql: true
+    hibernate:
+      naming:
+        #避免将驼峰命名转换为下划线命名
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl  
+
+
 #注册到Eureka服务中心
 eureka:
   client:
+    # 每隔多久拉取⼀次服务列表
+    registry-fetch-interval-seconds: 10
     service-url:
       # 注册到集群，就把多个Eurekaserver地址使用逗号连接起来即可
       defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
   instance:
     prefer-ip-address: true  #使⽤ip注册，否则会使⽤主机名注册了（此处考虑到对⽼版本的兼容，新版本经过实验都是ip）
     # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
+    # 租约续约间隔时间，默认30秒
+    lease-renewal-interval-in-seconds: 10
+    # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
+    lease-expiration-duration-in-seconds: 30
 ```
 
 
@@ -464,21 +624,57 @@ eureka:
 
 
 
-### 4.创建Eureka Client-服务消费者工程
+### 5.创建Eureka Client-服务消费者工程
 
-#### 3.1 pom.xml
+#### 5.1 pom.xml
 
 ```xml
-<!--eureka client 客户端依赖引入-->
-<dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-</dependency>
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>scn-demo</artifactId>
+        <groupId>com.tangdi</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>user-service</artifactId>
+
+
+
+    <dependencies>
+        <dependency>
+            <groupId>com.tangdi</groupId>
+            <artifactId>api-service</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!--eureka client 客户端依赖引入-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- &lt;!&ndash;分布式配置中心config client&ndash;&gt;
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-client</artifactId>
+        </dependency>
+
+        &lt;!&ndash;openfeign&ndash;&gt;
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>-->
+    </dependencies>
+</project>
 ```
 
 
 
-#### 3.2 启动类及说明
+#### 5.2 启动类及说明
 
 从Spring Cloud Edgware版本开始，@EnableDiscoveryClient 或@EnableEurekaClient 可省略
 
@@ -502,10 +698,10 @@ import org.springframework.web.client.RestTemplate;
 //@EnableEurekaClient  // 开启Eureka Client（Eureka独有）
 // 说明：从SpringCloud的Edgware版本开始，不加注解也ok，但是建议大家加上
 @EnableDiscoveryClient // 开启注册中心客户端 （通用型注解，比如注册到Eureka、Nacos等）
-public class AutodeliverApplication8096 {
+public class UserServiceApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AutodeliverApplication8096.class,args);
+        SpringApplication.run(UserServiceApplication.class,args);
     }
 
     /**
@@ -526,21 +722,48 @@ public class AutodeliverApplication8096 {
 #### 3.3 全局配置文件及说明
 
 ```yaml
+server:
+  port: 7070
+  servlet:
+    context-path: /user
+spring:
+  application:
+    name: user-service
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/demo_jpa?useSSL=false&characterEncoding=utf-8&serverTimezone=GMT
+    username: root
+    password: 123456
+  jpa:
+    database: MySQL
+    show-sql: true
+    hibernate:
+      naming:
+        #避免将驼峰命名转换为下划线命名
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl  
+
+
 #注册到Eureka服务中心
 eureka:
   client:
+    # 每隔多久拉取⼀次服务列表
+    registry-fetch-interval-seconds: 10
     service-url:
       # 注册到集群，就把多个Eurekaserver地址使用逗号连接起来即可
-      defaultZone: http://LagouCloudEurekaServerA:8761/eureka,http://LagouCloudEurekaServerB:8762/eureka
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
   instance:
     prefer-ip-address: true  #使⽤ip注册，否则会使⽤主机名注册了（此处考虑到对⽼版本的兼容，新版本经过实验都是ip）
     # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
+    # 租约续约间隔时间，默认30秒
+    lease-renewal-interval-in-seconds: 10
+    # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
+    lease-expiration-duration-in-seconds: 30
 ```
 
 
 
-#### 3.4 通过Eureka发现服务并调用RestFul接口
+#### 5.4 通过Eureka发现服务并调用RestFul接口
 
 ```java
 import com.netflix.hystrix.contrib.javanica.annotation.HystrixCommand;
@@ -571,18 +794,19 @@ public class AutodeliverController {
      */
     @GetMapping("/checkState/{userId}")
     public Integer findResumeOpenState(@PathVariable Long userId) {
-        // TODO 从Eureka Server中获取我们关注的那个服务的实例信息以及接口信息
-        // 1、从 Eureka Server中获取lagou-service-resume服务的实例信息（使用客户端对象做这件事）
-        List<ServiceInstance> instances = discoveryClient.getInstances("lagou-service-resume");
-        // 2、如果有多个实例，选择一个使用(负载均衡的过程)
+
+        // 从eureka server根据服务名获取实例列表
+        List<ServiceInstance> instances = discoveryClient.getInstances("code-service");
+        
+        // 如果有多个实例，选择一个使用(负载均衡的过程)
         ServiceInstance serviceInstance = instances.get(0);
-        // 3、从元数据信息获取host port
+        
+        // 从元数据信息获取host port
         String host = serviceInstance.getHost();
         int port = serviceInstance.getPort();
         String url = "http://" + host + ":" + port + "/resume/openstate/" + userId;
         System.out.println("===============>>>从EurekaServer集群获取服务实例拼接的url：" + url);
-        // 调用远程服务—> 简历微服务接口  RestTemplate  -> JdbcTempate
-        // httpclient封装好多内容进行远程调用
+        // 调用远程服务
         Integer forObject = restTemplate.getForObject(url, Integer.class);
         return forObject;
     }

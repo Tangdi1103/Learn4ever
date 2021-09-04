@@ -63,7 +63,7 @@ lagou-service-resume:
 
 ```yaml
 #针对的被调用方微服务名称,不加就是全局生效
-lagou-service-resume:
+user-service:
   ribbon:
     # 从eureka client拉取注册信息的时间间隔
     ServerListRefreshInterval: 30000

@@ -99,6 +99,29 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
             <artifactId>spring-cloud-commons</artifactId>
         </dependency>
 
+        <!--gateway使用weblux，需要排除spring-boot-starter-web依赖-->
+        <dependency>
+            <groupId>com.tangdi</groupId>
+            <artifactId>api-service</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-web</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!--eureka client 客户端依赖引入-->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -227,18 +250,28 @@ GateWay不需要使⽤web模块，它引⼊的是WebFlux（类似于SpringMVC）
 ### 2. 创建启动类
 
 ```java
+package com.tangdi;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
+/**
+ * @program: scn-eureka
+ * @description:
+ * @author: Wangwentao
+ * @create: 2021-08-30 15:48
+ **/
+
 @SpringBootApplication
 @EnableDiscoveryClient
-public class GateWayApplication {
+public class ScnGateWayApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(GateWayApplication.class,args);
+        SpringApplication.run(ScnGateWayApplication.class,args);
     }
 }
+
 ```
 
 
@@ -247,39 +280,92 @@ public class GateWayApplication {
 
 ```yaml
 server:
-  port: 9002
+  port: 7002
+  
+##注册到Eureka服务中心
 eureka:
   client:
-    serviceUrl: # eureka server的路径
-      defaultZone: http://lagoucloudeurekaservera:8761/eureka/,http://lagoucloudeurekaserverb:8762/eureka/ #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
+    # 每隔多久拉取⼀次服务列表
+    registry-fetch-interval-seconds: 10
+    service-url:
+      # 注册到集群，就把多个Eurekaserver地址使用逗号连接起来即可
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
   instance:
-    #使用ip注册，否则会使用主机名注册了（此处考虑到对老版本的兼容，新版本经过实验都是ip）
-    prefer-ip-address: true
-    #自定义实例显示格式，加上版本号，便于多版本管理，注意是ip-address，早期版本是ipAddress
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+    prefer-ip-address: true  #使⽤ip注册，否则会使⽤主机名注册了（此处考虑到对⽼版本的兼容，新版本经过实验都是ip）
+    # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
+    # 租约续约间隔时间，默认30秒
+    lease-renewal-interval-in-seconds: 10
+    # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
+    lease-expiration-duration-in-seconds: 30
+
 spring:
   application:
-  name: scn-gateway
+    name: scn-gateway
+  redis:
+    database: 0
+    password:
+    jedis:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1
+    timeout: 300000
+    host: localhost
+    port: 6379
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/demo_jpa?useSSL=false&characterEncoding=utf-8&serverTimezone=GMT
+    username: root
+    password: 123456
+  jpa:
+    database: MySQL
+    show-sql: true
+    hibernate:
+      naming:
+         #避免将驼峰命名转换为下划线命名
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl 
   cloud:
     gateway:
       # 路由可以有多个
-      routes: 
+      routes:
         # 我们自定义的路由 ID，保持唯一
-        - id: service-autodeliver-router 
-          # 目标服务地址  自动投递微服务（部署多实例）  动态路由：uri配置的应该是一个服务名称，而不应该是一个具体的服务实例的地址
-          #uri: http://127.0.0.1:8096
+        - id: user-service-route
           # gateway网关从服务注册中心获取实例信息然后负载后路由
-          uri: lb://lagou-service-autodeliver                                                                    
+          uri: lb://user-service
           # 断言：路由条件，Predicate 接受一个输入参数，返回一个布尔值结果。该接口包含多种默 认方法来将 Predicate 组合成其他复杂的逻辑（比如：与，或，非）。
-          predicates:                                         
-            - Path=/autodeliver/**
-        - id: service-resume-router      
-          uri: lb://lagou-service-resume
-          # 断言：路由条件，Predicate 接受一个输入参数，返回一个布尔值结果。该接口包含多种默 认方法来将 Predicate 组合成其他复杂的逻辑（比如：与，或，非）。
-          predicates: 
-            - Path=/resume/**
+          predicates:
+            - Path=/api/user/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=1 # 去掉第一个上下文路径
+        - id: code-service-route
+          uri: lb://code-service
+          # 断言：路由条件，Predicate 接受一个输入参数，返回一个布尔值结果。该接口包含多种默 认方法来将 Predicate 组合成其他复杂的逻辑（比如：与，或，非）。
+          predicates:
+            - Path=/api/code/**
+          filters:
+            - StripPrefix=1 # 去掉第一个上下文路径
+        - id: email-service-route
+          uri: lb://email-service
+          # 断言：路由条件，Predicate 接受一个输入参数，返回一个布尔值结果。该接口包含多种默 认方法来将 Predicate 组合成其他复杂的逻辑（比如：与，或，非）。
+          predicates:
+            - Path=/api/email/**
+          filters:
+            - StripPrefix=1 # 去掉第一个上下文路径
+ 
+
+#ip防爆刷
+antiClimbing:
+  timeSlot: 1
+  maxCount: 10
+
+
+logging:
+  level:
+    # 分布式链路追踪日志
+    org.springframework.web.servlet.DispatcherServlet: debug
+    org.springframework.cloud.sleuth: debug
 ```
 
 
@@ -540,7 +626,83 @@ public class BlackListFilter implements GlobalFilter, Ordered {
 }
 ```
 
-#### 4. 基于令牌漏桶算法的限流过滤器
+#### 4. 防爬
+
+```java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * ip防爆策略请求
+ */
+@Component
+public class IPForceFilter implements GlobalFilter, Ordered {
+
+    @Value("${antiClimbing.timeSlot}")
+    private Integer timeSlot;
+    @Value("${antiClimbing.maxCount}")
+    private Integer maxCount;
+
+    private static final String REGISTER_PATH = "/user/register";
+
+    private static final String KEY_PRE = "antiClimbing_";
+
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        // 从上下文中取出request和response对象
+        ServerHttpRequest request = exchange.getRequest();
+        ServerHttpResponse response = exchange.getResponse();
+
+        // 从request对象中获取客户端ip 0:0:0:0:0:0:0:1
+        String clientIp = request.getRemoteAddress().getHostString();
+        // 请求地址 request.getPath()
+        String path = request.getPath().toString();
+        //注册接口，进行ip防爆策略检查
+        if (path.contains(REGISTER_PATH)) {
+            String key = KEY_PRE + clientIp + "_";
+            Set<String> keys = redisTemplate.keys(key + "*");
+            //不允许注册  返回
+            if (keys != null && keys.size() >= maxCount) {
+                response.setStatusCode(HttpStatus.FORBIDDEN);
+                String data = "注册请求过于频繁，请稍后再试！";
+                DataBuffer msg = response.bufferFactory().wrap(data.getBytes());
+                return response.writeWith(Mono.just(msg));
+            }
+            // 进行计数，将ip和时间戳作为key
+            redisTemplate.opsForValue().set(key + System.currentTimeMillis(), "", timeSlot, TimeUnit.MINUTES);
+        }
+        return chain.filter(exchange);
+    }
+
+    @Override
+    public int getOrder() {
+        return 0;
+    }
+}
+```
+
+
+
+
+
+#### 5. 基于令牌漏桶算法的限流过滤器
 
 Spring cloud gateway官方提供了基于令牌桶的限流算法，基于内部的过滤器工厂RequestRateLimiterGatewayFilterFactory实现。
 

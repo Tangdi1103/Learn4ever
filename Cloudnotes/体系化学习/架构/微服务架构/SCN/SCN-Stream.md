@@ -86,7 +86,7 @@ server:
   port: 9090
 spring:
   application:
-    name: lagou-cloud-stream-producer
+    name: scn-stream-producer
   cloud:
     stream:
       binders: # 绑定MQ服务信息（此处我们是RabbitMQ）
@@ -108,7 +108,7 @@ eureka:
   client:
     serviceUrl: # eureka server的路径
       #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
-      defaultZone: http://lagoucloudeurekaservera:8761/eureka/,http://lagoucloudeurekaserverb:8762/eureka/ 
+      defaultZone: http://localhost:8761/eureka/,http://localhost:8762/eureka/ 
     instance:
       prefer-ip-address: true #使用ip注册
 ```
@@ -208,7 +208,7 @@ server:
   port: 9092
 spring:
   application:
-    name: lagou-cloud-stream-consumer
+    name: scn-stream-consumer
   cloud:
     stream:
       binders: # 绑定MQ服务信息（此处我们是RabbitMQ）
@@ -230,7 +230,7 @@ spring:
 eureka:
   client:
     serviceUrl: # eureka server的路径
-      defaultZone: http://lagoucloudeurekaservera:8761/eureka/,http://lagoucloudeurekaserverb:8762/eureka/ #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
+      defaultZone: http://localhost:8761/eureka/,http://localhost:8762/eureka/ #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
     instance:
       prefer-ip-address: true #使用ip注册
 ```

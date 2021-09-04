@@ -44,13 +44,14 @@ application为应⽤名称，profifile指的是环境（⽤于区分开发环境
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>scn-parent</artifactId>
+        <artifactId>scn-demo</artifactId>
         <groupId>com.tangdi</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>lagou-cloud-configserver-9006</artifactId>
+    <artifactId>scn-config</artifactId>
+
 
     <dependencies>
         <!--eureka client 客户端依赖引入-->
@@ -63,10 +64,10 @@ application为应⽤名称，profifile指的是环境（⽤于区分开发环境
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-config-server</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-bus-amqp</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.cloud</groupId>-->
+<!--            <artifactId>spring-cloud-starter-bus-amqp</artifactId>-->
+<!--        </dependency>-->
     </dependencies>
 </project>
 ```
@@ -83,16 +84,23 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.config.server.EnableConfigServer;
 
+/**
+ * @program: scn-eureka
+ * @description:
+ * @author: Wangwentao
+ * @create: 2021-08-30 16:08
+ **/
 
 @SpringBootApplication
 @EnableDiscoveryClient
-@EnableConfigServer  // 开启配置中心功能
-public class ConfigServerApplication9006 {
+@EnableConfigServer  //开启配置中心功能
+public class ScnConfigApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ConfigServerApplication9006.class,args);
+        SpringApplication.run(ScnConfigApplication.class,args);
     }
 }
+
 ```
 
 
@@ -104,41 +112,44 @@ public class ConfigServerApplication9006 {
 ```yaml
 server:
   port: 9006
+
+
 #注册到Eureka服务中心
 eureka:
   client:
     service-url:
       # 注册到集群，就把多个Eurekaserver地址使用逗号连接起来即可；注册到单实例（非集群模式），那就写一个就ok
-      defaultZone: http://LagouCloudEurekaServerA:8761/eureka,http://LagouCloudEurekaServerB:8762/eureka
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
   instance:
     #服务实例中显示ip，而不是显示主机名（兼容老的eureka版本）
     prefer-ip-address: true
     # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+#    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+
 
 spring:
   application:
-    name: configserver
+    name: scn-config-server
   cloud:
     config:
       server:
         git:
-          uri: https://github.com/5173098004/config-repo.git #配置git服务地址
-          username: 495003879@qq.com #配置git用户名
+          #配置git服务地址
+          uri: https://gitee.com/Tangdi1103/scn-config-repo.git
+          username: Tangdi1103 #配置git用户名
           password: 123456 #配置git密码
-          # 属性代表在仓库下的哪些目录寻找配置，若全都无法匹配，则在仓库的根目录下找
           search-paths:
-            - user-repo
             - code-repo
             - email-repo
-            - scn-gateway-repo
+            - user-repo
+            - gateway-repo
       # 读取分支
       label: master
-  rabbitmq:
-    host: 127.0.0.1
-    port: 5672
-    username: guest
-    password: guest
+#  rabbitmq:
+#    host: 127.0.0.1
+#    port: 5672
+#    username: guest
+#    password: guest
 
 management:
   endpoints:
@@ -182,7 +193,7 @@ spring:
     # config客户端配置,和ConfigServer通信，并告知ConfigServer希望获取的配置信息在哪个⽂件中
     config:
       name: email-service #配置⽂件名称
-      profile: dev #后缀名称
+      profile: p #后缀名称
       label: master #分⽀名称
       #ConfigServer配置中⼼地址
 #      uri: http://scn-config-server

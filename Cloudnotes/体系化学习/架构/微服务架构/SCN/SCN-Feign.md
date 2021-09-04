@@ -27,10 +27,11 @@ SpringCloud对Feign进⾏了增强，产生了**==OpenFeign==**，它**==⽀持S
 若引入openFein，则无需额外引入Hystrix的依赖了
 
 ```xml
+<!--openfeign-->
 <dependency>
     <groupId>org.springframework.cloud</groupId>
     <artifactId>spring-cloud-starter-openfeign</artifactId>
-</dependency
+</dependency>
 ```
 
 
@@ -40,23 +41,26 @@ SpringCloud对Feign进⾏了增强，产生了**==OpenFeign==**，它**==⽀持S
 由于Feign内部集成了熔断器Hystrix，所以可省略@EnableCircuitBreaker来开启熔断器
 
 ```java
+package com.tangdi;
+
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
-import org.springframework.cloud.client.circuitbreaker.EnableCircuitBreaker;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.cloud.openfeign.EnableFeignClients;
-import org.springframework.context.annotation.Bean;
-import org.springframework.web.client.RestTemplate;
 
-
+/**
+ * @program: scn-demo
+ * @description:
+ * @author: Wangwentao
+ * @create: 2021-08-30 17:31
+ **/
 @SpringBootApplication
 @EnableDiscoveryClient // 开启服务发现
 @EnableFeignClients // 开启Feign
-public class AutodeliverFeignApplication8092 {
+public class UserServiceApplication {
+
     public static void main(String[] args) {
-        SpringApplication.run(AutodeliverFeignApplication8092.class, args);
+        SpringApplication.run(UserServiceApplication.class,args);
     }
 }
 ```
@@ -66,19 +70,22 @@ public class AutodeliverFeignApplication8092 {
 #### 1.3 创建Feign接口
 
 - @FeignClient注解的name属性用于指定调用的服务名，是服务提供者的applicationName
+- contextId 作为多FeignClient上下文id，当有多个FeignClient请求到同个微服务（即多个FeignClient的name相同）时，用以区分
 - OpenFeign可以使⽤@PathVariable、@RequestParam、@RequestHeader注解进行参数绑定，这也是OpenFeign对SpringMVC注解的⽀持，但是需要注意value必须设置，否则会抛出异常
 
 ```java
+package com.tangdi.webservice;
+
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-// name：调⽤的服务名称，和服务提供者yml⽂件中spring.application.name保持⼀致
-@FeignClient(name="lagou-service-resume")
-public interface ResumeFeignClient {
+
+@FeignClient(value = "code-service",contextId = "code")
+public interface CodeFeginClient {
+
     //调⽤的请求路径
-    @RequestMapping(value = "/resume/openstate/{userId}",method= RequestMethod.GET)
-    public Integer findResumeOpenState(@PathVariable(value = "userId") Long userId);
+    @RequestMapping("/code/fromEmail/validate/{email}/{code}")
+    public Integer vaildAuthCode(@PathVariable String email, @PathVariable String code);
 }
 ```
 
@@ -88,12 +95,12 @@ public interface ResumeFeignClient {
 
 ```java
 @Autowired
-private ResumeFeignClient resumeFeignClient;
+private CodeFeginClient codeFeginClient;
 
 @Test
 public void testFeignClient(){
-    Integer resumeOpenState = resumeFeignClient.findResumeOpenState(1545132l);
-    System.out.println("=======>>>resumeOpenState：" + resumeOpenState);
+    Integer state = codeFeginClient.vaildAuthCode(2341231@qq.com,321242);
+    System.out.println("=======>>>vaildAuthCode state：" + state);
 }
 ```
 
@@ -113,7 +120,7 @@ Ribbon与Hystrix的超时时长比较，取最短的生效
 
 ```yaml
 #针对的被调用方微服务名称,不加就是全局生效
-lagou-service-resume:
+user-service:
   ribbon:
     #请求连接超时时间
     ConnectTimeout: 2000
@@ -192,32 +199,31 @@ import org.springframework.stereotype.Component;
 **
 */
 @Component // 别忘了这个注解，还应该被扫描到
-public class ResumeFallback implements ResumeServiceFeignClient {
+public class CodeFallback implements CodeFeginClient {
     @Override
-    public Integer findDefaultResumeState(Long userId) {
-        return -6;
+    public Integer vaildAuthCode(String email,String code) {
+        return 0;
     }
 }
 ```
 
 #### 3.2 FeignClient相关修改
 
-##### @FeignClient注解中添加fallback属性，以及handler的上下文路径path
+##### @FeignClient注解中添加fallback属性
 
 ```java
-mport org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
+package com.tangdi.webservice;
+
+import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-@FeignClient(value = "lagou-service-resume",fallback = ResumeFallback.class,path = "/resume")
-public interface ResumeServiceFeignClient {
+@FeignClient(value = "code-service",contextId = "code",fallback = CodeFallback.class)
+public interface CodeFeginClient {
 
-    // Feign要做的事情就是，拼装url发起请求
-    // 我们调用该方法就是调用本地接口方法，那么实际上做的是远程请求
-    @GetMapping("/openstate/{userId}")
-    public Integer findDefaultResumeState(@PathVariable("userId") Long userId);
-
+    //调⽤的请求路径
+    @RequestMapping("/code/fromEmail/validate/{email}/{code}")
+    public Integer vaildAuthCode(@PathVariable String email, @PathVariable String code);
 }
 ```
 
@@ -276,8 +282,9 @@ public class FeignConfig {
 ```yaml
 logging:
   level:
+    # 设置所有feignClient的日志级别为debug
     # Feign日志只会对日志级别为debug的做出响应
-    com.lagou.edu.controller.service.ResumeServiceFeignClient: debug
+    com.tangdi.webservice: debug
 ```
 
 

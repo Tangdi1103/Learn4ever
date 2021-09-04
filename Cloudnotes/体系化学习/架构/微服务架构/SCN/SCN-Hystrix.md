@@ -60,10 +60,10 @@ import org.springframework.web.client.RestTemplate;
 //@EnableHystrix  // 开启Hystrix功能
 @EnableCircuitBreaker  // 开启熔断器功能
 //@SpringCloudApplication  综合性的注解  @SpringCloudApplication  = @SpringBootApplication + @EnableDiscoveryClient + @EnableCircuitBreaker
-public class AutodeliverApplication8090 {
+public class UserServiceApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AutodeliverApplication8090.class,args);
+        SpringApplication.run(UserServiceApplication.class,args);
     }
 
 
@@ -230,12 +230,12 @@ public class HystrixDashboard9000 {
 eureka:
   client:
     serviceUrl: # eureka server的路径
-      defaultZone: http://lagoucloudeurekaservera:8761/eureka/,http://lagoucloudeurekaserverb:8762/eureka/ #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
+      defaultZone: http://localhost:8761/eureka/,http://localhost:8762/eureka/ #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
   instance:
     #使用ip注册，否则会使用主机名注册了（此处考虑到对老版本的兼容，新版本经过实验都是ip）
     prefer-ip-address: true
     #自定义实例显示格式，加上版本号，便于多版本管理，注意是ip-address，早期版本是ipAddress
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
 ```
 
 
@@ -317,7 +317,7 @@ eureka:
     #使用ip注册，否则会使用主机名注册了（此处考虑到对老版本的兼容，新版本经过实验都是ip）
     prefer-ip-address: true
     #自定义实例显示格式，加上版本号，便于多版本管理，注意是ip-address，早期版本是ipAddress
-    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}:@project.version@
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
 #turbine配置
 turbine:
   # appCofing配置需要聚合的服务名称，比如这里聚合自动投递微服务的hystrix监控数据
