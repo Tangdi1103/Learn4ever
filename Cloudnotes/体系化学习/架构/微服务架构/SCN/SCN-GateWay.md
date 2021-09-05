@@ -49,8 +49,8 @@ Spring Cloud GateWay由Spring官方开发的网关，目的是替代Netflix Zuul
   Spring Webflux的过滤器，可以在请求之前或者之后执⾏业务逻辑，可扩展以下功能
 
   - 黑白名单
-  - 流量监控
-  - 鉴权
+  - 限流IP防爆刷
+  - 验证登陆IP、登陆设备号
   - 日志监控
   - 熔断
   - 转发
