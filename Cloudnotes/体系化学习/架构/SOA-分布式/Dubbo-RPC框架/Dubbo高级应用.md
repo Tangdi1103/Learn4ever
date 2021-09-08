@@ -260,6 +260,8 @@ Dubbo的Filter机制，是专门为服务提供方和服务消费方调用过程
 
 ### [Dubbo官网文档](https://dubbo.apache.org/zh/docs/advanced/loadbalance/)
 
+**==负载均衡策略，可选值：random（默认值）,roundrobin,leastactive，分别表示：随机，轮询，最少活跃调用==**
+
 ##### Random LoadBalance-随机
 
 按权重设置随机概率。在一个截面上碰撞的概率高，但调用量越大分布越均匀，而且按概率使用权重后也比较均匀，有利于动态调整提供者权重。

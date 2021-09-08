@@ -59,7 +59,7 @@ lagou-service-resume:
 
 ## 三、 Ribbon与Feign结合使用的配置
 
-以下配置对RestTemplate不生效
+**==以下配置对RestTemplate不生效==**
 
 ```yaml
 #针对的被调用方微服务名称,不加就是全局生效
