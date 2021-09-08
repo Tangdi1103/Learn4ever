@@ -10,7 +10,7 @@ Nacos就是注册中⼼+配置中⼼的组合，相当于SCN中三个组件的�
 
 
 
-### 1.1 主要功能如下：
+### 1. 主要功能如下：
 
 - 服务发现与健康检查
 
@@ -24,7 +24,7 @@ Nacos就是注册中⼼+配置中⼼的组合，相当于SCN中三个组件的�
 
 
 
-### 1.2 相比Eureka，Nacos的优势
+### 2. 相比Eureka，Nacos的优势
 
 Nacos 不用像Eureka那样需要自己搭建一个注册中心的工程，**==只需从官网下载对应版本的Nacos软件包运行即可==**，比如Redis、ZK、MQ。
 
@@ -92,7 +92,7 @@ sh startup.sh -m cluster
 
 
 
-## 三、微服务注册
+## 三、微服务注册（在SCN基础上修改造）
 
 ### 1. 在父工程 pom中引⼊SCA依赖
 
@@ -103,7 +103,7 @@ sh startup.sh -m cluster
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-alibaba-dependencies</artifactId>
-            <version>2.1.0.RELEASE</version>
+            <version>2.1.2.RELEASE</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -125,7 +125,13 @@ sh startup.sh -m cluster
 
 
 
-### 3. 全局配置文件，添加nacos信息
+### 3. 创建命名空间
+
+![image-20210908143428819](images/image-20210908143428819.png)
+
+
+
+### 4. 全局配置文件，添加nacos信息
 
 ```yaml
 # nacos配置
@@ -133,13 +139,17 @@ spring:
   cloud:
     nacos:
       discovery:
-        # 集群中各节点信息都配置在这里（域名-VIP-绑定映射到各个实例的地址信息）
-        server-addr: 127.0.0.1:8848,127.0.0.1:8849,127.0.0.1:8850
+        # 配置nacos server地址,集群中各节点信息都配置在这里（域名-VIP-绑定映射到各个实例的地址信息）
+        server-addr: www.test.com:8848,www.test.com:8849,www.test.com:8850
+        # 配置注册到的命名空间id
+        namespace: 2828fa51-4187-4ee8-9d7c-6a4d91b614b2
+        # 配置注册到的分组
+        group: sca-demo
 ```
 
 
 
-### 4. 启动简历微服务，观察nacos控制台
+### 5. 启动简历微服务，观察nacos控制台
 
 <img src="images/image-20210907003538881.png" alt="image-20210907003538881" style="zoom:150%;" />
 
@@ -147,21 +157,21 @@ spring:
 
 
 
-### 5. 保护阈值
+### 6. 保护阈值
 
-#### 4.1 场景
+#### 6.1 场景
 
 Nacos 向服务消费者**==返回服务提供者实例信息时==**，默认会**==返回健康的实例==**，所以当某个服务集群中的**==大部分实例不健康时==**，上游的流量洪峰将会**==压到仅剩的健康实例==**，最终可能**==导致整个服务A的集群不可用==**，**==引起服务熔断和降级==**
 
 
 
-#### 5.2 配置
+#### 6.2 配置
 
 每个服务都可以设置保护阈值，数值是 `[0-1]` 之间的浮点数
 
 
 
-#### 5.3 作用
+#### 6.3 作用
 
 **==当服务A健康实例数/总实例数 < 保护阈值==** 的时候，说明健康实例比例太小了，这个时候**==保护阈值被触发（状态true）==**，**==Nacos 返回服务的任意实例（不论健康与否）==**
 
@@ -185,9 +195,17 @@ Nacos客户端引⼊的时候，会关联引⼊Ribbon的依赖包
 
 ### 1. 在Nacos Server的UI界面添加配置集
 
-![image-20210907011833720](images/image-20210907011833720.png)
+#### 1.1 先选择需要新建配置的命名空间
 
-### 2. 微服务开启Nacos 的配置管理
+![image-20210908131304847](images/image-20210908131304847.png)
+
+#### 1.2 再新建配置文件并填写配置信息 
+
+<img src="images/image-20210908131555566.png" alt="image-20210908131555566" style="zoom:150%;" />
+
+
+
+### 2. 微服务改造为nacos config client
 
 #### 2.1 添加依赖
 
@@ -200,9 +218,28 @@ Nacos客户端引⼊的时候，会关联引⼊Ribbon的依赖包
 
 
 
-#### 2.2 微服务中锁定 Nacos Server 中的配置文件（dataId）
+#### 2.2 创建bootstrap.yml配置文件，锁定刚刚server端配置的文件
 
-通过 Namespace + Group + dataId 来锁定配置⽂件，Namespace不指定就默认public，Group不指定就默认 DEFAULT_GROUP，dataId 的完整格式如下
+配置nacos server地址，编写远程配置文件坐标
+
+通过 Namespace + Group + dataId 来锁定刚刚再server端配置的信息，bootstrap.yml配置如下
+
+```yaml
+# nacos配置
+spring:
+  cloud:
+    nacos:
+      # nacos config 配置
+      config:
+        server-addr: www.test.com:8848
+        # 锁定server端的配置文件（读取它的配置项）
+        namespace: 2828fa51-4187-4ee8-9d7c-6a4d91b614b2  # 命名空间id
+        group: sca-demo  # 默认分组就是DEFAULT_GROUP，如果使用默认分组可以不配置
+        prefix: user-service # 指定配置文件名 默认为spring.application.name
+        file-extension: yaml   #默认properties
+```
+
+Namespace不指定就默认public，Group不指定就默认 DEFAULT_GROUP，dataId 的完整格式如下
 
 ```properties
 ${prefix}-${spring.profile.active}.${file-extension}
@@ -220,26 +257,19 @@ ${prefix}-${spring.profile.active}.${file-extension}
 
   配置内容的数据格式，可以通过配置项 `spring.cloud.nacos.config.file-extension` 来配置。⽬前只⽀持 properties 和 yaml 类型
 
-```yaml
-# nacos配置
-spring:
-  cloud:
-    nacos:
-      discovery:
-        # 集群中各节点信息都配置在这里（域名-VIP-绑定映射到各个实例的地址信息）
-        server-addr: 127.0.0.1:8848,127.0.0.1:8849,127.0.0.1:8850
-      # nacos config 配置
-      config:
-        server-addr: 127.0.0.1:8848,127.0.0.1:8849,127.0.0.1:8850
-        # 锁定server端的配置文件（读取它的配置项）
-        namespace: 07137f0a-bf66-424b-b910-20ece612395a  # 命名空间id
-        group: DEFAULT_GROUP  # 默认分组就是DEFAULT_GROUP，如果使用默认分组可以不配置
-        file-extension: yaml   #默认properties
-```
+
+
+### 3. 配置文件加载优先级说明
+
+##### 3.1 首先加载bootstrap.yml配置信息，根据namespace、group、DataId去分布式配置中心拉取配置
+
+##### 3.2 优先加载从配置中心下载的配置，再加载application-{profile}.yml配置，最后加载公共application.yml配置
+
+##### 3.3 若配置中心找不到配置，则加载application-{profile}.yml配置，最后加载公共application.yml配置
 
 
 
-### 3. 通过 Spring Cloud 原生注解 @RefreshScope 实现配置自动更新
+### 4. 通过 Spring Cloud 原生注解 @RefreshScope 实现配置自动更新
 
 原则上，所有涉及全局配置文件的属性，在被用到的类上都得加该注解，才能被读到并重新加载到IOC容器中
 
@@ -270,7 +300,7 @@ public class ConfigController {
 
 
 
-### 4. 从Nacos server中获取多个dataId的配置信息
+### 5. 从Nacos server中获取多个dataId的配置信息
 
 优先级：根据规则⽣成的dataId > 扩展的dataId（对于扩展的dataId，[n] n越⼤优先级越⾼）
 
@@ -280,14 +310,19 @@ spring:
   cloud:
     nacos:
       discovery:
-        # 集群中各节点信息都配置在这里（域名-VIP-绑定映射到各个实例的地址信息）
-        server-addr: 127.0.0.1:8848,127.0.0.1:8849,127.0.0.1:8850
+        # 配置nacos server地址,集群中各节点信息都配置在这里（域名-VIP-绑定映射到各个实例的地址信息）
+        server-addr: www.test.com:8848,www.test.com:8849,www.test.com:8850
+        # 配置注册到的命名空间id
+        namespace: 2828fa51-4187-4ee8-9d7c-6a4d91b614b2
+        # 配置分组
+        group: sca-demo
       # nacos config 配置
       config:
-        server-addr: 127.0.0.1:8848,127.0.0.1:8849,127.0.0.1:8850
+        server-addr: www.test.com:8848,www.test.com:8849,www.test.com:8850
         # 锁定server端的配置文件（读取它的配置项）
-        namespace: 07137f0a-bf66-424b-b910-20ece612395a  # 命名空间id
-        group: DEFAULT_GROUP  # 默认分组就是DEFAULT_GROUP，如果使用默认分组可以不配置
+        namespace: 2828fa51-4187-4ee8-9d7c-6a4d91b614b2  # 命名空间id
+        group: sca-demo  # 默认分组就是DEFAULT_GROUP，如果使用默认分组可以不配置
+        prefix: user-service # 指定配置文件名 默认为spring.application.name
         file-extension: yaml   #默认properties
         # 根据规则拼接出来的dataId效果：lagou-service-resume.yaml
         ext-config[0]:

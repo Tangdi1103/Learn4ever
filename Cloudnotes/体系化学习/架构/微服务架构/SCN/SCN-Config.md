@@ -26,7 +26,7 @@ Spring Cloud Confifig是⼀个分布式配置管理⽅案，包含了 Server端�
 
 #### 2. 上传配置文件至config-repo，命名规范如下
 
-{application}-{profifile}.yml 
+{application}-{profile}.yml 
 
 示例：service-resume-dev.yml、service-resume-test.yml、service-resume-prod.yml
 
@@ -37,6 +37,8 @@ application为应⽤名称，profifile指的是环境（⽤于区分开发环境
 #### 3. 创建Config 分布式配置管理中心工程
 
 ##### 3.1 pom.xml
+
+引入注册中心的原因是，分布式配置中心为集群部署，config client从注册中心获取所有config server实例，从中选择一个来拉取配置信息，无需硬编码固定的ip
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -183,11 +185,14 @@ management:
 
 ##### 4.2 创建系统级的全局配置文件bootstrap
 
-把与分布式配置中⼼连接的配置信息放到bootstrap.yml
+把eureka配置与分布式配置中心连接的配置信息放到bootstrap.yml
 
 bootstrap为系统级别的SpringBoot配置文件，优先级⽐application.yml⾼。系统启动时，先加载bootstrap文件去Config Server拉取application配置文件并加载
 
 ```yaml
+# eureka配置
+# 略。。
+
 spring:
   cloud:
     # config客户端配置,和ConfigServer通信，并告知ConfigServer希望获取的配置信息在哪个⽂件中
@@ -207,9 +212,9 @@ spring:
 
 ##### 4.3 配置的加载优先级说明
 
-1. 首先加载bootstrap.yml配置信息，然后去分布式配置中心拉取{application}-{profifile}.yml 配置
-2. 优先加载从配置中心下载的配置，再加载application-{profifile}.yml配置，最后加载公共application.yml配置
-3. 若配置中心找不到配置，则加载application-{profifile}.yml配置，最后加载公共application.yml配置
+1. 首先加载bootstrap.yml配置信息，然后去分布式配置中心拉取{application}-{profile}.yml 配置
+2. 优先加载从配置中心下载的配置，再加载application-{profile}.yml配置，最后加载公共application.yml配置
+3. 若配置中心找不到配置，则加载application-{profile}.yml配置，最后加载公共application.yml配置
 
 
 
