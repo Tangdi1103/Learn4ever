@@ -26,25 +26,45 @@
 
 ## 二、简介
 
+### 1. 流程图
+
 ![image-20210904234854618](images/image-20210904234854618.png)
 
 ⼀个请求链路，⼀条链路通过TraceId唯⼀标识，span标识发起的请求信息，各span通过parrentId关联起来，并记录日志
 
-**Trace：**服务追踪的追踪单元是从客户发起请求（request）抵达被追踪系统的边界开始，到被追踪系统向客户返回响应（response）为⽌的过程
+- **Trace：**服务追踪的追踪单元是从客户发起请求（request）抵达被追踪系统的边界开始，到被追踪系统向客户返回响应（response）为⽌的过程
 
-**Trace ID：**唯⼀的跟踪标识Trace ID，相当于一个全局流水号
+- **Trace ID：**唯⼀的跟踪标识Trace ID，相当于一个全局流水号
 
-**Span ID：**链路中各单元的请求标识
+- **Span ID：**链路中各单元的请求标识，⼀个Trace ID 对应多个Span Id
 
-⼀个Trace ID 对应多个Span Id
 
-![image-20210904235057198](images/image-20210904235057198.png)
+
+### 2. Span中的事件
+
+- CS ：client send/start 客户端/消费者发出⼀个请求，描述的是⼀个span开始
+
+- SR：server received/start 服务端/⽣产者接收请求 SR-CS属于请求发送的⽹络延迟
+
+- SS：server send/fifinish 服务端/⽣产者发送应答 SS-SR属于服务端消耗时间
+
+- CR：client received/fifinished 客户端/消费者接收应答 CR-SS表示回复需要的时间(响应的⽹络延迟)
+
+
+
+### 3. 整合Zipkin
+
+Spring Cloud Sleuth （追踪服务框架）可以追踪服务之间的调⽤，Sleuth可以记录⼀个服务请求经过哪些服务、服务处理时⻓等，根据这些，我们能够理清各微服务间的调⽤关系及进⾏问题追踪分析
+
+我们往往把**Spring Cloud Sleuth** 和 **Zipkin** ⼀起使⽤，把 **Sleuth** 的数据信息发送给 **Zipkin** 进⾏聚合，利⽤ **Zipkin** 存储并展示数据。
+
+![image-20210908161916020](images/image-20210908161916020.png)
 
 ## 三、应用
 
-### Server 端
+### 1. Server 端
 
-#### 1. pom.xml
+#### 1.1 pom.xml
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -115,7 +135,7 @@
 
 
 
-#### 2. 启动类
+#### 1.2 启动类
 
 ```java
 package com.tangdi;
@@ -155,7 +175,7 @@ public class ZipkinApplication {
 
 
 
-#### 3. 配置文件
+#### 1.3 配置文件
 
 ```yaml
 server:
@@ -188,7 +208,7 @@ zipkin:
 
 
 
-#### 4. 持久化
+#### 1.4 持久化
 
 mysql中创建名称为zipkin的数据库，并执⾏如下sql语句（官⽅提供）
 
@@ -289,9 +309,9 @@ COLLATE utf8_general_ci;
 
 
 
-### Client 端(gateway网关、微服务)
+### 2. Client 端(gateway网关、微服务)
 
-#### 1. pom.xml添加依赖
+#### 2.1 pom.xml添加依赖
 
 ```xml
 <!--链路追踪-->
@@ -308,7 +328,7 @@ COLLATE utf8_general_ci;
 
 
 
-#### 2. 添加以下配置文件
+#### 2.2 添加以下配置文件
 
 ```yaml
 spring:
@@ -334,3 +354,8 @@ logging:
     org.springframework.cloud.sleuth: debug
 ```
 
+
+
+### 3. 访问Zipkin地址
+
+http://localhost:9411

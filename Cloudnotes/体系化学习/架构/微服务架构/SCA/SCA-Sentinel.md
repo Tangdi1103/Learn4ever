@@ -25,7 +25,7 @@ Sentinel 是⼀个⾯向云原⽣微服务的流量控制、熔断降级组件�
 **Sentinel**
 
 - Sentinel 主要以预防为主，流控、降级措施都是防止服务被压宕机
-- **在服务提供者设置流控及降级的规则**
+- **在服务提供者设置==流控及降级==的规则**
 
 - 提供 jar包，**==可独立部署Dashboard==**/控制台组件
 - 在**==调用方的微服务中==**，无需像 Hystrix 那样硬编码，**==减少了代码入侵==**
@@ -34,7 +34,7 @@ Sentinel 是⼀个⾯向云原⽣微服务的流量控制、熔断降级组件�
 **Hystrix**
 
 - Hystrix 主要以调用方为主，当服务提供者正常返回太少时，执行熔断、降级措施，返回兜底数据
-- **在服务消费者设置熔断及降级的规则**
+- **在服务消费者设置==熔断及降级==的规则**
 - 通过编码实现
 - Hystrix Dashboard需要单独建立工程部署
 
@@ -66,7 +66,9 @@ Sentinel 是⼀个⾯向云原⽣微服务的流量控制、熔断降级组件�
 
 **下载地址：**https://github.com/alibaba/Sentinel/releases 我们使⽤v1.7.1
 
-**启动：**java -jar sentinel-dashboard-1.7.1.jar &
+**启动：**java -jar sentinel-dashboard-1.7.1.jar
+
+**访问地址：**http://localhost:8080（Sentinel默认端口为8080）
 
 **用户名/密码：**sentinel/sentinel
 
@@ -76,7 +78,7 @@ Sentinel 是⼀个⾯向云原⽣微服务的流量控制、熔断降级组件�
 
 ## 三、改造微服务（服务消费者）对接到Sentinel 
 
-### 1. 添加Sentinel 核心依赖
+### 1. 添加Sentinel 核心环境的依赖
 
 ```xml
 <!--sentinel 核⼼环境 依赖-->
@@ -105,8 +107,7 @@ spring:
     sentinel:
       transport:
         dashboard: 127.0.0.1:8080 # sentinel dashboard/console 地址
-        port: 8719   #  sentinel会在该端口启动http server，那么这样的话，控制台定义的一些限流等规则才能发送传递过来，
-                      #如果8719端口被占用，那么会依次+1
+        port: 8719  # msentinel会在该端口启动http server，那么这样的话，控制台定义的一些限流等规则才能发送传递过来，如果8719端口被占用，那么会依次+1
       # Sentinel Nacos数据源配置，Nacos中的规则会自动同步到sentinel流控规则中
       datasource:
         # 自定义的流控规则数据源名称
