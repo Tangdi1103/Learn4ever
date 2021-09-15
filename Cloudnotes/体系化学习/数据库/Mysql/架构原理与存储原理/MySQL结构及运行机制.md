@@ -79,11 +79,13 @@ MySQL存储引擎是**==插件式==**的，服务器中的查询**执行引擎�
 
   **`show variables like '%slow_query%'; //是否开启`**
 
-  **`show variables like '%long_query_time%'; //时长`**
+  **`show variables like '%long_query_time%'; //判定慢查询的时长，单位秒`**
 
 
 
 ##### 4.2 数据文件及命令
+
+**`show variables like '%datadir%'; //查看数据文件存储路径`**
 
 - **db.opt 文件**
 
