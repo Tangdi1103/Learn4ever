@@ -373,15 +373,45 @@ IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==*
 
 #### 2. ==Purge Thread==
 
+**当事务提交后**，Purge Thread则会**回收内存中的 Undo日志**数据
+
+**`show variables like '%innodb_purge_threads%';`**
+
 
 
 #### 3. ==Page Cleaner Thread==
+
+**`show variables like '%innodb_page_cleaners%'`**
+
+**作用：**回收内存中undo log
+
+**将脏页中的数据刷新到磁盘**，脏数据刷盘后相应的redo log也就可以覆盖，即可以同步数据，又能达到redo log循环使用的目的，**会调用write thread线程处理**
 
 
 
 #### 4. ==Master Thread==
 
+**作用：**作用是**将缓冲池中的数据异步刷新到磁盘** ，保证数据的一致性
 
+Master thread是**InnoDB的主线程**，负责**调度其他各线程**，优先级最高。
+
+##### 4.1 每隔 1 秒的处理
+
+- 刷新日志缓冲区，刷到磁盘
+
+- 合并写缓冲区数据，根据IO读写压力来决定是否操作
+
+- 刷新脏页数据到磁盘，根据脏页比例达到75%才操作（**`innodb_max_dirty_pages_pct`**，**`innodb_io_capacity`**） 
+
+##### 4.2 每隔 10 秒的处理
+
+- 刷新脏页数据到磁盘
+
+- 合并写缓冲区数据
+
+- 刷新日志缓冲区
+
+- **删除无用的undo页**
 
 
 
