@@ -121,9 +121,17 @@
 
 下面是官方的InnoDB引擎架构图，主要分为 **==内存结构==**和==**磁盘结构**==两大部分
 
+**Mysql 5.6 的InnboDB结构**
+
 ![image-20210915162706682](images/image-20210915162706682.png)
 
-### 内存结构
+
+
+**Mysql 5.7 的InnboDB结构**
+
+![image-20210916160135336](images/image-20210916160135336.png)
+
+### 1) InnoDB内存结构
 
 InnoDB 的内存结构组成：**Buffer Pool**、**Change Buffer**、**Log Buffer**、**Adaptive Hash Index**
 
@@ -176,17 +184,17 @@ innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争�
 
 #### 2. Change Buffer（写缓冲区，简称CB）
 
-##### 2.1 作用
+##### 2.1 Change Buffer 作用
 
 避免每次 DML操作都与磁盘进行IO，减少IO次数
 
 在进行 **==DML操作==**时
 
 - 如果BP有其相应的缓冲数据，则**==直接在BP中变更数据==**，后续会有同步至磁盘的机制
-
 - 如果BP没有其相应的缓冲数据，并不会立刻将磁盘页加载到缓冲池，而是**==将DML存入Change Buffer中==**，等**==未来查询该条数据时==**，**==从磁盘读取数据与CB中的DML合并==**，将最终结果**==存入BP==**并返回给查询执行引擎
+- **==合并后会清除该记录在Change Buffer 中的DML语句==**
 
-##### 2.2 Change Buffer配置参数
+##### 2.2 Change Buffer 配置参数
 
 **==ChangeBuffer占用BufferPool空间==**，默认占**==25%==**，最大允许占50%
 
@@ -200,7 +208,27 @@ innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争�
 
 
 
-#### 3. Log Buffer
+#### 3. Log Buffer（日志缓冲区）
+
+##### 3.1 Log Buffer 作用
+
+**==DML 操作时会产生Redo和Undo日志==**，这些日志会**==先保存在Log Buffer中==**，然后日志缓冲区的内容**==定期刷新到磁盘log文件中==**。
+
+日志缓冲区满时会自动将其刷新到磁盘，如果**==存在大事务操作时==**，**==增加日志缓冲区可以节省磁盘I/O==**。
+
+##### 3.2 Log Buffer 配置参数
+
+**`innodb_log_buffer_size // 日志缓冲区大小`**
+
+**`innodb_flush_log_at_trx_commit // 参数控制日志刷新行为，默认为1`**
+
+- 0 ： 每隔1秒写日志文件和刷盘操作（写日志文件LogBuffffer-->OS cache，刷盘OScache-->磁盘文件），最多丢失1秒数据
+
+- 1：事务提交，立刻写日志文件和刷盘，数据不丢失，但是会频繁IO操作
+
+- 2：事务提交，立刻写日志文件，每隔1秒钟进行刷盘操作
+
+![image-20210916142152478](images/image-20210916142152478.png)
 
 
 
@@ -214,35 +242,108 @@ innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争�
 
 
 
-#### 5. 工作流程
+#### 5. 结合场景描述流程
 
 ##### 5.1 当新插入数据时
 
+**==DML操作==**，先到Buffer pool 查询是否有记录
 
+- 若有记录，则**==直接在Buffer pool中修改记录==**。**==事务提交前生成 undo日志 用于异常回滚恢复==**之前的数据。**==事务提交后生成 redo日志 用于刷盘==**（同步数据到磁盘）。
+- 若没有记录，**==则将DML语句存入 Change Buffer==**
 
 ##### 5.2 当查询刚插入数据的时
 
+通过前面的场景，得知插入的 DML操作语句存在 Change Buffer中，并且此时 Buffer Pool也没有此条记录。所以**==去磁盘查询==**（磁盘没有该记录），然后到Change Buffer中合并该记录的 DML语句，将结果存到Buffer Pool中
 
+- BP**==先从free list 中查找是否有空闲页==**，若有直接存入，**==然后将该页从free list删除==**，**==交由 LRU list管理==**
+- 若没有空闲页，**==则LRU list根据LRU算法淘汰链表末尾page页==**，释放page页数据**==存入新数据==**，并将page页**==移动到midpoint位置==**
 
 ##### 5.3当修改刚查询过的数据时
 
-
+DML操作，先到BP查询是否有记录，查询到记录，直接在BP中修改。事务提交前生成undo日志，提交后生成redo日志。redo日志用于同步数据到磁盘
 
 ##### 5.4 当修改很久没查询的数据时
 
+DML操作，**==由于数据很久没被访问，LRU list根据LRU算法淘汰了该记录==**。因此page中没有此纪录。
 
-
-### 磁盘结构
-
-
-
+存入Change Buffer，下次查询的时候，**==从磁盘查到结果与CB的DML合并，将结果存入Buffer Pool。==**
 
 
 
 
 
+![image-20210916160135336](images/image-20210916160135336.png)
+
+### 2) InnoDB 磁盘结构
+
+InnoDB磁盘由多种表空间组成，用于存储表结构和数据，如下：
+
+- 系统表空间（The System Tablespace）
+- 独立表空间（File-Per-Table Tablespaces）
+- 通用表空间（General Tablespaces）
+- 撤销表空间（Undo Tablespaces）
+- 临时表空间（Temporary Tablespaces）
+
+#### 1. 系统表空间（The System Tablespace）
+
+包含InnoDB **==数据字典==**，**==Doublewrite Buffer==**，**==Change Buffer==**，**==Undo Logs==**的存储区域。
+
+系统表空间也默认**==包含任何用户在系统表空间创建的表数据和索引数据==**。系统表空间是一个**==共享的表空间==**因为它是被多个表共享的。该空间的数据文件通过参数 innodb_data_file_path控制，默认值是ibdata1:12M:autoextend(文件名为ibdata1、12MB、自动扩展)。
 
 
+
+#### 2. 独立表空间（File-Per-Table Tablespaces）- 主要用的就是这种表空间
+
+**`innodb_file_per_table`**默认开启，**==独立表空间是一个单表表空间==**，**==该表创建于自己的数据文件中==**，而非创建于系统表空间中。
+
+当**`innodb_file_per_table`**选项开启时，表将被创建于表空间中。否则，innodb将被创建于系统表空间中。
+
+每个表文件**==表空间由一个.ibd数据文件==**代表，该文件默认被创建于数据库目录中。表空间的表文件支持动态（dynamic）和压缩（commpressed）行格式。
+
+
+
+#### 3. 通用表空间（General Tablespaces）
+
+通用表空间为通过create tablespace语法创建的共享表空间。通用表空间可以创建于mysql数据目录外的其他表空间，其可以容纳多张表，且其支持所有的行格式。
+
+```shell
+CREATE TABLESPACE ts1 ADD DATAFILE ts1.ibd Engine=InnoDB; //创建表空 间ts1 
+CREATE TABLE t1 (c1 INT PRIMARY KEY) TABLESPACE ts1; //将表添加到ts1 表空间
+```
+
+
+
+#### 4. 撤销表空间（Undo Tablespaces）
+
+**==撤消日志是在事务开始之前保存的被修改数据的备份==**，用于例外情况时**==回滚事务==**。撤消日志属于**==逻辑日志==**，根据每行记录进行记录
+
+由 **`innodb_undo_tablespaces`**  配置选项控制，默认为0。参数值为0表示使用系统表空间ibdata1。大于0表示使用undo表空间undo_001、undo_002等。
+
+撤销表空间由一个或多个包含Undo日志文件组成。
+
+在**==MySQL 5.7版本之前==**Undo占用的是**==System Tablespace共享区==**，
+
+从**==5.7开始==**将Undo**==从System Tablespace分离了出来==**。
+
+
+
+#### 5. 临时表空间（Temporary Tablespaces）
+
+分为session temporary tablespaces 和global temporary tablespace两种。sessiontemporary tablespaces 存储的是用户创建的临时表和磁盘内部的临时表。globaltemporary tablespace储存用户临时表的回滚段（rollback segments ）。mysql服务器正常关闭或异常终止时，临时表空间将被移除，每次启动时会被重新创建。
+
+
+
+#### 6. 重做日志(Redo Log)
+
+MySQL以循环方式写入重做日志文件，**==记录InnoDB中所有对Buffer Pool修改的日志==**。当**==出现实例故障==**（像断电），导致数据未能更新到数据文件，则**==数据库重启时须redo==**，**==重新把数据更新到数据文件==**。读写事务在执行的过程中，都会不断的产生redo log。默认情况下，重做日志在磁盘上由两个名为ib_logfile0和ib_logfile1的文件物理表示。
+
+
+
+#### 7. 双写缓冲区（Doublewrite Buffer）
+
+在**==BufferPage的page页==**刷新到磁盘真正的位置前，会**==先将数据存在Doublewrite 缓冲区==**。如果在page页写入过程中出现操作系统、存储子系统或mysqld进程崩溃，InnoDB可以在崩溃恢复期间从Doublewrite 缓冲区中找到页面的一个好备份。
+
+**==默认启用双写缓冲区==**，要禁用Doublewrite 缓冲区，可以将 **` innodb_doublewrite`**  设置为0。使用Doublewrite 缓冲区时建议将  **`innodb_flush_method`**  **==设置为O_DIRECT==**。
 
 
 
@@ -250,13 +351,35 @@ innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争�
 
 ### 四、InnoDB线程模型
 
+InnoDB线程模型，分为Master Thread、IO Thread、Purge Thread、Page Cleaner Thread四种模型，如下所示：
+
+![image-20210916163403173](images/image-20210916163403173.png)
+
+#### 1. ==IO Thread==
+
+InnoDB中使用了大量的 AIO（Async IO）来做读写处理，这样可以极大提高数据库的性能。
+
+IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==**insert buffer**==和==**log thread**==，其中read thread和write thread分别为4个，因此IO Thread一共有10个。
+
+##### 1.1 write thread：负责写操作，将Buffer Pool中的脏页刷新到磁盘。4个
+
+##### 1.2 read thread：负责读取操作，将数据从磁盘加载到缓存page页。4个
+
+##### 1.3 insert buffer thread：负责将Change Buffer中的内容刷新到磁盘，与磁盘的记录合并。1个
+
+##### 1.4 log thread：负责将Log Buffer中的内容刷新到磁盘。1个
 
 
 
+#### 2. ==Purge Thread==
 
 
 
+#### 3. ==Page Cleaner Thread==
 
+
+
+#### 4. ==Master Thread==
 
 
 
