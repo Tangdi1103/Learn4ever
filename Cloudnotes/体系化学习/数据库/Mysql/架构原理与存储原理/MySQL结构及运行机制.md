@@ -65,9 +65,9 @@ MySQL存储引擎是**==插件式==**的，服务器中的查询**执行引擎�
 
   记录了对MySQL数据库执行的更改操作，并且记录了语句的发生时间、执行时长；但是它不记录select、show等不修改数据库的SQL。主要用于数据库恢复和主从复制。
 
-  **`show variables like '%log_bin%'; //是否开启`**
+  **`show variables like '%log_bin%'; // 查看binlog日志状态`**
 
-  **`show variables like '%binlog%'; //参数查看`**
+  **`show variables like '%binlog%'; // 相关参数查看`**
 
   **`show binary logs;//查看日志文件`**
 
@@ -125,7 +125,7 @@ MySQL存储引擎是**==插件式==**的，服务器中的查询**执行引擎�
 
   存放 **==InnoDB 的数据和索引==**
 
-  **==系统表空间==**数据文件，存储**==表元数据、Undo log日志==**等 
+  **==系统表空间==**数据文件等 
 
   
 
