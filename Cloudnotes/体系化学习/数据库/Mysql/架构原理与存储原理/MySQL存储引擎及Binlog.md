@@ -238,6 +238,13 @@ innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争�
 
 用于**==优化对BP数据的查询==**。InnoDB存储引擎会监控对表索引的查找，如果观察到建立哈希索引可以带来速度的提升，则建立哈希索引，所以称之为自适应。InnoDB存储引擎会自动**==根据访问的频率和模式来为某些页建立哈希索引==**。
 
+**开启配置**
+
+```sql
+show engine innodb status \G; 
+show variables like '%innodb_adaptive%';
+```
+
 
 
 
