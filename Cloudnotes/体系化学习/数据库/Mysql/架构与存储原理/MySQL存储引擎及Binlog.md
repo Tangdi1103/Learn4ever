@@ -549,6 +549,8 @@ Undo Log ==存储在 Undo表空间文件==中，表空间中的==Rollback Segmen
 
 Undo Log 是为了==实现事务的原子性==而出现的产物。如前文介绍，可用于事务回滚。
 
+
+
 #### 4.2 实现MVCC（多版本并发控制）
 
 Undo Log 在 InnoDB 存储引擎中用来==实现多版本并发控制==。事务提交之前，Undo Log保存了修改前的版本数据，Undo Log 中的数据可作为  ==数据旧版本快照供其他并发事务进行快照读==。
@@ -600,8 +602,8 @@ Redo Buffer 持久化到 Redo Log 的策略，可通过  **`Innodb_flush_log_at_
 **`innodb_flush_log_at_trx_commit // 参数控制日志刷新行为，默认为1`**
 
 - **0：** 每秒提交 Redo buffffer ->OS cache -> flflush cache to disk，可能丢失一秒内的事务数据。由后台Master线程每隔 1秒执行一次操作。
-- **1：**每次事务提交执行 Redo Buffffer -> OS cache -> flflush cache to disk，最安全，性能最差的方式。
-- **2：**每次事务提交执行 Redo Buffffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flflush cache to disk 的操作。
+- **1：**每次事务提交执行 Redo Buffer -> OS cache -> flflush cache to disk，最安全，性能最差的方式。
+- **2：**每次事务提交执行 Redo Buffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flflush cache to disk 的操作。
 
 一般建议选择取值2，因为 MySQL 挂了数据没有损失，整个服务器挂了才会损失1秒的事务提交数据
 
