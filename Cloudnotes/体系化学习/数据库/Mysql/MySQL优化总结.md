@@ -76,15 +76,20 @@ ORDER BY
 
 #### 3. SQL优化
 
-- **In和 not in可使用join优化**
-  - in优化前：`select colname … from A表 where a.id not in (select b.id from B表) `
-  - join优化后：`select colname … from A表 Left join B表 on where a.id = b.id where b.id is null`
-  - not in 优化前：`select count(id) num , address from tbiguser where address in (select distinct address from tuser1) or address in (select distinct address from tuser2) group by address order by address; `
-  - join优化后：`select count(x.id),x.address from (select distinct b.* from tuser1 a,tbiguser b where a.address=b.address union all select distinct b.* from tuser2 a,tbiguser b where a.address=b.address) x group by x.address;`
+- **利用覆盖索引来进行查询操作，避免回表**
 
+- **In和 not in可使用join 关联索引字段优化**
+  
+  - not in优化前：`select colname … from A表 where a.id not in (select b.id from B表) `
+  - join优化后：`select colname … from A表 Left join B表 on where a.id = b.id where b.id is null`
+  - in 优化前：`select count(id) num , address from tbiguser where address in (select distinct address from tuser1) or address in (select distinct address from tuser2) group by address order by address; `
+  - join优化后：`select count(x.id),x.address from (select distinct b.* from tuser1 a,tbiguser b where a.address=b.address union all select distinct b.* from tuser2 a,tbiguser b where a.address=b.address) x group by x.address;`
+  
 - **IN包含的值不应过多，若太多可使用join优化**
 
   MySQL对于IN做了相应的优化，即将IN中的常量全部存储在一个数组里面，而且这个数组是排好序的。但是如果数值较多，产生的消耗也是比较大的。
+
+- **超过三个表禁止 join，且多表关联查询时，保证被关联的字段需要有索引**
 
 - **SELECT语句务必指明字段名称**
 
@@ -93,8 +98,6 @@ ORDER BY
 - **当只需要一条数据的时候，使用limit 1**
 
   limit 是可以停止全表扫描的
-
-- **排序字段加索引**
 
 - **如果限制条件中其他字段没有索引，尽量少用or**
 
@@ -114,7 +117,9 @@ ORDER BY
 
   - IN先执行子查询，适合于外表大而内表小的情况
 
-- **使用合理的分页方式以提高分页的效率**
+- **使用主键索引子查询提高分页的效率**
+
+  `SELECT t1.* FROM t1, (select id from t1 where ... LIMIT 100000,20 ) as t2 where t1.id=t2.id`
 
   利用主键的定位，可以减小m的值
 
@@ -137,6 +142,14 @@ ORDER BY
 - **注意范围查询语句**
 
   对于联合索引来说，如果存在范围查询，比如between、>、<等条件时，会造成后面的索引字段失效
+  
+  索引如果存在范围查询，那么索引有序性无法利用，如：WHERE a>10 ORDER BY b; 索引 a_b 无法排序
+
+- **order by排序避免出现filesorted，应该配合组合索引，并且放在组合索引的最后一位**
+
+  where a=? and b=? order by c; 索引：a_b_c
+
+- **禁止使用存储过程，存储过程难以调试和扩展，更没有移植性**
 
 
 
