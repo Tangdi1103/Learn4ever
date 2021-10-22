@@ -12,7 +12,7 @@
 
 ThreadLocal-set方法具体实现：
 
-```
+```java
 public void set(T value) {
     Thread t = Thread.currentThread();
     ThreadLocalMap map = getMap(t);
@@ -25,7 +25,7 @@ public void set(T value) {
 ```
 ThreadLocal-get方法具体实现：
 
-```
+```java
 public T get() {
     Thread t = Thread.currentThread();
     ThreadLocalMap map = getMap(t);
@@ -47,7 +47,7 @@ public T get() {
 
 ThreadLocalMap内部结构实现：
 
-```
+```java
 // 初次使用，Entry默认大小为INITIAL_CAPACITY（16）
 ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
     table = new Entry[INITIAL_CAPACITY];
@@ -70,7 +70,7 @@ static class Entry extends WeakReference<ThreadLocal<?>> {
 ```
 
 ThreadLocalMap-getEntry实现
-```
+```java
 private Entry getEntry(ThreadLocal<?> key) {
     int i = key.threadLocalHashCode & (table.length - 1);
     Entry e = table[i];
@@ -82,7 +82,7 @@ private Entry getEntry(ThreadLocal<?> key) {
 ```
 
 ThreadLocalMap-remove实现
-```
+```java
 /**
  * Remove the entry for key.
  */
@@ -104,7 +104,7 @@ private void remove(ThreadLocal<?> key) {
 
 清理强引用实现
 
-```
+```java
 private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
     Entry[] tab = table;
     int len = tab.length;
