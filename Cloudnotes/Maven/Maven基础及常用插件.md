@@ -45,6 +45,66 @@ Maven 本质上是一个插件执行框架，所有的工作都是由插件完�
 </build>
 ```
 
+
+
+**spring-boot-maven-plugin**
+
+springboot项目可使用这个插件打包
+
+- repackage
+
+  最主要的是要添加 `repackage` goal，用来重新打包。
+
+- layout
+
+  layout 属性根据项目类型默认是：jar/war，具体可以设置以下几种：
+
+  - JAR：可执行 jar 包；
+  - WAR：可执行 war 包；
+  - ZIP（别名：DIR）：和 jar 包相似，使用的是：PropertiesLauncher；
+  - NONE：打包所有依赖项和项目资源。不绑定任何启动加载器
+
+- classifier
+
+  默认情况下只会打一个包，但是如果这个模块既是其他模板的依赖，自身又需要打成可执行的运行包，那就需要用这个标签另外指定一个别名包，如：
+
+  - xxx.jar
+  - xxx-exec-jar
+
+```xml
+<build>
+  ...
+  <plugins>
+    ...
+    <plugin>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-maven-plugin</artifactId>
+      <version>2.2.6.RELEASE</version>
+      <configuration>
+        <mainClass>${start-class}</mainClass>
+        <layout>jar</layout>
+      </configuration>
+      <executions>
+        <execution>
+          <goals>
+            <goal>repackage</goal>
+          </goals>
+          <configuration>
+        　  <classifier>exec</classifier>
+        　</configuration>
+        </execution>
+      </executions>
+    </plugin>
+    ...
+  </plugins>
+  ...
+</build>
+```
+
+
+
+
+
 **maven-shade-plugin**
 
 将Java项目以及项目依赖的第三方包打包到一个 JAR文件
