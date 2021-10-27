@@ -124,11 +124,11 @@ ShardingSphere安装包下载：https://shardingsphere.apache.org/document/curre
 
   
 
-#### 4. 初始化流程
+#### 4. 工作流程
 
-- 根据配置信息生成Configuration对象
+- 根据配置的分片策略生成Configuration对象
 
-- 通过Factory会将Configuration对象转化为Rule对象
+- 通过Factory会将Configuration对象传递给Rule对象
 
 - 通过Factory会将Rule对象与DataSource对象封装
 
@@ -157,6 +157,26 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 通过ShardingDataSourceFactory工厂和规则配置对象获取ShardingDataSource，然后即可通过DataSource选择使用原生JDBC开发，或者使用 JPA, MyBatis等ORM工具。
 
 
+
+#### 6. 原理剖析
+
+
+
+
+
+![image-20211027231951809](images/image-20211027231951809.png)
+
+
+
+
+
+![image-20211027231751483](images/image-20211027231751483.png)
+
+
+
+MySQL解析器（支持MariaDB）
+
+默认解析器（采用SQL92标准）
 
 ### 三、Sharding-Proxy简介及工作原理
 
