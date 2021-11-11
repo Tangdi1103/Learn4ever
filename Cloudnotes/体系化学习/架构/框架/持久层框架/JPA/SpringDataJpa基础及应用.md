@@ -256,6 +256,8 @@ JPA 是⼀套规范，内部是由接⼝和抽象类组成的， Hiberanate 是�
 
 ##### 3.编写实体类，使⽤ JPA 注解配置映射关系  
 
+**实体1**
+
 ```java
 import javax.persistence.*;
 
@@ -288,13 +290,54 @@ public class Resume {
     private String address;
     @Column(name = "phone")
     private String phone;
+    @Column(name = "pid")
+    private String pid;
 
     // getter...
     // setter...
  	// toString...
 }
-
 ```
+
+**实体2**
+
+```java
+@Entity
+@Table(name = "tb_part")
+public class Part {
+
+    @Id
+    /**
+     * 生成策略经常使用的两种：
+     * GenerationType.IDENTITY:依赖数据库中主键自增功能  Mysql
+     * GenerationType.SEQUENCE:依靠序列来产生主键     Oracle
+     */
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "pid")
+    private Long pid;
+    @Column(name = "partName")
+    private String partName;
+
+    // getter...
+    // setter...
+ 	// toString...
+}
+```
+
+**关联查询结果对象**
+
+```java
+public interface ResumePart {
+    Long getId();
+    String getName();
+    String getAddress();
+    String getPhone();
+    String getPid();
+    String getPartName();
+}
+```
+
+
 
 ##### 4.编写⼀个符合 Spring Data JPA 的 Dao 层接⼝  
 
@@ -336,6 +379,11 @@ public interface ResumeDao extends JpaRepository<Resume,Long>, JpaSpecificationE
     @Query(value = "select * from tb_resume  where name like ?1 and address like ?2",nativeQuery = true)
     public List<Resume> findBySql(String name,String address);
 
+    /**
+     * 使用原生sql语句关联查询，并返回关联结果
+     */
+    @Query(value = "select r.id,r.name,r.phone,p.partName from tb_resume as r left join tb_part as p on r.pid=p.id where r.name like ?1 and r.address like ?2",nativeQuery = true)
+    public List<ResumePart> findBySql2(String name,String address);
 
     /**
      * 方法命名规则查询

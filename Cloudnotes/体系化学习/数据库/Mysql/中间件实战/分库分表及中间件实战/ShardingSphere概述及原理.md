@@ -182,13 +182,13 @@ MySQL解析器（支持MariaDB）
 
 Sharding-JDBC自带主键生成器
 
-![image-20211110234032677](../分库分表实战/images/image-20211110234032677.png)
+![image-20211110234032677](images/image-20211110234032677.png)
 
-![image-20211110234107616](../分库分表实战/images/image-20211110234107616.png)
+![image-20211110234107616](images/image-20211110234107616.png)
 
 自定义主键生成器
 
-![image-20211110234300173](../分库分表实战/images/image-20211110234300173.png)
+![image-20211110234300173](images/image-20211110234300173.png)
 
 ### 三、Sharding-Proxy简介及工作原理
 
