@@ -145,6 +145,7 @@ spring:
             - email-repo
             - user-repo
             - gateway-repo
+            - oauth-repo
       # 读取分支
       label: master
 #  rabbitmq:
@@ -166,7 +167,7 @@ management:
 
 
 
-##### 3.4 测试访问：http://localhost:9006/master/lagou-service-resume-dev.yml，查看到配置⽂件内容
+##### 3.4 测试访问：http://localhost:9006/master/oauth-server-pre.yml，查看到配置⽂件内容
 
 
 
@@ -175,6 +176,7 @@ management:
 ##### 4.1 在已有工程加上依赖
 
 ```xml
+<!--分布式配置中心config client-->
 <dependency>
     <groupId>org.springframework.cloud</groupId>
     <artifactId>spring-cloud-config-client</artifactId>

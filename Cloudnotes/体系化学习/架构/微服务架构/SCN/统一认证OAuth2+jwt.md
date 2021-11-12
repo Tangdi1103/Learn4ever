@@ -55,6 +55,10 @@
 
 - **==客户端（Client）==**：想登陆的⽹站或应⽤，⽐如拉勾⽹
 
+  - client_id ：客户端id（QQ最终相当于⼀个认证授权服务器，拉勾⽹就相当于⼀个客户端了，所以会给⼀个客户端id），相当于账号
+
+  - secret：相当于密码
+
 - **==认证服务器（Authorization Server）==**
 
   对外提供认证的认证中心，如微信、QQ的认证中心。**登陆认证、生成并颁发token、验证token、刷新token**
@@ -174,17 +178,22 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>lagou-parent</artifactId>
-        <groupId>com.lagou.edu</groupId>
+        <artifactId>scn-demo</artifactId>
+        <groupId>com.tangdi</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>lagou-cloud-oauth-server-9999</artifactId>
-
+    <artifactId>oauth-server</artifactId>
 
 
     <dependencies>
+        <dependency>
+            <groupId>com.tangdi</groupId>
+            <artifactId>api-service</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+
         <!--导入Eureka Client依赖-->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -216,6 +225,12 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
         </dependency>
 
 
+        <!--分布式配置中心config client-->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-client</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
@@ -235,15 +250,7 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
             <artifactId>spring-jdbc</artifactId>
         </dependency>
 
-
-        <dependency>
-            <groupId>com.lagou.edu</groupId>
-            <artifactId>lagou-service-common</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-
     </dependencies>
-
 </project>
 ```
 
@@ -251,32 +258,96 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
 
 #### 4.2 全局配置文件
 
+##### 系统级配置
+
+```yaml
+spring:
+  cloud:
+    # config客户端配置,和ConfigServer通信，并告知ConfigServer希望获取的配置信息在哪个⽂件中
+    config:
+      name: oauth-server #配置⽂件名称
+      profile: pre #后缀名称
+      label: master #分⽀名称
+      #ConfigServer配置中⼼地址
+#      uri: http://scn-config-server
+      # 从注册中心获取配置中心地址
+      discovery:
+        enabled: true
+        service-id: scn-config-server
+```
+
+##### 公共配置
+
+```yaml
+spring:
+  profiles:
+    active: dev
+```
+
+##### 测试环境配置
+
 ```yaml
 server:
-  port: 9999
-Spring:
+  port: 8084
+spring:
   application:
-    name: lagou-cloud-oauth-server
+    name: oauth-server
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/oauth2?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowMultiQueries=true
+    url: jdbc:mysql://localhost:3306/demo_jpa?useSSL=false&characterEncoding=utf-8&serverTimezone=GMT
     username: root
     password: 123456
-    druid:
-      initialSize: 10
-      minIdle: 10
-      maxActive: 30
-      maxWait: 50000
+
+
+#注册到Eureka服务中心
 eureka:
   client:
-    serviceUrl: # eureka server的路径
-      defaultZone: http://lagoucloudeurekaservera:8761/eureka/,http://lagoucloudeurekaserverb:8762/eureka/ #把 eureka 集群中的所有 url 都填写了进来，也可以只写一台，因为各个 eureka server 可以同步注册表
+    # 每隔多久拉取⼀次服务列表
+    registry-fetch-interval-seconds: 10
+    service-url:
+      # 注册到集群，就把多个Eurekaserver地址使用逗号连接起来即可
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
   instance:
-    #使用ip注册，否则会使用主机名注册了（此处考虑到对老版本的兼容，新版本经过实验都是ip）
-    prefer-ip-address: true
-    #自定义实例显示格式，加上版本号，便于多版本管理，注意是ip-address，早期版本是ipAddress
+    prefer-ip-address: true  #使⽤ip注册，否则会使⽤主机名注册了（此处考虑到对⽼版本的兼容，新版本经过实验都是ip）
+    # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
     instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
+    # 租约续约间隔时间，默认30秒
+    lease-renewal-interval-in-seconds: 10
+    # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
+    lease-expiration-duration-in-seconds: 30
+```
 
+##### 测试环境配置
+
+```yaml
+server:
+  port: 7074
+spring:
+  application:
+    name: oauth-server
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/demo_jpa?useSSL=false&characterEncoding=utf-8&serverTimezone=GMT
+    username: root
+    password: 123456
+
+
+#注册到Eureka服务中心
+eureka:
+  client:
+    # 每隔多久拉取⼀次服务列表
+    registry-fetch-interval-seconds: 10
+    service-url:
+      # 注册到集群，就把多个Eurekaserver地址使用逗号连接起来即可
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka
+  instance:
+    prefer-ip-address: true  #使⽤ip注册，否则会使⽤主机名注册了（此处考虑到对⽼版本的兼容，新版本经过实验都是ip）
+    # 实例名称： 192.168.1.103:lagou-service-resume:8080，我们可以自定义它
+    instance-id: ${spring.cloud.client.ip-address}:${spring.application.name}:${server.port}
+    # 租约续约间隔时间，默认30秒
+    lease-renewal-interval-in-seconds: 10
+    # 租约到期，服务时效时间，默认值90秒,服务超过90秒没有发⽣⼼跳，EurekaServer会将服务从列表移除
+    lease-expiration-duration-in-seconds: 30
 ```
 
 
@@ -308,7 +379,7 @@ CREATE TABLE `oauth_client_details` (
 -- Records of oauth_client_details
 -- ----------------------------
 BEGIN;
-INSERT INTO `oauth_client_details` VALUES ('client_lagou123',
+INSERT INTO `oauth_client_details` VALUES ('client_lagou',
 'autodeliver,resume', 'abcxyz', 'all', 'password,refresh_token',
 NULL, NULL, 7200, 259200, NULL, NULL);
 COMMIT;
@@ -336,7 +407,7 @@ CREATE TABLE `users` (
 -- Records of users
 -- ----------------------------
 BEGIN;
-INSERT INTO `users` VALUES (4, 'zhangsan', 'iuxyzds');
+INSERT INTO `users` VALUES (4, 'admin', '123456');
 COMMIT;
 SET FOREIGN_KEY_CHECKS = 1;
 ```
@@ -346,23 +417,27 @@ SET FOREIGN_KEY_CHECKS = 1;
 #### 4.5 OAuth2 认证中心启动类
 
 ```java
-package com.lagou.edu;
-
+package com.tangdi;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
+/**
+ * @program: scn-demo
+ * @description:
+ * @author: Wangwentao
+ * @create: 2021-11-12 17:07
+ **/
 @SpringBootApplication
 @EnableDiscoveryClient
-@EntityScan("com.lagou.edu.pojo")
-public class OauthServerApplication9999 {
-
+public class OAuthServerApplication {
     public static void main(String[] args) {
-        SpringApplication.run(OauthServerApplication9999.class,args);
+        SpringApplication.run(OAuthServerApplication.class,args);
     }
+
 }
+
 ```
 
 
@@ -370,7 +445,7 @@ public class OauthServerApplication9999 {
 #### 4.6 OAuth2 认证中心配置类 
 
 ```java
-package com.lagou.edu.config;
+package com.tangdi.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -378,30 +453,27 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.jwt.crypto.sign.MacSigner;
-import org.springframework.security.jwt.crypto.sign.SignatureVerifier;
-import org.springframework.security.jwt.crypto.sign.Signer;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
-import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.security.oauth2.provider.client.JdbcClientDetailsService;
-import org.springframework.security.oauth2.provider.token.*;
-import org.springframework.security.oauth2.provider.token.store.InMemoryTokenStore;
+import org.springframework.security.oauth2.provider.token.AuthorizationServerTokenServices;
+import org.springframework.security.oauth2.provider.token.DefaultTokenServices;
+import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
 import javax.sql.DataSource;
-import java.util.ArrayList;
-import java.util.List;
 
 
 /**
  * 当前类为Oauth2 server的配置类（需要继承特定的父类 AuthorizationServerConfigurerAdapter）
  */
 @Configuration
-@EnableAuthorizationServer  // 开启认证服务器功能
+// 开启认证服务器功能
+@EnableAuthorizationServer
 public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
 
 
@@ -409,10 +481,13 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
     private AuthenticationManager authenticationManager;
 
     @Autowired
-    private LagouAccessTokenConvertor lagouAccessTokenConvertor;
+    private MyAccessTokenConvertor myAccessTokenConvertor;
 
+    @Autowired
+    private DataSource dataSource;
 
-    private String sign_key = "lagou123"; // jwt签名密钥
+    // jwt签名密钥
+    private String sign_key = "test123";
 
 
     /**
@@ -463,15 +538,6 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
 
     }
 
-    @Autowired
-    private DataSource dataSource;
-
-    @Bean
-    public JdbcClientDetailsService createJdbcClientDetailsService() {
-        JdbcClientDetailsService jdbcClientDetailsService = new JdbcClientDetailsService(dataSource);
-        return jdbcClientDetailsService;
-    }
-
 
     /**
      * 认证服务器是玩转token的，那么这里配置token令牌管理相关（token此时就是一个字符串，当下的token需要在服务器端存储，
@@ -483,18 +549,50 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
         super.configure(endpoints);
         endpoints
-                .tokenStore(tokenStore())  // 指定token的存储方法
-                .tokenServices(authorizationServerTokenServices())   // token服务的一个描述，可以认为是token生成细节的描述，比如有效时间多少等
-                .authenticationManager(authenticationManager) // 指定认证管理器，随后注入一个到当前类使用即可
+                // 指定token的存储方法
+                .tokenStore(tokenStore())
+                // token服务的一个描述，可以认为是token生成细节的描述，比如有效时间多少等
+                .tokenServices(authorizationServerTokenServices())
+                // 指定认证管理器，随后注入一个到当前类使用即可
+                .authenticationManager(authenticationManager)
                 .allowedTokenEndpointRequestMethods(HttpMethod.GET,HttpMethod.POST);
     }
 
 
-    /*
-     *   该方法用于创建tokenStore对象（令牌存储对象）
-     *   token以什么形式存储
+    @Bean
+    public JdbcClientDetailsService createJdbcClientDetailsService() {
+        return new JdbcClientDetailsService(dataSource);
+    }
+
+
+    /**
+     * 该方法用户获取一个token服务对象（该对象描述了token有效期等信息）
      */
-    public TokenStore tokenStore(){
+    private AuthorizationServerTokenServices authorizationServerTokenServices() {
+        // 使用默认实现
+        DefaultTokenServices defaultTokenServices = new DefaultTokenServices();
+        // 是否开启令牌刷新
+        defaultTokenServices.setSupportRefreshToken(true);
+        defaultTokenServices.setTokenStore(tokenStore());
+
+        // 针对jwt令牌的添加
+        defaultTokenServices.setTokenEnhancer(jwtAccessTokenConverter());
+
+        // 设置令牌有效时间（一般设置为2个小时，此处设置20秒）
+        // access_token就是我们请求资源需要携带的令牌
+        defaultTokenServices.setAccessTokenValiditySeconds(20);
+        // 设置刷新令牌的有效时间
+        // 3天
+        defaultTokenServices.setRefreshTokenValiditySeconds(259200);
+
+        return defaultTokenServices;
+    }
+
+    /**
+     * 该方法用于创建tokenStore对象（令牌存储对象） token以什么形式存储
+     * @return
+     */
+    private TokenStore tokenStore(){
         //return new InMemoryTokenStore();
         // 使用jwt令牌
         return new JwtTokenStore(jwtAccessTokenConverter());
@@ -505,62 +603,67 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
      * 在这里，我们可以把签名密钥传递进去给转换器对象
      * @return
      */
-    public JwtAccessTokenConverter jwtAccessTokenConverter() {
+    private JwtAccessTokenConverter jwtAccessTokenConverter() {
         JwtAccessTokenConverter jwtAccessTokenConverter = new JwtAccessTokenConverter();
-        jwtAccessTokenConverter.setSigningKey(sign_key);  // 签名密钥
-        jwtAccessTokenConverter.setVerifier(new MacSigner(sign_key));  // 验证时使用的密钥，和签名密钥保持一致
-        jwtAccessTokenConverter.setAccessTokenConverter(lagouAccessTokenConvertor); // 注入扩展jwt令牌转换器
+        // 签名密钥
+        jwtAccessTokenConverter.setSigningKey(sign_key);
+        // 验证时使用的密钥，和签名密钥保持一致
+        jwtAccessTokenConverter.setVerifier(new MacSigner(sign_key));
+        // 扩展jwt生成器
+        jwtAccessTokenConverter.setAccessTokenConverter(myAccessTokenConvertor);
 
         return jwtAccessTokenConverter;
     }
-
-
-
-
-    /**
-     * 该方法用户获取一个token服务对象（该对象描述了token有效期等信息）
-     */
-    public AuthorizationServerTokenServices authorizationServerTokenServices() {
-        // 使用默认实现
-        DefaultTokenServices defaultTokenServices = new DefaultTokenServices();
-        defaultTokenServices.setSupportRefreshToken(true); // 是否开启令牌刷新
-        defaultTokenServices.setTokenStore(tokenStore());
-
-        // 针对jwt令牌的添加
-        defaultTokenServices.setTokenEnhancer(jwtAccessTokenConverter());
-
-        // 设置令牌有效时间（一般设置为2个小时）
-        defaultTokenServices.setAccessTokenValiditySeconds(20); // access_token就是我们请求资源需要携带的令牌
-        // 设置刷新令牌的有效时间
-        defaultTokenServices.setRefreshTokenValiditySeconds(259200); // 3天
-
-        return defaultTokenServices;
-    }
 }
+
 ```
+
+- **三个confifigure⽅法**
+
+  - **confifigure(ClientDetailsServiceConfifigurer clients)**
+
+    用来配置客户端详情服务（ClientDetailsService），客户端详情信息在 这⾥进⾏初始化，你能够把客户端详情信息写死在这⾥或者是通过数据库来存储调取详情信息
+
+  - **confifigure(AuthorizationServerEndpointsConfifigurer endpoints)**
+
+    ⽤来配置令牌（token）的访问端点和令牌服务(token services)
+
+  - **confifigure(AuthorizationServerSecurityConfifigurer oauthServer)**
+
+    ⽤来配置令牌端点的安全约束
+
+- **TokenStore**
+
+  - **InMemoryTokenStore**
+
+    默认采⽤，它可以完美的⼯作在单服务器上（即访问并发量 压⼒不⼤的情况下，并且它在失败的时候不会进⾏备份），⼤多数的项⽬都可以使⽤这个版本的实现来进⾏ 尝试，你可以在开发的时候使⽤它来进⾏管理，因为不会被保存到磁盘中，所以更易于调试
+
+  - **JdbcTokenStore**
+
+    基于JDBC的实现版本，令牌会被保存进关系型数据库。使⽤这个版本的实现时， 你可以在不同的服务器之间共享令牌信息，使⽤这个版本的时候请注意把"spring-jdbc"这个依赖加⼊到你的 classpath当中
+
+  - **JwtTokenStore**
+
+    JSON Web Token（JWT），它可以把令牌相关的数据进⾏编码（因此对于后端服务来说，它不需要进⾏存储，这将是⼀个重⼤优势），缺点就是这个令牌占⽤的空间会⽐较⼤，如果你加⼊了⽐较多⽤户凭证信息，JwtTokenStore 不会保存任何数据
+
+
 
 
 
 #### 4.7 用户信息认证安全配置类
 
 ```java
-package com.lagou.edu.config;
+package com.tangdi.config;
 
-import com.lagou.edu.service.JdbcUserDetailsService;
+import com.tangdi.service.JdbcUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.quartz.QuartzProperties;
-import org.springframework.cglib.proxy.NoOp;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.util.ArrayList;
 
 
 /**
@@ -611,6 +714,7 @@ public class SecurityConfiger extends WebSecurityConfigurerAdapter {
         auth.userDetailsService(jdbcUserDetailsService).passwordEncoder(passwordEncoder);
     }
 }
+
 ```
 
 
@@ -618,10 +722,10 @@ public class SecurityConfiger extends WebSecurityConfigurerAdapter {
 #### 4.8 实现UserDetailsService接口，查询用户详情Service
 
 ```java
-package com.lagou.edu.service;
+package com.tangdi.service;
 
-import com.lagou.edu.dao.UsersRepository;
-import com.lagou.edu.pojo.Users;
+import com.tangdi.dao.UsersRepository;
+import com.tangdi.domain.user.Users;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -649,6 +753,7 @@ public class JdbcUserDetailsService implements UserDetailsService {
         return new User(users.getUsername(),users.getPassword(),new ArrayList<>());
     }
 }
+
 ```
 
 
@@ -656,7 +761,7 @@ public class JdbcUserDetailsService implements UserDetailsService {
 #### 4.9 用户实体类及Dao
 
 ```java
-package com.lagou.edu.pojo;
+package com.tangdi.domain.user;
 
 import lombok.Data;
 
@@ -673,12 +778,13 @@ public class Users {
     private String username;
     private String password;
 }
+
 ```
 
 ```java
-package com.lagou.edu.dao;
+package com.tangdi.dao;
 
-import com.lagou.edu.pojo.Users;
+import com.tangdi.domain.user.Users;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UsersRepository extends JpaRepository<Users,Long> {
@@ -697,7 +803,7 @@ public interface UsersRepository extends JpaRepository<Users,Long> {
 ##### 4.10.2 将自定义转换器注入认证服务配置类中
 
 ```java
-package com.lagou.edu.config;
+package com.tangdi.config;
 
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
@@ -710,8 +816,11 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 
+/**
+ * 扩展jwt令牌信息
+ */
 @Component
-public class LagouAccessTokenConvertor extends DefaultAccessTokenConverter {
+public class MyAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 
     @Override
@@ -725,6 +834,7 @@ public class LagouAccessTokenConvertor extends DefaultAccessTokenConverter {
         return stringMap;
     }
 }
+
 ```
 
 
@@ -733,31 +843,35 @@ public class LagouAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 ##### 4.11.1 认证并生成token
 
-http://localhost:9999/oauth/token?client_secret=abcxyz&grant_type=password&username=admin&password=123456&client_id=client_lagou
+http://localhost:8084/oauth/token?client_secret=abcxyz&grant_type=password&username=admin&password=123456&client_id=client_lagou
 
-![image-20210906002608501](images/image-20210906002608501.png)
+![image-20211112183523873](images/image-20211112183523873.png)
 
-- client_id：客户端id
+- **client_id**：客户端id
 
-- client_secret：客户单密码
+- **client_secret**：客户单密码
 
-- grant_type：指定使⽤哪种颁发类型，password
+- **grant_type**：指定使⽤哪种颁发类型，password
 
-- username：⽤户名
+- **username**：⽤户名
 
-- password：密码
+- **password**：密码
 
 ##### 4.11.2 验证token
 
-http://localhost:9999/oauth/check_token?token=a9979518-838c-49ff-b14a-ebdb7fde7d08
+http://localhost:8084/oauth/check_token?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2NzEzMzg3LCJqdGkiOiIzNGYzMzE4NS1iYjU0LTQ2ZGYtOTQwYy03MGE4YjFkNGRkZDYiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.-_PB3t4po_vcuqzZT7EiDOjmisBJKpmNPKjo7L6bo80
 
-![image-20210906002630005](images/image-20210906002630005.png)
+![image-20211112183643254](images/image-20211112183643254.png)
+
+
+
+
 
 ##### 4.11.3 刷新token
 
-http://localhost:9999/oauth/token?grant_type=refresh_token&client_id=client_lagou&client_secret=abcxyz&refresh_token=8b640340-30a3-4307-93d4-ed60cc54fbc8
+http://localhost:8084/oauth/token?grant_type=refresh_token&client_id=client_lagou&client_secret=abcxyz&refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImF0aSI6IjIxY2EyMTNjLTBhNjItNDI3ZS1hZjc0LTg3NThmMGVkYzJlYyIsImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2OTcyMzQ3LCJqdGkiOiIzMGM2NDgwMy05OTc5LTQ4ZDctOGU3YS1lODhmMjM5ZTY0MzgiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.B6oxxVXXTS1rHfdo4-ihM5XTZ2N3oAeEMCW5koSFSGw
 
-![image-20210906002655822](images/image-20210906002655822.png)
+![image-20211112183702059](images/image-20211112183702059.png)
 
 
 
@@ -803,7 +917,7 @@ http://localhost:9999/oauth/token?grant_type=refresh_token&client_id=client_lago
 #### 5.3 资源服务配置类
 
 ```java
-package com.lagou.edu.config;
+package com.tangdi.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
@@ -811,25 +925,29 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.jwt.crypto.sign.MacSigner;
-import org.springframework.security.jwt.crypto.sign.RsaVerifier;
-import org.springframework.security.jwt.crypto.sign.SignatureVerifier;
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
 import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
 import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
-import org.springframework.security.oauth2.provider.token.RemoteTokenServices;
 import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
+/**
+ * @program: scn-demo
+ * @description:
+ * @author: Wangwentao
+ * @create: 2021-11-12 17:48
+ **/
 @Configuration
 @EnableResourceServer  // 开启资源服务器功能
 @EnableWebSecurity  // 开启web访问安全
 public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
 
-    private String sign_key = "lagou123"; // jwt签名密钥
+    // jwt签名密钥
+    private String sign_key = "test123";
 
     @Autowired
-    private LagouAccessTokenConvertor lagouAccessTokenConvertor;
+    private MyAccessTokenConvertor myAccessTokenConvertor;
 
     /**
      * 该方法用于定义资源服务器向远程认证服务器发起请求，进行token校验等事宜
@@ -873,18 +991,18 @@ public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .and()
                 .authorizeRequests()
-                .antMatchers("/autodeliver/**").authenticated() // autodeliver为前缀的请求需要认证
-                .antMatchers("/demo/**").authenticated()  // demo为前缀的请求需要认证
+                // autodeliver为前缀的请求需要认证
+                .antMatchers("/autodeliver/**").authenticated()
+                // codeTest为前缀的请求需要认证
+                .antMatchers("/codeTest/**").authenticated()
                 .anyRequest().permitAll();  //  其他请求不认证
     }
 
 
-
-
-    /*
-       该方法用于创建tokenStore对象（令牌存储对象）
-       token以什么形式存储
-    */
+    /**
+     * 该方法用于创建tokenStore对象（令牌存储对象） token以什么形式存储
+     * @return
+     */
     public TokenStore tokenStore(){
         //return new InMemoryTokenStore();
 
@@ -899,13 +1017,15 @@ public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
      */
     public JwtAccessTokenConverter jwtAccessTokenConverter() {
         JwtAccessTokenConverter jwtAccessTokenConverter = new JwtAccessTokenConverter();
-        jwtAccessTokenConverter.setSigningKey(sign_key);  // 签名密钥
-        jwtAccessTokenConverter.setVerifier(new MacSigner(sign_key));  // 验证时使用的密钥，和签名密钥保持一致
-        jwtAccessTokenConverter.setAccessTokenConverter(lagouAccessTokenConvertor); // 注入扩展jwt令牌转换器
+        // 签名密钥
+        jwtAccessTokenConverter.setSigningKey(sign_key);
+        // 验证时使用的密钥，和签名密钥保持一致
+        jwtAccessTokenConverter.setVerifier(new MacSigner(sign_key));
+        jwtAccessTokenConverter.setAccessTokenConverter(myAccessTokenConvertor);
         return jwtAccessTokenConverter;
     }
-
 }
+
 ```
 
 
@@ -913,31 +1033,29 @@ public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
 #### 5.4 取出Oauth2的 JWT 令牌信息
 
 ```java
-package com.lagou.edu.config;
+package com.tangdi.config;
 
-import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.provider.OAuth2Authentication;
 import org.springframework.security.oauth2.provider.token.DefaultAccessTokenConverter;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 
 @Component
-public class LagouAccessTokenConvertor extends DefaultAccessTokenConverter {
+public class MyAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 
     @Override
     public OAuth2Authentication extractAuthentication(Map<String, ?> map) {
 
         OAuth2Authentication oAuth2Authentication = super.extractAuthentication(map);
-        oAuth2Authentication.setDetails(map);  // 将map放入认证对象中，认证对象在controller中可以拿到
+        // 将map放入认证对象中，认证对象在controller中可以拿到
+        oAuth2Authentication.setDetails(map);
         return oAuth2Authentication;
     }
 }
+
 ```
 
 
@@ -945,27 +1063,41 @@ public class LagouAccessTokenConvertor extends DefaultAccessTokenConverter {
 #### 5.5 在需要认证的接口中，获取 JWT 信息
 
 ```java
-package com.lagou.edu.controller;
+package com.tangdi.controller;
 
-import com.lagou.edu.controller.service.ResumeServiceFeignClient;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * @program: scn-demo
+ * @description:
+ * @author: Wangwt
+ * @create: 11:41 2021/9/4
+ */
 @RestController
-@RequestMapping("/demo")
-public class DemoController {
+@RequestMapping("/codeTest")
+public class TestController {
 
-    @GetMapping("/test")
-    public String findResumeOpenState() {
+    @PostMapping("/test")
+    public String test(){
         Object details = SecurityContextHolder.getContext().getAuthentication().getDetails();
-        return "demo/test!";
+        System.out.println(details);
+        return "Feign test=====================>";
     }
 }
 ```
+
+
+
+#### 5.6 资源服务器验证
+
+http://localhost:8081/code/codeTest/test?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2NzEzMjU2LCJqdGkiOiI4NWUxZTYwYS1lZGIzLTRhNDAtOGZiYi02NTlhZTFjNjc1ZTgiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.gCtHiavOTIXx30bj27cgiFQuRiCBKPWz6MkZAp-zTzg
+
+![image-20211112183847778](images/image-20211112183847778.png)
+
+
 
 
 
