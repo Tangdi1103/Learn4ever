@@ -46,7 +46,7 @@ ShardingSphere安装包下载：https://shardingsphere.apache.org/document/curre
 
 
 
-### 二、Sharding-JDBC简介及工作原理
+### 二、Sharding-JDBC基础及工作原理
 
 **Sharding-JDBC定位为轻量级Java框架**，在Java的 **JDBC 层提供的额外服务**。 它使用客户端直连数据库，以 **jar包形式提供服务**，无需额外部署和依赖，可理解为**增强版的JDBC驱动**，**完全兼容JDBC和各种ORM框架的使用**。
 
@@ -158,19 +158,107 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 
 
 
-#### 6. 原理剖析
+### 三、 数据分片
+
+#### 1. 分片核心概念
+
+- **真实表**：数据库中真实存在的物理表。例如b_order0、b_order1
+
+- **逻辑表**：在分片之后，同一类表的名称。例如b_order。
+
+- **数据节点**：在分片之后，数据源和数据表组成数据节点。例如ds0.b_order1
+
+- **绑定表**：
+
+  指的是分片规则一致的关系表（主表、子表），例如b_order和b_order_item，均按照order_id分片，则此两个表互为绑定表关系。绑定表之间的多表关联查询不会出现笛卡尔积关联，可以提升关联查询效率
+
+  ```sql
+  b_order：b_order0、b_order1 
+  b_order_item：b_order_item0、b_order_item1 
+  select * from b_order o join b_order_item i on(o.order_id=i.order_id) where o.order_id in (10,11);
+  ```
+
+  如果不配置绑定表关系，采用笛卡尔积关联，会生成4个SQL
+
+  ```sql
+  select * from b_order0 o join b_order_item0 i on(o.order_id=i.order_id) where o.order_id in (10,11); 
+  select * from b_order0 o join b_order_item1 i on(o.order_id=i.order_id) where o.order_id in (10,11); 
+  select * from b_order1 o join b_order_item0 i on(o.order_id=i.order_id) where o.order_id in (10,11); 
+  select * from b_order1 o join b_order_item1 i on(o.order_id=i.order_id) where o.order_id in (10,11);
+  ```
+
+  如果配置绑定表关系，只会生成2个SQL
+
+  ```sql
+  select * from b_order0 o join b_order_item0 i on(o.order_id=i.order_id) where o.order_id in (10,11);
+  select * from b_order1 o join b_order_item1 i on(o.order_id=i.order_id) where o.order_id in (10,11);
+  ```
+
+- **广播表**：
+
+  有些表没必要做分片，例如**字典表、省份信息**等，因为他们数据量不大，而且这种表可能需要与海量数据的表进行关联查询。**广播表会在不同的数据节点上进行存储，存储的表结构和数据完全相同**。
 
 
 
+#### 2. 分片算法（ShardingAlgorithm）
 
+分片算法和业务实现紧密相关，因此**并未提供内置分片算法**，而是通过分片策略将各种场景提炼出来，提供更高层级的抽象，并提供接口让应用开发者自行实现分片算法。目前提供4种分片算法。
 
 ![image-20211027231951809](images/image-20211027231951809.png)
 
+- **PreciseShardingAlgorithm(精确分片算法)**
 
+  用于处理使用单一键作为分片键的=与IN进行分片的场景。
 
+- **RangeShardingAlgorithm(范围分片算法)**
 
+  用于处理使用单一键作为分片键的BETWEEN AND、>、<、>=、<=进行分片的场景。
+
+- **ComplexKeysShardingAlgorithm(复合分片算法)**
+
+  使用多键作为分片键进行分片的场景，多个分片键的逻辑较复杂，需要应用开发者自行处理其中的复杂度
+
+- **HintShardingAlgorithm(Hint分片算法)**
+
+  由其他外置条件决定的场景，可使用SQL Hint灵活的注入分片字段。例：内部系统，按照员工登录主键分库，而数据库中并无此字段。SQL Hint支持通过Java API和SQL注释两种方式使用
+
+#### 3. 分片策略
 
 ![image-20211027231751483](images/image-20211027231751483.png)
+
+
+
+### 四、读写分离
+
+
+
+### 五、强制路由
+
+
+
+### 六、数据脱敏
+
+
+
+### 七、分布式事务控制
+
+
+
+### 八、SPI加载
+
+
+
+### 九、编排治理
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -189,8 +277,6 @@ Sharding-JDBC自带主键生成器
 自定义主键生成器
 
 ![image-20211110234300173](images/image-20211110234300173.png)
-
-### 三、Sharding-Proxy简介及工作原理
 
 1. 数据库集群架构新增，混合模式（分库+主从、分表+主从、分库分表+主从）
 2. 完成分库分表概念、原理及功能实现笔记
