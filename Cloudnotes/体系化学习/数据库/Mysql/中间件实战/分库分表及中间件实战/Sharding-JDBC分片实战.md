@@ -1,0 +1,673 @@
+[toc]
+
+### 一、分库分表
+
+#### 1. 场景一：仅分库
+
+对 `position` 和 `position_detail` 分别进行分库，如下图所示
+
+![image-20211116235842158](images/image-20211116235842158.png)
+
+##### 思路
+
+- 在 `db0`和 `db1`中创建都这两个表
+- `position` 使用 `id`作为分片键，`position_detail`使用 `pid`作为分片键。**保证了`position`和`position_detail`相关联的记录分配在一个库中**
+
+- `city`配置为广播表
+
+##### 1.1 实体类
+
+**职位**
+
+```java
+import javax.persistence.*;
+import java.io.Serializable;
+
+@Entity
+@Table(name="position")
+public class Position implements Serializable {
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "salary")
+    private String salary;
+
+    @Column(name = "city")
+    private String city;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getSalary() {
+        return salary;
+    }
+
+    public void setSalary(String salary) {
+        this.salary = salary;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+}
+```
+
+**职位详情**
+
+```java
+package com.lagou.entity;
+
+import javax.persistence.*;
+import java.io.Serializable;
+
+@Entity
+@Table(name = "position_detail")
+public class PositionDetail implements Serializable {
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(name = "pid")
+    private long pid;
+
+    @Column(name = "description")
+    private String description;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public long getPid() {
+        return pid;
+    }
+
+    public void setPid(long pid) {
+        this.pid = pid;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+}
+```
+
+**城市**
+
+```java
+package com.lagou.entity;
+
+import javax.persistence.*;
+import java.io.Serializable;
+
+@Entity
+@Table(name = "city")
+public class City implements Serializable {
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "province")
+    private String province;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getProvince() {
+        return province;
+    }
+
+    public void setProvince(String province) {
+        this.province = province;
+    }
+}
+```
+
+
+
+##### 1.2 Repository类
+
+```java
+import com.lagou.entity.Position;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface PositionRepository  extends JpaRepository<Position,Long> {
+
+    @Query(nativeQuery = true,value = "select p.id,p.name,p.salary,p.city,pd.description from position p join position_detail pd on(p.id=pd.pid) where p.id=:id")
+    public Object findPositionsById(@Param("id") long id);
+
+}
+```
+
+```java
+import com.lagou.entity.PositionDetail;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface PositionDetailRepository extends JpaRepository<PositionDetail,Long> {
+}
+```
+
+```java
+import com.lagou.entity.City;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface CityRepository extends JpaRepository<City,Long> {
+}
+
+```
+
+
+
+##### 1.3 自定义主键
+
+实现接口ShardingKeyGenerator即可，getType()方法返回的就是自定义主键策略
+
+```java
+import org.apache.shardingsphere.core.strategy.keygen.SnowflakeShardingKeyGenerator;
+import org.apache.shardingsphere.spi.keygen.ShardingKeyGenerator;
+
+import java.util.Properties;
+
+public class MyLagouId implements ShardingKeyGenerator {
+
+    private  SnowflakeShardingKeyGenerator snow = new SnowflakeShardingKeyGenerator();
+
+    @Override
+    public Comparable<?> generateKey() {
+        System.out.println("------执行了自定义主键生成器MyLagouId-------");
+        return snow.generateKey();
+    }
+
+    @Override
+    public String getType() {
+        return "LAGOUKEY";
+    }
+
+    @Override
+    public Properties getProperties() {
+        return null;
+    }
+
+    @Override
+    public void setProperties(Properties properties) {
+
+    }
+}
+```
+
+
+
+##### 1.4 配置
+
+```properties
+#datasource
+spring.shardingsphere.datasource.names=ds0,ds1
+
+spring.shardingsphere.datasource.ds0.type=com.zaxxer.hikari.HikariDataSource
+spring.shardingsphere.datasource.ds0.driver-class-name=com.mysql.jdbc.Driver
+#spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://192.168.95.130:3306/db0
+spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://localhost:3306/db0
+spring.shardingsphere.datasource.ds0.username=root
+spring.shardingsphere.datasource.ds0.password=root
+
+spring.shardingsphere.datasource.ds1.type=com.zaxxer.hikari.HikariDataSource
+spring.shardingsphere.datasource.ds1.driver-class-name=com.mysql.jdbc.Driver
+#spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://192.168.95.132:3306/db1
+spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://localhost:3306/db1
+spring.shardingsphere.datasource.ds1.username=root
+spring.shardingsphere.datasource.ds1.password=root
+
+#sharding-database
+spring.shardingsphere.sharding.tables.position.database-strategy.inline.sharding-column=id
+spring.shardingsphere.sharding.tables.position.database-strategy.inline.algorithm-expression=ds$->{id % 2}
+
+spring.shardingsphere.sharding.tables.position_detail.database-strategy.inline.sharding-column=pid
+spring.shardingsphere.sharding.tables.position_detail.database-strategy.inline.algorithm-expression=ds$->{pid % 2}
+
+#id
+spring.shardingsphere.sharding.tables.position.key-generator.column=id
+#spring.shardingsphere.sharding.tables.position.key-generator.type=SNOWFLAKE
+spring.shardingsphere.sharding.tables.position.key-generator.type=LAGOUKEY
+
+spring.shardingsphere.sharding.tables.position_detail.key-generator.column=id
+spring.shardingsphere.sharding.tables.position_detail.key-generator.type=SNOWFLAKE
+
+#broadcast广播表，多个可用逗号隔开
+spring.shardingsphere.sharding.broadcast-tables=city
+spring.shardingsphere.sharding.tables.city.key-generator.column=id
+spring.shardingsphere.sharding.tables.city.key-generator.type=SNOWFLAKE
+```
+
+##### 1.5 测试
+
+```java
+package dao;
+
+import com.lagou.RunBoot;
+import com.lagou.entity.BOrder;
+import com.lagou.entity.City;
+import com.lagou.entity.Position;
+import com.lagou.entity.PositionDetail;
+import com.lagou.repository.BOrderRepository;
+import com.lagou.repository.CityRepository;
+import com.lagou.repository.PositionDetailRepository;
+import com.lagou.repository.PositionRepository;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Repeat;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import javax.annotation.Resource;
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = RunBoot.class)
+public class TestShardingDatabase {
+
+    @Resource
+    private PositionRepository positionRepository;
+
+    @Resource
+    private PositionDetailRepository positionDetailRepository;
+
+    @Resource
+    private CityRepository cityRepository;
+
+    @Resource
+    private BOrderRepository orderRepository;
+
+    @Test
+    public void testAdd(){
+        for (int i=1;i<=20;i++){
+            Position position = new Position();
+//            position.setId(i);
+            position.setName("lagou"+i);
+            position.setSalary("1000000");
+            position.setCity("beijing");
+            positionRepository.save(position);
+        }
+    }
+
+    @Test
+    public void testAdd2(){
+        for (int i=1;i<=20;i++){
+            Position position = new Position();
+            position.setName("lagou"+i);
+            position.setSalary("1000000");
+            position.setCity("beijing");
+            positionRepository.save(position);
+
+            PositionDetail positionDetail = new PositionDetail();
+            positionDetail.setPid(position.getId());
+            positionDetail.setDescription("this is a message "+i);
+            positionDetailRepository.save(positionDetail);
+        }
+    }
+
+    @Test
+    public void testLoad(){
+        Object object = positionRepository.findPositionsById(470186138993164289L);
+        Object[] position = (Object[])object;
+        System.out.println(position[0]+" "+position[1]+" "+position[2]+" "+position[3]+" "+position[4]);
+    }
+
+    @Test
+    public void testBroadCast(){
+        City city = new City();
+        city.setName("beijing");
+        city.setProvince("beijing");
+        cityRepository.save(city);
+    }
+}
+```
+
+
+
+#### 2. 场景二：分库分表
+
+对 `BOrder` 进行分库+分表，如下图所示
+
+![image-20211117012721674](images/image-20211117012721674.png)
+
+##### 思路
+
+- 在 `db0`和 `db1`中创建都这两个表
+- 分别指定分库和分表的分片键
+  - 将 `company_id`作为 `BOrder`分库的分片键，保证同一个企业的订单在同一个库中
+  - 将 `id` 作为 `BOrder`进行分表的分片键
+- 配置真实的数据节点
+
+##### 1.1 实体类
+
+```java
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.Date;
+
+@Entity
+@Table(name = "b_order")
+public class BOrder implements Serializable {
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
+
+    @Column(name = "is_del")
+    private Boolean isDel;
+
+    @Column(name = "company_id")
+    private Integer companyId;
+
+    @Column(name = "position_id")
+    private long positionId;
+
+    @Column(name = "user_id")
+    private Integer userId;
+
+    @Column(name = "publish_user_id")
+    private Integer publishUserId;
+
+    @Column(name = "resume_type")
+    private Integer resumeType;
+
+    @Column(name = "status")
+    private String status;
+
+    @Column(name = "create_time")
+    private Date createTime;
+
+    @Column(name = "operate_time")
+    private Date operateTime;
+
+    @Column(name = "work_year")
+    private String workYear;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "position_name")
+    private String positionName;
+
+    @Column(name = "resume_id")
+    private Integer resumeId;
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    public Boolean getDel() {
+        return isDel;
+    }
+
+    public void setDel(Boolean del) {
+        isDel = del;
+    }
+
+    public Integer getCompanyId() {
+        return companyId;
+    }
+
+    public void setCompanyId(Integer companyId) {
+        this.companyId = companyId;
+    }
+
+    public long getPositionId() {
+        return positionId;
+    }
+
+    public void setPositionId(long positionId) {
+        this.positionId = positionId;
+    }
+
+    public Integer getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Integer userId) {
+        this.userId = userId;
+    }
+
+    public Integer getPublishUserId() {
+        return publishUserId;
+    }
+
+    public void setPublishUserId(Integer publishUserId) {
+        this.publishUserId = publishUserId;
+    }
+
+    public Integer getResumeType() {
+        return resumeType;
+    }
+
+    public void setResumeType(Integer resumeType) {
+        this.resumeType = resumeType;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Date getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(Date createTime) {
+        this.createTime = createTime;
+    }
+
+    public Date getOperateTime() {
+        return operateTime;
+    }
+
+    public void setOperateTime(Date operateTime) {
+        this.operateTime = operateTime;
+    }
+
+    public String getWorkYear() {
+        return workYear;
+    }
+
+    public void setWorkYear(String workYear) {
+        this.workYear = workYear;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getPositionName() {
+        return positionName;
+    }
+
+    public void setPositionName(String positionName) {
+        this.positionName = positionName;
+    }
+
+    public Integer getResumeId() {
+        return resumeId;
+    }
+
+    public void setResumeId(Integer resumeId) {
+        this.resumeId = resumeId;
+    }
+}
+```
+
+
+
+##### 1.2 Repository类
+
+```java
+package com.lagou.repository;
+
+import com.lagou.entity.BOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BOrderRepository extends JpaRepository<BOrder,Long> {
+}
+```
+
+
+
+##### 1.3 配置
+
+```properties
+#datasource
+spring.shardingsphere.datasource.names=ds0,ds1
+
+spring.shardingsphere.datasource.ds0.type=com.zaxxer.hikari.HikariDataSource
+spring.shardingsphere.datasource.ds0.driver-class-name=com.mysql.jdbc.Driver
+#spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://192.168.95.130:3306/db0
+spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://localhost:3306/db0
+spring.shardingsphere.datasource.ds0.username=root
+spring.shardingsphere.datasource.ds0.password=root
+
+spring.shardingsphere.datasource.ds1.type=com.zaxxer.hikari.HikariDataSource
+spring.shardingsphere.datasource.ds1.driver-class-name=com.mysql.jdbc.Driver
+#spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://192.168.95.132:3306/db1
+spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://localhost:3306/db1
+spring.shardingsphere.datasource.ds1.username=root
+spring.shardingsphere.datasource.ds1.password=root
+
+
+#sharding-database-table
+spring.shardingsphere.sharding.tables.b_order.database-strategy.inline.sharding-column=company_id
+spring.shardingsphere.sharding.tables.b_order.database-strategy.inline.algorithm-expression=ds$->{company_id % 2}
+spring.shardingsphere.sharding.tables.b_order.table-strategy.inline.sharding-column=id
+spring.shardingsphere.sharding.tables.b_order.table-strategy.inline.algorithm-expression=b_order${id % 2}
+spring.shardingsphere.sharding.tables.b_order.actual-data-nodes=ds${0..1}.b_order${0..1}
+spring.shardingsphere.sharding.tables.b_order.key-generator.column=id
+spring.shardingsphere.sharding.tables.b_order.key-generator.type=SNOWFLAKE
+
+```
+
+
+
+##### 1.4 测试
+
+```java
+package dao;
+
+import com.lagou.RunBoot;
+import com.lagou.entity.BOrder;
+import com.lagou.entity.City;
+import com.lagou.entity.Position;
+import com.lagou.entity.PositionDetail;
+import com.lagou.repository.BOrderRepository;
+import com.lagou.repository.CityRepository;
+import com.lagou.repository.PositionDetailRepository;
+import com.lagou.repository.PositionRepository;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Repeat;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import javax.annotation.Resource;
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = RunBoot.class)
+public class TestShardingDatabase {
+
+    @Resource
+    private BOrderRepository orderRepository;
+
+    @Test
+    @Repeat(100)
+    public void testShardingBOrder(){
+        Random random = new Random();
+        int companyId = random.nextInt(10);
+        BOrder order = new BOrder();
+        order.setDel(false);
+        order.setCompanyId(companyId);
+        order.setPositionId(3242342);
+        order.setUserId(2222);
+        order.setPublishUserId(1111);
+        order.setResumeType(1);
+        order.setStatus("AUTO");
+        order.setCreateTime(new Date());
+        order.setOperateTime(new Date());
+        order.setWorkYear("2");
+        order.setName("lagou");
+        order.setPositionName("Java");
+        order.setResumeId(23233);
+        orderRepository.save(order);
+    }
+
+}
+
+```
+
