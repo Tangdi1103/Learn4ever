@@ -68,7 +68,7 @@ ShardingSphere安装包下载：https://shardingsphere.apache.org/document/curre
 
 ##### 2.1 数据分片
 
-- 分库、分表
+- 分库分表
 
 - 读写分离
 
@@ -158,9 +158,11 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 
 
 
-### 三、 数据分片
+### 三、 功能
 
-#### 1. 分片核心概念
+#### 1. 数据分片（分库分表）
+
+##### 1.1 表概念
 
 - **真实表**：数据库中真实存在的物理表。例如b_order0、b_order1
 
@@ -200,7 +202,7 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 
 
 
-#### 2. 分片算法（ShardingAlgorithm）
+##### 1.2 分片算法（ShardingAlgorithm）
 
 分片算法和业务实现紧密相关，因此**并未提供内置分片算法**，而是通过分片策略将各种场景提炼出来，提供更高层级的抽象，并提供接口让应用开发者自行实现分片算法。目前提供4种分片算法。
 
@@ -222,37 +224,250 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 
   由其他外置条件决定的场景，可使用SQL Hint灵活的注入分片字段。例：内部系统，按照员工登录主键分库，而数据库中并无此字段。SQL Hint支持通过Java API和SQL注释两种方式使用
 
-#### 3. 分片策略
+##### 1.3 分片策略
+
+分片策略包含分片键和分片算法，真正可用于分片操作的是分片键 + 分片算法，也就是分片策略。目前提供5种分片策略。
 
 ![image-20211027231751483](images/image-20211027231751483.png)
 
+- **StandardShardingStrategy(标准分片策略)**
 
+  只支持单分片键，提供对SQL语句中的=, >, <, >=, <=, IN和BETWEEN AND的分片操作支持。
 
-### 四、读写分离
+  提供PreciseShardingAlgorithm和RangeShardingAlgorithm两个分片算法。
 
+  PreciseShardingAlgorithm是必选的，RangeShardingAlgorithm是可选的。但是SQL中使用了范围操作，如果不配置RangeShardingAlgorithm会采用全库路由扫描，效率低。
 
+- ComplexShardingStrategy(复合分片策略)
 
-### 五、强制路由
+  支持多分片键。提供对SQL语句中的=, >, <, >=, <=, IN和BETWEEN AND的分片操作支持。由于多分片键之间的关系复杂，因此并未进行过多的封装，而是直接将分片键值组合以及分片操作符透传至分片算法，完全由应用开发者实现，提供最大的灵活度
 
+- **InlineShardingStrategy(行表达式分片策略)**
 
+  只支持单分片键。使用Groovy的表达式，提供对SQL语句中的=和IN的分片操作支持，对于简单的分片算法，可以通过简单的配置使用，从而避免繁琐的Java代码开发。如: t_user_$->{u_id % 8} 表示t_user表根据u_id模8，而分成8张表，表名称为t_user_0到t_user_7。
 
-### 六、数据脱敏
+- **HintShardingStrategy(Hint分片策略)**
 
+  通过Hint指定分片值而非从SQL中提取分片值的方式进行分片的策略。
 
-
-### 七、分布式事务控制
-
-
-
-### 八、SPI加载
-
-
-
-### 九、编排治理
-
+- NoneShardingStrategy(不分片策略)
 
 
 
+##### 1.4 分片流程
+
+ShardingSphere 3个产品的数据分片功能主要流程是完全一致的，如下图所示。
+
+![image-20211116095651938](images/image-20211116095651938.png)
+
+- **SQL解析**
+
+  Sharding-JDBC采用不同的解析器对SQL进行解析，解析器类型如下
+
+  - MySQL解析器（支持MariaDB）
+  - Oracle解析器
+  - SQLServer解析器
+  - PostgreSQL解析器
+  - 默认解析器（采用SQL92标准）
+
+- **查询优化**
+
+  负责合并和优化分片条件，如OR优化为UNION ALL等。
+
+- **SQL路由**
+
+  根据解析上下文匹配用户配置的分片策略，并生成路由路径。
+
+- **SQL改写**
+
+  将SQL改写为在真实数据库中可以正确执行的语句。
+
+- SQL执行
+
+  通过多线程执行器异步执行SQL
+
+- 结果归并
+
+  将多个执行结果集归并以便于通过统一的JDBC接口输出。包括流式归并、内存归并和使用装饰者模式的追加归并这几种方式
+
+
+
+##### 1.5 分片SQL规范
+
+**支持项**
+
+- 路由至单数据节点时，目前MySQL数据库100%全兼容，其他数据库完善中。
+
+- 支持分页子查询
+
+  ```sql
+  SELECT COUNT(*) FROM (SELECT * FROM b_order o);
+  ```
+
+  
+
+**不支持项**
+
+- 路由至多数据节点，不支持CASE WHEN、HAVING、UNION (ALL)
+
+- 除了分页子查询，不支持其他子查询，无论嵌套多少层，只能解析至第一个包含数据表的子查询，一旦在下层嵌套中再次找到包含数据表的子查询将直接抛出解析异常
+
+  ```sql
+  SELECT COUNT(*) FROM (SELECT * FROM b_order o WHERE o.id IN (SELECT id FROM b_order WHERE status = ?))
+  ```
+
+- 由于归并限制，子查询中不支持聚合函数
+
+- 不支持包含schema的SQL
+
+- 分片键不要使用表达式或函数，否则无法获得真正的路由值，而将采用全路由的形式获取结果
+
+- VALUES语句不支持运算 表达式
+
+  ```sql
+  INSERT INTO tbl_name (col1, col2, …) VALUES(1+2, ?, …) 
+  ```
+
+- 不支持同时使用普通聚合函数 和DISTINCT
+
+  ```sql
+  SELECT SUM(DISTINCT col1), SUM(col1) FROM tbl_name
+  ```
+
+
+
+##### 1.6 分页查询
+
+如果可以保证ID的连续性，通过ID进行分页是比较好的解决方案
+
+```sql
+SELECT * FROM b_order WHERE id > 1000000 AND id <= 1000010 ORDER BY id
+```
+
+或通过记录上次查询结果的最后一条记录的ID进行下一页的查询：
+
+```sql
+SELECT * FROM b_order WHERE id > 1000000 LIMIT 10
+```
+
+
+
+##### 1.7 InlineShardingStrategy（行内分片策略）
+
+语法格式：在配置中使用 `${expression}` 或​ `$->{expression}`标识行表达式
+
+- 表示区间
+
+  ```
+  ${begin..end}
+  ```
+
+- 表示枚举
+
+  ```
+  ${[unit1, unit2, unit_x]}
+  ```
+
+- 多个表达式笛卡尔(积)组合
+
+  ```
+  ${['online', 'offline']}_table${1..3}     ————> online_table1, online_table2, online_table3
+  $->{['online', 'offline']}_table$->{1..3}  ————> offline_table1, offline_table2, offline_table3
+  ```
+
+- 均匀数据节点配置
+
+  ```
+  db0
+   	├── b_order2 
+   	└── b_order1 
+  db1
+  	├── b_order2 
+  	└── b_order1
+  	
+  db${0..1}.b_order${1..2} 
+  db$->{0..1}.b_order$->{1..2}
+  ```
+
+- 不均匀数据节点配置
+
+  ```
+  db0
+  	├── b_order0 
+  	└── b_order1 
+  db1
+  	├── b_order2 
+  	├── b_order3 
+  	└── b_order4
+  
+  db0.b_order${0..1},db1.b_order${2..4}
+  ```
+
+- 分片算法配置
+
+  行表达式内部的表达式本质上是一段Groovy代码，可以根据分片键进行计算的方式，返回相应的真实数据源或真实表名称。
+
+  ds0、ds1、ds2... ds9数据源使用如下分片算法配置
+
+  ```
+  ds${id % 10} 
+  ds$->{id % 10}
+  ```
+
+  
+
+##### 1.8 分布式主键生成策略
+
+ShardingSphere提供了内置的分布式主键生成器，例如UUID、SNOWFLAKE，还抽离出分布式主键生成器的接口，方便用户自行实现自定义的自增主键生成器。
+
+- **UUID**
+
+- **SNOWFLAKE**
+
+- **自定义主键生成策略**
+
+  - 实现ShardingKeyGenerator接口
+
+  - 按SPI规范配置自定义主键类
+
+    在resources目录下新建META-INF文件夹，再新建services文件夹，然后新建文件的名字为org.apache.shardingsphere.spi.keygen.ShardingKeyGenerator，打开文件，复制自定义主键类全路径到文件中保存
+
+  - 自定义主键类应用配置
+
+    ```properties
+    #对应主键字段名 
+    spring.shardingsphere.sharding.tables.t_book.key-generator.column=id 
+    #对应主键类getType返回内容 
+    spring.shardingsphere.sharding.tables.t_book.key- generator.type=MYKEY
+    ```
+
+    
+
+
+
+
+
+#### 2. 读写分离
+
+
+
+#### 3. 强制路由
+
+
+
+#### 4. 数据脱敏
+
+
+
+#### 5. 分布式事务控制
+
+
+
+#### 6. SPI加载
+
+
+
+#### 7. 编排治理
 
 
 
@@ -262,9 +477,13 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 
 
 
-MySQL解析器（支持MariaDB）
 
-默认解析器（采用SQL92标准）
+
+
+
+
+
+
 
 
 
