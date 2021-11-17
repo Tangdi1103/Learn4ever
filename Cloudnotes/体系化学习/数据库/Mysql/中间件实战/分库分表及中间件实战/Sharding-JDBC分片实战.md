@@ -160,7 +160,7 @@
 
 - 在 `db0`和 `db1`中创建都这两个表
 - `position` 使用 `id`作为分片键，`position_detail`使用 `pid`作为分片键。**保证了`position`和`position_detail`相关联的记录分配在一个库中**
-
+- 使用 `Inline`分片算法
 - `city`配置为广播表
 
 ##### 1.1 实体类
@@ -226,8 +226,6 @@ public class Position implements Serializable {
 **职位详情**
 
 ```java
-package com.lagou.entity;
-
 import javax.persistence.*;
 import java.io.Serializable;
 
@@ -275,8 +273,6 @@ public class PositionDetail implements Serializable {
 **城市**
 
 ```java
-package com.lagou.entity;
-
 import javax.persistence.*;
 import java.io.Serializable;
 
@@ -326,7 +322,7 @@ public class City implements Serializable {
 ##### 1.2 Repository类
 
 ```java
-import com.lagou.entity.Position;
+import com.tangdi.entity.Position;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -342,7 +338,7 @@ public interface PositionRepository  extends JpaRepository<Position,Long> {
 ```
 
 ```java
-import com.lagou.entity.PositionDetail;
+import com.tangdi.entity.PositionDetail;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PositionDetailRepository extends JpaRepository<PositionDetail,Long> {
@@ -350,7 +346,7 @@ public interface PositionDetailRepository extends JpaRepository<PositionDetail,L
 ```
 
 ```java
-import com.lagou.entity.City;
+import com.tangdi.entity.City;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface CityRepository extends JpaRepository<City,Long> {
@@ -402,6 +398,8 @@ public class MyLagouId implements ShardingKeyGenerator {
 ##### 1.4 配置
 
 ```properties
+spring.shardingsphere.props.sql.show=true
+
 #datasource
 spring.shardingsphere.datasource.names=ds0,ds1
 
@@ -419,18 +417,16 @@ spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://localhost:3306/db1
 spring.shardingsphere.datasource.ds1.username=root
 spring.shardingsphere.datasource.ds1.password=root
 
-#sharding-database
+#sharding-database，配置需要被分库的表的分片策略（分片键、分片算法）
 spring.shardingsphere.sharding.tables.position.database-strategy.inline.sharding-column=id
 spring.shardingsphere.sharding.tables.position.database-strategy.inline.algorithm-expression=ds$->{id % 2}
-
 spring.shardingsphere.sharding.tables.position_detail.database-strategy.inline.sharding-column=pid
 spring.shardingsphere.sharding.tables.position_detail.database-strategy.inline.algorithm-expression=ds$->{pid % 2}
 
-#id
+#指定主键及生成策略
 spring.shardingsphere.sharding.tables.position.key-generator.column=id
 #spring.shardingsphere.sharding.tables.position.key-generator.type=SNOWFLAKE
 spring.shardingsphere.sharding.tables.position.key-generator.type=LAGOUKEY
-
 spring.shardingsphere.sharding.tables.position_detail.key-generator.column=id
 spring.shardingsphere.sharding.tables.position_detail.key-generator.type=SNOWFLAKE
 
@@ -445,15 +441,15 @@ spring.shardingsphere.sharding.tables.city.key-generator.type=SNOWFLAKE
 ```java
 package dao;
 
-import com.lagou.RunBoot;
-import com.lagou.entity.BOrder;
-import com.lagou.entity.City;
-import com.lagou.entity.Position;
-import com.lagou.entity.PositionDetail;
-import com.lagou.repository.BOrderRepository;
-import com.lagou.repository.CityRepository;
-import com.lagou.repository.PositionDetailRepository;
-import com.lagou.repository.PositionRepository;
+import com.tangdi.RunBoot;
+import com.tangdi.entity.BOrder;
+import com.tangdi.entity.City;
+import com.tangdi.entity.Position;
+import com.tangdi.entity.PositionDetail;
+import com.tangdi.repository.BOrderRepository;
+import com.tangdi.repository.CityRepository;
+import com.tangdi.repository.PositionDetailRepository;
+import com.tangdi.repository.PositionRepository;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -528,21 +524,25 @@ public class TestShardingDatabase {
 
 
 
-#### 2. 场景二：分库分表
 
-对 `BOrder` 进行分库+分表，如下图所示
 
-![image-20211117012721674](images/image-20211117012721674.png)
+#### 2. 场景二：仅分表
+
+对 `BOrder` 进行分表，如下图所示
+
+![image-20211118002436020](images/image-20211118002436020.png)
 
 ##### 思路
 
-- 在 `db0`和 `db1`中创建都这两个表
-- 分别指定分库和分表的分片键
-  - 将 `company_id`作为 `BOrder`分库的分片键，保证同一个企业的订单在同一个库中
+- 在 `db0`中创建  `b_order0`和 `b_order1`
+- 指定分表的分片键
   - 将 `id` 作为 `BOrder`进行分表的分片键
+- 使用 `Inline`分片算法
 - 配置真实的数据节点
 
-##### 1.1 实体类
+##### 2.1 实体类
+
+**订单**
 
 ```java
 import javax.persistence.*;
@@ -713,12 +713,10 @@ public class BOrder implements Serializable {
 
 
 
-##### 1.2 Repository类
+##### 2.2 Repository类
 
 ```java
-package com.lagou.repository;
-
-import com.lagou.entity.BOrder;
+import com.tangdi.entity.BOrder;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface BOrderRepository extends JpaRepository<BOrder,Long> {
@@ -727,11 +725,13 @@ public interface BOrderRepository extends JpaRepository<BOrder,Long> {
 
 
 
-##### 1.3 配置
+##### 2.3 配置
 
 ```properties
+spring.shardingsphere.props.sql.show=true
+
 #datasource
-spring.shardingsphere.datasource.names=ds0,ds1
+spring.shardingsphere.datasource.names=ds0
 
 spring.shardingsphere.datasource.ds0.type=com.zaxxer.hikari.HikariDataSource
 spring.shardingsphere.datasource.ds0.driver-class-name=com.mysql.jdbc.Driver
@@ -740,20 +740,14 @@ spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://localhost:3306/db0
 spring.shardingsphere.datasource.ds0.username=root
 spring.shardingsphere.datasource.ds0.password=root
 
-spring.shardingsphere.datasource.ds1.type=com.zaxxer.hikari.HikariDataSource
-spring.shardingsphere.datasource.ds1.driver-class-name=com.mysql.jdbc.Driver
-#spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://192.168.95.132:3306/db1
-spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://localhost:3306/db1
-spring.shardingsphere.datasource.ds1.username=root
-spring.shardingsphere.datasource.ds1.password=root
 
 
-#sharding-database-table
-spring.shardingsphere.sharding.tables.b_order.database-strategy.inline.sharding-column=company_id
-spring.shardingsphere.sharding.tables.b_order.database-strategy.inline.algorithm-expression=ds$->{company_id % 2}
+#sharding-table，配置需要被分表的表的分片策略（分片键、分片算法）
+#配置分表策略（根据分片键及分片算法）
 spring.shardingsphere.sharding.tables.b_order.table-strategy.inline.sharding-column=id
 spring.shardingsphere.sharding.tables.b_order.table-strategy.inline.algorithm-expression=b_order${id % 2}
-spring.shardingsphere.sharding.tables.b_order.actual-data-nodes=ds${0..1}.b_order${0..1}
+#配置分表的数据节点
+spring.shardingsphere.sharding.tables.b_order.actual-data-nodes=ds0.b_order${0..1}
 spring.shardingsphere.sharding.tables.b_order.key-generator.column=id
 spring.shardingsphere.sharding.tables.b_order.key-generator.type=SNOWFLAKE
 
@@ -761,20 +755,18 @@ spring.shardingsphere.sharding.tables.b_order.key-generator.type=SNOWFLAKE
 
 
 
-##### 1.4 测试
+##### 2.4 测试
 
 ```java
-package dao;
-
-import com.lagou.RunBoot;
-import com.lagou.entity.BOrder;
-import com.lagou.entity.City;
-import com.lagou.entity.Position;
-import com.lagou.entity.PositionDetail;
-import com.lagou.repository.BOrderRepository;
-import com.lagou.repository.CityRepository;
-import com.lagou.repository.PositionDetailRepository;
-import com.lagou.repository.PositionRepository;
+import com.tangdi.RunBoot;
+import com.tangdi.entity.BOrder;
+import com.tangdi.entity.City;
+import com.tangdi.entity.Position;
+import com.tangdi.entity.PositionDetail;
+import com.tangdi.repository.BOrderRepository;
+import com.tangdi.repository.CityRepository;
+import com.tangdi.repository.PositionDetailRepository;
+import com.tangdi.repository.PositionRepository;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -816,6 +808,79 @@ public class TestShardingDatabase {
     }
 
 }
+```
+
+
+
+
+
+#### 3. 场景三：分库分表
+
+对 `BOrder` 进行分库+分表，如下图所示
+
+![image-20211117012721674](images/image-20211117012721674.png)
+
+##### 思路
+
+- 在 `db0`和 `db1`中创建都这两个表
+- 分别指定分库和分表的分片键
+  - 将 `company_id`作为 `BOrder`分库的分片键，保证同一个企业的订单在同一个库中
+  - 将 `id` 作为 `BOrder`进行分表的分片键
+- 使用 `Inline`分片算法
+- 配置真实的数据节点
+
+##### 3.1 实体类
+
+同分表的实体类
+
+
+
+##### 3.2 Repository类
+
+同分表的 `Repository`类
+
+
+
+##### 3.3 配置
+
+```properties
+spring.shardingsphere.props.sql.show=true
+
+#datasource
+spring.shardingsphere.datasource.names=ds0,ds1
+
+spring.shardingsphere.datasource.ds0.type=com.zaxxer.hikari.HikariDataSource
+spring.shardingsphere.datasource.ds0.driver-class-name=com.mysql.jdbc.Driver
+#spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://192.168.95.130:3306/db0
+spring.shardingsphere.datasource.ds0.jdbc-url=jdbc:mysql://localhost:3306/db0
+spring.shardingsphere.datasource.ds0.username=root
+spring.shardingsphere.datasource.ds0.password=root
+
+spring.shardingsphere.datasource.ds1.type=com.zaxxer.hikari.HikariDataSource
+spring.shardingsphere.datasource.ds1.driver-class-name=com.mysql.jdbc.Driver
+#spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://192.168.95.132:3306/db1
+spring.shardingsphere.datasource.ds1.jdbc-url=jdbc:mysql://localhost:3306/db1
+spring.shardingsphere.datasource.ds1.username=root
+spring.shardingsphere.datasource.ds1.password=root
+
+
+#sharding-database-table，配置需要被分库分表的表的分片策略（分片键、分片算法）
+#先配置分库策略（根据分片键及分片算法）
+spring.shardingsphere.sharding.tables.b_order.database-strategy.inline.sharding-column=company_id
+spring.shardingsphere.sharding.tables.b_order.database-strategy.inline.algorithm-expression=ds$->{company_id % 2}
+#再配置分表策略（根据分片键及分片算法）
+spring.shardingsphere.sharding.tables.b_order.table-strategy.inline.sharding-column=id
+spring.shardingsphere.sharding.tables.b_order.table-strategy.inline.algorithm-expression=b_order${id % 2}
+#配置分库分表的数据节点
+spring.shardingsphere.sharding.tables.b_order.actual-data-nodes=ds${0..1}.b_order${0..1}
+spring.shardingsphere.sharding.tables.b_order.key-generator.column=id
+spring.shardingsphere.sharding.tables.b_order.key-generator.type=SNOWFLAKE
 
 ```
+
+
+
+##### 3.4 测试
+
+同分表测试
 
