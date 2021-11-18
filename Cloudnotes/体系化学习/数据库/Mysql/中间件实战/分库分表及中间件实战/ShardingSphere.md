@@ -172,6 +172,8 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
 
 - **绑定表**：
 
+  由于单个库中存在分表，而又进行关联查询时，由于条件的分片键只对应一个表，所以被关联表无法定位路由。所以需要用到绑定表。那么被关联的表怎么定位库呢？直接由条件中的分片键定位库即可。
+
   指的是分片规则一致的关系表（主表、子表），例如b_order和b_order_item，均按照order_id分片，则此两个表互为绑定表关系。绑定表之间的多表关联查询不会出现笛卡尔积关联，可以提升关联查询效率
 
   ```sql
@@ -195,6 +197,7 @@ Sharding-JDBC可以通过JavaConfig，YAML，Spring命名空间（spring-applica
   select * from b_order0 o join b_order_item0 i on(o.order_id=i.order_id) where o.order_id in (10,11);
   select * from b_order1 o join b_order_item1 i on(o.order_id=i.order_id) where o.order_id in (10,11);
   ```
+
 
 - **广播表**：
 
@@ -309,6 +312,8 @@ ShardingSphere 3个产品的数据分片功能主要流程是完全一致的，�
 **不支持项**
 
 - 路由至多数据节点，不支持CASE WHEN、HAVING、UNION (ALL)
+
+- 关联查询 不支持跨库关联
 
 - 除了分页子查询，不支持其他子查询，无论嵌套多少层，只能解析至第一个包含数据表的子查询，一旦在下层嵌套中再次找到包含数据表的子查询将直接抛出解析异常
 
@@ -457,7 +462,23 @@ ShardingSphere提供了内置的分布式主键生成器，例如UUID、SNOWFLAK
 
 #### 4. 数据脱敏
 
+![image-20211118232108100](images/image-20211118232108100.png)
 
+![image-20211118234018464](images/image-20211118234018464.png)
+
+![image-20211118233947868](images/image-20211118233947868.png)
+
+
+
+MD5是不可逆的，所以数据库查到密文后返回的还是密文
+
+![image-20211118234224450](images/image-20211118234224450.png)
+
+
+
+只提供了一种思想和接口，需要开发者自己实现
+
+![image-20211118234918272](images/image-20211118234918272.png)
 
 #### 5. 分布式事务控制
 
