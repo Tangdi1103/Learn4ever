@@ -425,11 +425,17 @@ SELECT * FROM b_order WHERE id > 1000000 LIMIT 10
 
 ShardingSphere提供了内置的分布式主键生成器，例如UUID、SNOWFLAKE，还抽离出分布式主键生成器的接口，方便用户自行实现自定义的自增主键生成器。
 
+ShardingJDBC内置分布式主键生成器
+
+![image-20211110234107616](images/image-20211110234107616.png)
+
 - **UUID**
 
 - **SNOWFLAKE**
 
 - **自定义主键生成策略**
+
+  ![image-20211110234300173](images/image-20211110234300173.png)
 
   - 实现ShardingKeyGenerator接口
 
@@ -438,14 +444,14 @@ ShardingSphere提供了内置的分布式主键生成器，例如UUID、SNOWFLAK
     在resources目录下新建META-INF文件夹，再新建services文件夹，然后新建文件的名字为org.apache.shardingsphere.spi.keygen.ShardingKeyGenerator，打开文件，复制自定义主键类全路径到文件中保存
 
   - 自定义主键类应用配置
-
+  
     ```properties
     #对应主键字段名 
     spring.shardingsphere.sharding.tables.t_book.key-generator.column=id 
     #对应主键类getType返回内容 
     spring.shardingsphere.sharding.tables.t_book.key- generator.type=MYKEY
     ```
-
+  
     
 
 
@@ -454,9 +460,119 @@ ShardingSphere提供了内置的分布式主键生成器，例如UUID、SNOWFLAK
 
 #### 2. 读写分离
 
+透明化读写分离所带来的影响，让使用方尽量像使用一个数据库一样使用主从数据库集群，是ShardingSphere读写分离模块的主要设计目标。
 
+##### 2.1 核心功能
+
+- **可配置一主多从的读写分离，也可结合分库分表使用**
+
+- **独立使用读写分离，支持SQL透传**。不需要SQL改写流程
+
+- **同一线程且同一数据库连接内，保证数据一致性。即写入操作后且从库未同步完成时，同线程和连接内读操作，都将从主库读取数据。**
+
+- 基于Hint的强制主库路由。可以强制路由走主库查询实时数据，避免主从同步数据延迟
+
+  **使用 `hintManager.setMasterRouteOnly `设置主库路由即可**
+
+##### 2.2 不支持项
+
+- 主库和从库的数据同步
+
+- 主库和从库的数据同步延迟
+
+- 主库双写或多写
+
+- 跨主库和从库之间的事务的数据不一致。建议在主从架构中，事务中的读写均用主库操作。
+
+##### 2.3 读写分离
+
+在数据量不是很多的情况下，我们可以将数据库进行读写分离，以应对高并发的需求，通过水平扩展从库，来缓解查询的压力。如下：
+
+![image-20211119164146250](images/image-20211119164146250.png)
+
+##### 2.4 读写分离+分表
+
+在数据量达到500万的时候，这时数据量预估千万级别，我们可以将数据进行分表存储。
+
+![image-20211119164158588](images/image-20211119164158588.png)
+
+##### 2.5 读写分离+分库分表
+
+在数据量继续扩大，这时可以考虑分库分表，将数据存储在不同数据库的不同表中，如下：
+
+![image-20211119164213447](images/image-20211119164213447.png)
 
 #### 3. 强制路由
+
+在一些应用场景中，分片条件并不存在于SQL，而存在于外部业务逻辑。因此需要提供一种通过在外部业务代码中指定路由配置的一种方式，在ShardingSphere中叫做Hint。如果使用Hint指定了强制分片路由，那么SQL将会无视原有的分片逻辑，直接路由至指定的数据节点操作。HintManager主要使用ThreadLocal管理分片键信息，进行hint强制路由。在代码中向HintManager添加的配置信息只能在当前线程内有效。
+
+HintManager主要使用ThreadLocal管理分片键信息，进行hint强制路由。在代码中向HintManager添加的配置信息只能在当前线程内有效。
+
+HintShardingStrategy策略为强制路由策略，它会忽略该表已配的其他分库分表策略，而强制使用Hint策略
+
+Hint算法需要自己实现
+
+##### 3.1 使用场景
+
+- 数据分片操作，如果分片键没有在SQL或数据表中，而是在业务逻辑代码中
+
+- 读写分离操作，如果强制在主库进行某些数据操作
+
+##### 3.2 使用方法
+
+- 编写分库或分表路由策略，实现HintShardingAlgorithm接口
+
+  ```java
+  public class MyHintShardingAlgorithm implements HintShardingAlgorithm<Long> {
+      @Override
+      public Collection<String> doSharding(
+              Collection<String> availableTargetNames,
+              HintShardingValue<Long> shardingValue) {
+          Collection<String> result = new ArrayList<>();
+          for (String each : availableTargetNames){
+              for (Long value : shardingValue.getValues()){
+                  if(each.endsWith(String.valueOf(value % 2))){
+                      result.add(each);
+                  }
+              }
+          }
+          return result;
+      }
+  }
+  ```
+
+- 在配置文件指定分库或分表策略
+
+  ```properties
+  #强制路由库
+  #spring.shardingsphere.sharding.tables.city.database-strategy.hint.algorithm-class-name=com.lagou.hint.MyHintShardingAlgorithm
+  
+  #强制路由库和表 
+  spring.shardingsphere.sharding.tables.b_order.database-strategy.hint.algorithm-class-name=com.lagou.hint.MyHintShardingAlgorithm
+  spring.shardingsphere.sharding.tables.b_order.table-strategy.hint.algorithm-class-name=com.lagou.hint.MyHintShardingAlgorithm
+  spring.shardingsphere.sharding.tables.b_order.actual-data-nodes=ds${0..1}.b_order${0..1}
+  ```
+
+- 代码中使用HintManager设置策略值
+
+  - 分库不分表情况下，强制路由至某一个分库时，可使用`hintManager.setDatabaseShardingValue`方式添加分片，通过此方式添加分片键值后，将跳过SQL解析和改写阶段，从而提高整体执行效率。
+  - 分库分表时，使用`hintManager.addDatabaseShardingValue("db",1) `和 `hintManager.addTableShardingValue("b_order",1)`
+
+  ```java
+  public void test1(){
+      HintManager hintManager = HintManager.getInstance();
+      hintManager.addDatabaseShardingValue("db",1);  //由于算法中匹配value%2，所以强制路由到db1
+      hintManager.addTableShardingValue("b_order",1); //由于算法中匹配value%2，所以强制路由到b_order1
+      //hintManager.setDatabaseShardingValue(0L); //由于算法中匹配value%2，所以强制路由到db0
+      //hintManager.setDatabaseShardingValue(1L); //由于算法中匹配value%2，所以强制路由到db1
+      List<City> list = cityRepository.findAll();
+      list.forEach(city->{
+          System.out.println(city.getId()+" "+city.getName()+" "+city.getProvince());
+      });
+  }
+  ```
+
+
 
 
 
@@ -492,32 +608,3 @@ MD5是不可逆的，所以数据库查到密文后返回的还是密文
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Sharding-JDBC自带主键生成器
-
-![image-20211110234032677](images/image-20211110234032677.png)
-
-![image-20211110234107616](images/image-20211110234107616.png)
-
-自定义主键生成器
-
-![image-20211110234300173](images/image-20211110234300173.png)
-
-1. 数据库集群架构新增，混合模式（分库+主从、分表+主从、分库分表+主从）
-2. 完成分库分表概念、原理及功能实现笔记
-3. 同一线程且同一数据库连接内，保证数据一致性。即写入操作后且从库未同步完成时，同线程和连接内读操作，都将从主库读取数据。
