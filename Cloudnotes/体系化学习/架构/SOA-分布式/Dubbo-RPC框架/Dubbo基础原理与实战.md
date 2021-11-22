@@ -690,7 +690,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 ### 4. XML配置（官方推荐xml，因为无代码入侵）
 
-#####dubbo:application对应 `org.apache.dubbo.confifig.ApplicationConfifig`, 代表当前应用的信息
+##### dubbo:application对应 `org.apache.dubbo.confifig.ApplicationConfifig`, 代表当前应用的信息
 
 1. name: 当前应用程序的名称，在dubbo-admin中我们也可以看到，这个代表这个应用名称。我们在真正时是时也会根据这个参数来进行聚合应用请求。
 
@@ -702,7 +702,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 5. qosAcceptForeignIp: 是否允许远程访问 默认是false 
 
-#####dubbo:registry对应`org.apache.dubbo.confifig.RegistryConfifig`代表该模块所使用的注册中心
+##### dubbo:registry对应`org.apache.dubbo.confifig.RegistryConfifig`代表该模块所使用的注册中心
 
 一个模块中的服务可以将其注册到多个注册中心上，也可以注册到一个上。后面再service和reference也会引入这个注册中心
 
@@ -714,7 +714,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 4. timeout : 当与注册中心不再同一个机房时，大多会把该参数延长。
 
-#####dubbo:protocol对应`org.apache.dubbo.confifig.ProtocolConfifig`, 指定服务在进行数据传输所使用的协议
+##### dubbo:protocol对应`org.apache.dubbo.confifig.ProtocolConfifig`, 指定服务在进行数据传输所使用的协议
 
 1. id : 在大公司，可能因为各个部门技术栈不同，所以可能会选择使用不同的协议进行交互。这里
 
@@ -722,7 +722,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 2. name : 指定协议名称。默认使用 dubbo 。
 
-#####dubbo:service对应`org.apache.dubbo.confifig.ServiceConfifig`, 指定需要对外暴露的服务信息，下面细讲
+##### dubbo:service对应`org.apache.dubbo.confifig.ServiceConfifig`, 指定需要对外暴露的服务信息，下面细讲
 
 1. interface : 指定当前需要进行对外暴露的接口是什么。
 
@@ -730,7 +730,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 3. version : 对外暴露的版本号。不同的版本号，消费者在消费的时候只会根据固定的版本号进行消费。
 
-#####dubbo:reference对应`org.apache.dubbo.confifig.ReferenceConfifig`, 消费者的配置，下面细讲
+##### dubbo:reference对应`org.apache.dubbo.confifig.ReferenceConfifig`, 消费者的配置，下面细讲
 
 1. id : 指定该Bean在注册到Spring中的id。 
 
@@ -740,7 +740,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 4. registry : 指定所具体使用的注册中心地址。这里面也就是使用上面在 dubbo:registry 中所声明的id。
 
-#####dubbo:method对应`org.apache.dubbo.confifig.MethodConfifig`
+##### dubbo:method对应`org.apache.dubbo.confifig.MethodConfifig`
 
 **用于在制定的 dubbo:service 或者 dubbo:reference 中的更具体一个层级**，指定具体方法级别在进行RPC操作时候的配置，可以理解为对这上面层级中的配置针对于具体方法的特殊处理。
 
@@ -748,7 +748,7 @@ Dubbo框架的配置项比较繁多，为了更好地管理各种配置，将其
 
 2. **async: 是否异步 默认false**
 
-#####dubbo:service和dubbo:reference详解(与dubbo:provider和dubbo:consumer相似)
+##### dubbo:service和dubbo:reference详解(与dubbo:provider和dubbo:consumer相似)
 
 1. mock: 用于在方法调用出现错误时，当做服务降级来统一对外返回结果，后面我们也会对这个方法做更多的介绍。
 
