@@ -16,11 +16,41 @@ Seata（Simple Extensible Autonomous Transaction Architecture）是一套一站�
 
 #### 2.2 AT 模式
 
-AT 模式是⼀种⽆侵⼊的分布式事务解决⽅案。在 AT 模式下，⽤户只需关注⾃⼰的  ”业务 SQL” ，⽤户的 “业务 SQL” 作为⼀阶段，Seata 框架会⾃动⽣成事务的⼆阶段提交和回滚操作。
+##### 简介
 
-⽬前已⽀持 MySQL、 Oracle 、PostgreSQL和 TiDB的AT模式，H2 开发中。
+AT 模式是⼀种⽆侵⼊的分布式事务解决⽅案。在 AT 模式下，⽤户只需关注⾃⼰的  ”业务 SQL” ，⽬前已⽀持 MySQL、 Oracle 、PostgreSQL和 TiDB的AT模式，H2 开发中。
 
 ![image-20211124113918234](images/image-20211124113918234.png)
+
+##### 原理
+
+ AT 模式的⼀阶段、⼆阶段提交和回滚均由 Seata 框架自动⽣成，⽤户只需编写“业务SQL”，便能轻松接⼊分布式事务，AT 模式是⼀种对业务无任何侵⼊的分布式事务解决⽅案。
+
+- 一阶段
+
+  Seata 拦截“业务 SQL”，首先解析 SQL 语义，找到“业务 SQL”要更新的业务数据，在业务数据被更新前，将其保存成“before image”，然后执行“业务 SQL”更新业务数据，在业务数据更新之后，再将其保存成“after image”，最后生成行锁。以上操作全部在⼀个数据库事务内完成，这样保证了⼀阶段操作的原⼦性。
+
+  ![image-20211125011714832](images/image-20211125011714832.png)
+
+  实际应用中，将生成undo log存储于各个RM的undo_log表中
+
+  ![image-20211125011240688](images/image-20211125011240688.png)
+
+- 二阶段
+
+  - 提交
+
+    因为“业务 SQL”在⼀阶段已经提交⾄数据库， 所以 Seata 框架只需将⼀阶段保存的快照数据和⾏锁删掉，完成数据清理即可。
+
+    ![image-20211125011909924](images/image-20211125011909924.png)
+
+  - 回滚
+
+    Seata 就需要回滚⼀阶段已经执⾏的“业务 SQL”，还原业务数据。回滚⽅式便是⽤“before image”还原业务数据；但在还原前要⾸先要校验脏写，对⽐“数据库当前业务数据”和 “after image”，如果两份数据完全⼀致就说明没有脏写，可以还原业务数据，如果不⼀致就说明有脏写，出现脏写就需要转⼈⼯处理
+
+    ![image-20211125011926957](images/image-20211125011926957.png)
+
+
 
 
 
@@ -146,7 +176,7 @@ registry {
  	nacos {
  		application = "seata-server" # 服务名称
  		serverAddr = "127.0.0.1:8848" # 服务地址
- 		group = "SEATA_GROUP" # 分组
+ 		group = "SEATA_GROUP" # 分组（默认SEATA_GROUP即可）
  		namespace = ""
  		cluster = "default" # 集群
  		username = "nacos" # ⽤户名
@@ -251,7 +281,13 @@ config {
 
   ![image-20211124151146042](images/image-20211124151146042.png)
 
-  https://seata.io/zh-cn/docs/user/configurations.html针对每个⼀项配置介绍
+- https://seata.io/zh-cn/docs/user/configurations.html针对每个⼀项配置介绍，如下图：
+
+  ![image-20211124230729744](images/image-20211124230729744.png)
+
+  ![image-20211124230818068](images/image-20211124230818068.png)
+
+  ![image-20211124230831456](images/image-20211124230831456.png)
 
   ```properties
   transport.type=TCP
@@ -356,7 +392,9 @@ config {
 
 - 将config.txt⽂件放⼊seata⽬录下⾯
 
-- 修改config.txt信息
+  ![image-20211124230856006](images/image-20211124230856006.png)
+
+- 修改config.txt信息的store.mode和db信息，其他属性保持不变即可
 
   Server端存储的模式（store.mode）现有file,db,redis三种。主要存储全局事务会话信息,分⽀事务信息, 锁记录表信息。
 
@@ -388,6 +426,26 @@ config {
 
   创建global_table、branch_table、lock_table三张表,seata1.0以上就不⾃带数据库⽂件了，要⾃⼰去github下载，https://github.com/seata/seata/tree/develop/script/server/db
 
+  - global_table
+  
+    Seata Serve存储全局事务信息的表，事务结束，表清空
+  
+    ![image-20211125011458786](images/image-20211125011458786.png)
+  
+  - branch_table
+  
+    Seata Serve存储分支事务信息的表，事务结束，表清空
+  
+    ![image-20211125011410269](images/image-20211125011410269.png)
+  
+  - lock_table
+  
+    Seata Serve存储行锁信息的表，事务结束，表清空
+  
+    ![image-20211125010854357](images/image-20211125010854357.png)
+  
+  ![image-20211124231155381](images/image-20211124231155381.png)
+  
   ```sql
    -- -------------------------------- The script used when storeMode is 'db' -------------------------------
    -- the table to store GlobalSession data
@@ -441,18 +499,20 @@ config {
   	KEY `idx_branch_id` (`branch_id`)
   ) ENGINE = InnoDB DEFAULT CHARSET = utf8;
   ```
-
+  
   
 
 ##### 1.3 使用nacos-config.sh 向 Nacos 中导入配置
 
-下载地址:https://github.com/seata/seata/tree/develop/script/config-center/nacos
+- 下载地址:https://github.com/seata/seata/tree/develop/script/config-center/nacos
 
 ![image-20211124154304765](images/image-20211124154304765.png)
 
 - 将nacos-config.sh放在seata/conf⽂件夹中
 
-- 打开git bash here 执⾏nacos-config.sh,需要提前将nacos启动
+  ![image-20211124231553447](images/image-20211124231553447.png)
+
+- 打开git bash here 执⾏nacos-config.sh，需要提前将nacos启动，-h 代表注册中心的服务地址
 
   ```shell
   sh nacos-config.sh -h 127.0.0.1
@@ -468,13 +528,31 @@ config {
 
 
 
-##### 1.4 启动Seata Server
 
-![image-20211124154646895](images/image-20211124154646895.png)
 
-观察Seata Server是否注册到Nacos
+##### 1.4 配置seata分组（集群）
+
+若需要添加事务分组，则可添加`service.vgroupMapping.xxx`以及`service.yyy.grouplist`配置
+
+![image-20211125000706774](images/image-20211125000706774.png)
+
+![image-20211125000145399](images/image-20211125000145399.png)
+
+
+
+##### 1.5 启动Seata Server
+
+- 注意：Seata-1.3的运行环境基于jdk1.8，而Seata-1.4环境基于jdk11
+
+![image-20211124232023638](images/image-20211124232023638.png)
+
+- 观察Seata Server是否注册到Nacos
 
 ![image-20211124154709732](images/image-20211124154709732.png)
+
+
+
+
 
 
 
@@ -482,16 +560,23 @@ config {
 
 ##### 2.1 整合流程
 
-RM(资源管理器)端 整合Seata 与 TM(事务管理器) 端步骤类似，区别在于：
+RM(资源管理器)端 整合Seata 与 TM(事务管理器) 端步骤类似，流程如下
 
-- TM 需要在方法添加@GlobalTransactional注解，RM则不需要
-- 其他步骤都相同
+- RM和TM工程添加seata依赖
+- RM和TM工程添加registry.conf配置，注册到注册中心以及配置中心
+- RM和TM工程通过配置`spring.cloud.alibaba.seata.tx-service-group=xxx`，获取TC服务地址并注册到TC集群，配置规则如下：
+  - 根据xxx，读取service.vgroupMapping.xxx配置的value
+  - 根据value，读取service.value.grouplist的值
+
+- TM工程 需要在方法添加@GlobalTransactional注解，用于控制全局事务的开启/提交/回滚
+- RM工程 设置数据源代理即可，用于本地事务的开启/提交/回滚
+- 若既是TM也是RM，则需要加上@GlobalTransactional注解，也要配置数据源代理
 
 ![image-20211124155031244](images/image-20211124155031244.png)
 
-##### 2.2 RM服务添加表
+##### 2.2 TM和RM库中都添加UNDO_LOG表
 
-AT 模式在RM端需要 `UNDO_LOG `表，来记录每个RM的事务信息，主要包含数据修改前/后的相关信息，⽤于回滚处理，所以在所有数据库中分别执⾏
+AT 模式在TM和RM端需要 `UNDO_LOG `表，来记录每个RM的事务信息，主要包含数据修改前/后的相关信息，⽤于回滚处理，所以在所有数据库中分别执⾏
 
 ```sql
 -- 注意此处0.3.0+ 增加唯⼀索引 ux_undo_log
@@ -512,9 +597,9 @@ CREATE TABLE `undo_log` (
 
 
 
-##### 2.3 RM服务配置依赖
+##### 2.3 TM和RM工程配置seata依赖
 
-**父工程配置依赖管理**
+**父工程配置seata依赖管理**
 
 ```xml
 <dependencyManagement>
@@ -553,7 +638,7 @@ CREATE TABLE `undo_log` (
 </dependencyManagement>
 ```
 
-**RM端配置依赖**
+**配置seata依赖**
 
 ```xml
 <!--添加seata依赖 -->
@@ -577,7 +662,7 @@ CREATE TABLE `undo_log` (
 
 
 
-##### 2.4 RM端添加resource/registry.conf文件
+##### 2.4 TM和RM工程添加resource/registry.conf文件
 
 ```
 registry {
@@ -672,16 +757,21 @@ config {
 
 
 
-##### 2.5 RM添加公共配置
+##### 2.5 TM和RM工程添加公共配置
+
+通过`spring.cloud.alibaba.seata.tx-service-group`配置注册到哪个seata事务分组中（TC），可在[nacos导入TC配置后](#1.4 配置seata分组（集群）)，对应`service.vgroupMapping.xxx`配置中的 `xxx`
+
+![image-20211125000145399](images/image-20211125000145399.png)
 
 ```properties
+# 配置使用的seata事务分组
 spring.cloud.alibaba.seata.tx-service-group=my_test_tx_group
 logging.level.io.seata=debug
 ```
 
 
 
-##### 2.6 RM代理数据源配置类
+##### 2.6 RM工程创建代理数据源，并排除springboot自动装配数据源
 
 ```java
 import com.alibaba.druid.pool.DruidDataSource;
@@ -720,10 +810,6 @@ public class DataSourceConfiguration {
 }
 ```
 
-
-
-##### 2.7 RM启动扫描配置类,分别加载每个工程的启动类中
-
 ```java
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -746,7 +832,7 @@ public class PointsApplication {
 
 
 
-##### 2.8 TM方法添加注解@GlobalTransactional
+##### 2.7 TM工程service方法添加注解@GlobalTransactional
 
 ```java
 import com.lagou.bussiness.feign.OrderServiceFeign;
@@ -798,6 +884,48 @@ public class BussinessServiceImpl implements BussinessService {
 ```
 
 
+
+##### 2.8 重构（提取改造配置到公共模块中）
+
+创建一个新的工程，命名common-seata。分别将TM和RM改造的如下三步引入common-seata中：
+
+- [common-seata工程引入seata依赖](#2.3 TM和RM工程配置seata依赖)
+
+- [common-seata工程添加registry.conf文件](#2.4 TM和RM工程添加resource/registry.conf文件)
+
+- [common-seata工程添加application-seata.properties文件](#2.5 TM和RM工程添加公共配置)
+
+- 原来的RM和TM删除seata依赖、删除registry.conf、删除添加的seata公共配置
+
+- 原来的RM和TM依赖common-seata工程
+
+- 原来的RM和TM分别在全局配置文件中，添加 `spring.profiles.active=seata`
+
+- 原来的RM添加 `扫描common-seata工程的代理数据源Bean `的路径
+
+  ```java
+  import org.mybatis.spring.annotation.MapperScan;
+  import org.springframework.boot.SpringApplication;
+  import org.springframework.boot.autoconfigure.SpringBootApplication;
+  import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+  import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+  
+  @SpringBootApplication(scanBasePackages = "com.tangdi",
+          exclude = DataSourceAutoConfiguration.class)
+  @EnableDiscoveryClient
+  @MapperScan(basePackages = {"com.tangdi.points.mapper"}) // mybatis包扫描
+  public class PointsApplication {
+  
+      public static void main(String[] args) {
+          SpringApplication.run(PointsApplication.class, args);
+      }
+  }
+  
+  ```
+  
+  
+  
+  
 
 
 
