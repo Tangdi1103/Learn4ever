@@ -14,7 +14,7 @@ Seata（Simple Extensible Autonomous Transaction Architecture）是一套一站�
 
 ⽬前已⽀持 Dubbo、Spring Cloud、Sofa-RPC、Motan 和 grpc 等RPC框架，其他框架持续集成中
 
-#### 2.2 AT 模式
+#### 2.2 AT 模式（强一致，有全局行锁以及undo日志用于回滚）
 
 ##### 简介
 
@@ -54,7 +54,7 @@ AT 模式是⼀种⽆侵⼊的分布式事务解决⽅案。在 AT 模式下，�
 
 
 
-#### 2.3 TCC 模式
+#### 2.3 TCC 模式（最终一致，第一阶段的try就执行并提交了事务，所以无undo日志，并且TC也无需加全局事务的行锁）
 
 TCC 模式需要⽤户根据自己的业务场景实现Try、Confirm 和 Cancel 三个操作。
 
@@ -70,25 +70,37 @@ TCC 模式需要⽤户根据自己的业务场景实现Try、Confirm 和 Cancel 
 
 **以”扣钱“场景进行说明：**
 
-在接⼊ TCC 前，对 A 账户的扣钱，只需⼀条更新账户余额的 SQL 便能完成；但是在接⼊ TCC 之后，⽤户就需要考虑如何将原来⼀步就能完成的扣钱操作，拆成两阶段，实现成三个⽅法，并且保证⼀阶段 Try 成功的话 ⼆阶段 Confirm ⼀定能成功。
+在接⼊ TCC 前，对 A 账户的扣钱，只需⼀条更新账户余额的 SQL 便能完成；但是在接⼊ TCC 之后，⽤户就需要考虑如何将原来⼀步就能完成的扣钱操作，拆成两阶段，实现成三个方法，并且保证⼀阶段 Try 成功的话 ⼆阶段 Confirm ⼀定能成功。
 
 ![image-20211124163106889](images/image-20211124163106889.png)
 
-- Try 要做的事情是就是检查账户余额是否充⾜，预留转账资⾦，预留的⽅式就是冻结 A 账户的 转账资⾦。Try ⽅法执⾏之后，账号 A 余额虽然还是 100，但是其中 30 元已经被冻结了，不能被其他事务使⽤
--  Confirm ⽅法执⾏真正的扣钱操作。Confirm 会使⽤ Try 阶段冻结的资⾦，执⾏账号扣款。Confirm ⽅法执⾏之后，账号 A 在⼀阶段中冻结的 30 元已经被扣除，账号 A 余额变成 70 元 。
-- 如果⼆阶段是回滚的话，就需要在 Cancel ⽅法内释放⼀阶段 Try 冻结的 30 元，使账号 A 的回到初始状态，100 元全部可⽤
+- Try 要做的事情是就是检查账户余额是否充足，预留转账资⾦，预留的⽅式就是冻结 A 账户的 转账资⾦。Try 方法执行之后，账号 A 余额虽然还是 100，但是其中 30 元已经被冻结了，不能被其他事务使⽤
+-  Confirm 方法执行真正的扣钱操作。Confirm 会使⽤ Try 阶段冻结的资⾦，执⾏账号扣款。Confirm 方法执行之后，账号 A 在一阶段中冻结的 30 元已经被扣除，账号 A 余额变成 70 元 。
+- 如果⼆阶段是回滚的话，就需要在 Cancel 方法内释放⼀阶段 Try 冻结的 30 元，使账号 A 的回到初始状态，100 元全部可⽤
 
 **TCC模式的难度及效果**
 
-用户接⼊ TCC 模式，最重要的事情就是考虑如何将业务模型拆成 2 阶段，实现成 TCC 的 3 个⽅法，并且保证 Try 成功 Confirm ⼀定能成功。相对于 AT 模式，TCC 模式对业务代码有⼀定的侵⼊性，但是 TCC 模式⽆ AT 模式的全局⾏锁，TCC 性能会⽐ AT 模式⾼很多
+由于需要用户自己实现try（预留资源）、Confirm（提交事务）和Cancel（撤销事务）三个方法，所以代码具有较多的侵入性。但由于TCC在try阶段就已经执行并提交了事务，所以TCC并不需要加全局事务的行锁，所以性能由于AT模式。并且TCC通过cancel方法撤销事务，所以也无需生成undo日志
 
 #### 2.4 Saga 模式
 
-为长事务提供有效的解决⽅案
+在 Saga 模式下，分布式事务内有多个参与者，每⼀个参与者都是⼀个冲正补偿服务，需要⽤户根据业务场景**实现其正向操作和逆向回滚操作**
+
+分布式事务执⾏过程中，依次执⾏各参与者的正向操作，如果所有正向操作均执⾏成功，那么分布式事务提交。如果任何⼀个正向操作执⾏失败，那么分布式事务会去退回去执⾏前⾯各参与者的逆向回滚操作，回滚已提交的参与者，使分布式事务回到初始状态。
+
+![image-20211126015217645](images/image-20211126015217645.png)
+
+**适用场景**
+
+- 业务流程⻓、业务流程多
+
+- 参与者包含第三⽅公司或遗留系统服务，⽆法提供 TCC 模式要求的三个接⼝
+
+- 典型业务系统：如⾦融⽹络（与外部⾦融机构对接）、互联⽹微贷、渠道整合等业务系统
 
 #### 2.5 XA 模式
 
-⽀持已实现 XA 接⼝的数据库的 XA 模式
+支持已实现 XA 接⼝的数据库的 XA 模式
 
 #### 2.6 高可用
 
@@ -98,11 +110,26 @@ TCC 模式需要⽤户根据自己的业务场景实现Try、Confirm 和 Cancel 
 
 #### 2.7 各种模式对比
 
-![image-20211124162449442](images/image-20211124162449442.png)
+|            | AT                                         | TCC                                                | Saga                   |
+| ---------- | ------------------------------------------ | -------------------------------------------------- | ---------------------- |
+| 集成难度   | 低                                         | 非常高                                             | 中等                   |
+| 隔离性     | 保证（全局事务行锁）                       | 保证（通过预留资源）                               | 不保证                 |
+| 推荐度     | 高                                         | 中                                                 | 低                     |
+| 数据库改造 | UNDO_LOG                                   | 有（添加预留资源字段）/无（通过redis存储冻结数据） | 流程与实例表           |
+| 实现机制   | DataSource代理                             | TCC实现（try、confirm、cancel）                    | 状态机                 |
+| 场景       | ⾃研项⽬全场景拥有数据访问权限快速集成场景 | 高性能且复杂的场景                                 | 长流程及大量第三方调用 |
 
-- AT 模式是⽆侵⼊的分布式事务解决⽅案，适⽤于不希望对业务进⾏改造的场景，⼏乎0学习成本。
-- TCC 模式是⾼性能分布式事务解决⽅案，适⽤于核⼼系统等对性能有很⾼要求的场景。
-- Saga 模式是⻓事务解决⽅案，适⽤于业务流程⻓且需要保证事务最终⼀致性的业务系统，Saga 模式⼀阶段就会提交本地事务，⽆锁，⻓流程情况下可以保证性能，多⽤于渠道层、集成层业务系统。事务参与者可能是其它公司的服务或者是遗留系统的服务，⽆法进⾏改造和提供 TCC 要求的接⼝，也可以使⽤Saga 模式。
+
+
+- AT 模式是无侵⼊的分布式事务解决方案，适用于不希望对业务进行改造的场景，几乎0学习成本。
+  - 加全局行锁
+  - 分支事务执行后不主动提交事务，而是TC通知提交/回滚事务
+  - 通过undo日志回滚事务
+- TCC 模式是⾼性能分布式事务解决方案，适用于核⼼系统等对性能有很高要求的场景。
+  - 无全局行锁
+  - 分支事务在第一阶段try预留资源时执行并提交事务，通过TC通知提交/回滚事务
+  - 由于提供了撤销事务的方法，所以无需undo日志
+- Saga 模式是长事务解决方案，适用于业务流程长且需要保证事务最终一致性的业务系统，Saga 模式⼀阶段就会提交本地事务，无锁，长流程情况下可以保证性能，多用于渠道层、集成层业务系统。事务参与者可能是其它公司的服务或者是遗留系统的服务，无法进行改造和提供 TCC 要求的接口，也可以使用Saga 模式。
 
 
 
@@ -147,6 +174,13 @@ Seata 内部包含三大模块：TM、RM 和 TC。
 ## 二、准备案例
 
 基于SCA项目，各个微服务通过Dubbo或Feign进行服务调用，各个服务再操作各自的数据库（及各服务本地的事务），所以这就涉及到了分布式事务。
+
+- Bussiness服务作为client端，角色是TM，发起全局事务
+- Order服务作为订单server端，角色是RM，参与全局事务
+- Points服务作为会员积分server端，角色是RM，参与全局事务
+- Storage服务作为库存server端，角色是RM，参与全局事务
+
+用户购买某商品同事增加会员积分：请求到Bussiness层，Bussiness调用Order服务生成订单，再调用Storage服务扣减库存，再调用Points服务增加会员积分，
 
 
 
@@ -548,7 +582,7 @@ config {
 
 - 观察Seata Server是否注册到Nacos
 
-![image-20211124154709732](images/image-20211124154709732.png)
+  ![image-20211126003917501](images/image-20211126003917501.png)
 
 
 
@@ -568,7 +602,7 @@ RM(资源管理器)端 整合Seata 与 TM(事务管理器) 端步骤类似，流
   - 根据xxx，读取service.vgroupMapping.xxx配置的value
   - 根据value，读取service.value.grouplist的值
 
-- TM工程 需要在方法添加@GlobalTransactional注解，用于控制全局事务的开启/提交/回滚
+- TM工程 需要在service方法上添加@GlobalTransactional注解，用于控制全局事务的开启/提交/回滚
 - RM工程 设置数据源代理即可，用于本地事务的开启/提交/回滚
 - 若既是TM也是RM，则需要加上@GlobalTransactional注解，也要配置数据源代理
 
@@ -895,13 +929,15 @@ public class BussinessServiceImpl implements BussinessService {
 
 - [common-seata工程添加application-seata.properties文件](#2.5 TM和RM工程添加公共配置)
 
+- [common-seata工程添加代理数据源配置，但不用创建启动类](2.6 RM工程创建代理数据源，并排除springboot自动装配数据源)
+
 - 原来的RM和TM删除seata依赖、删除registry.conf、删除添加的seata公共配置
 
 - 原来的RM和TM依赖common-seata工程
 
 - 原来的RM和TM分别在全局配置文件中，添加 `spring.profiles.active=seata`
 
-- 原来的RM添加 `扫描common-seata工程的代理数据源Bean `的路径
+- 原来的RM删除代理数据源配置，并在启动类上添加 `扫描common-seata工程的代理数据源Bean `的路径
 
   ```java
   import org.mybatis.spring.annotation.MapperScan;
@@ -924,8 +960,32 @@ public class BussinessServiceImpl implements BussinessService {
   ```
   
   
-  
-  
+
+##### 2.9 依次启动并测试，观察TC的三张表以及RM的undo表
+
+![image-20211126003917501](images/image-20211126003917501.png)
+
+**生成全局事务**
+
+![image-20211125011458786](images/image-20211125011458786.png)
+
+**以AT模式生成分支事务**
+
+![image-20211125011410269](images/image-20211125011410269.png)
+
+**AT模式执行事务加全局行锁**
+
+![image-20211125010854357](images/image-20211125010854357.png)
+
+**执行事务时，生成的undo日志，用于各分支事务回滚**
+
+![image-20211125011240688](images/image-20211125011240688.png)
+
+
+
+
+
+
 
 
 
@@ -935,19 +995,29 @@ public class BussinessServiceImpl implements BussinessService {
 
 与AT模式一致
 
-### 2. 资源管理器RM改造
+### 2. TM/RM端整合Seata（含代码讲解）
 
-##### 2.1 以下三步与AT模式一致
+##### 2.1 流程流程
 
-[RM服务配置依赖](#2.3 RM服务配置依赖)
+- RM和TM工程添加seata依赖
+- RM和TM工程添加registry.conf配置，注册到注册中心以及配置中心
+- RM和TM工程通过配置`spring.cloud.alibaba.seata.tx-service-group=xxx`，获取TC服务地址并注册到TC集群，配置规则如下：
+  - 根据xxx，读取service.vgroupMapping.xxx配置的value
+  - 根据value，读取service.value.grouplist的值
+- TM工程 需要在service方法上添加@GlobalTransactional注解，用于控制全局事务的开启/提交/回滚
+- RM工程
+  - 参与全局事务的service接口上添加@LocalTCC注解
+  - 在预检查方法上添加@TwoPhaseBusinessAction（注解属性注意全局唯一性）
+  - 分别添加commit方法和rollback方法（方法名同预检查方法上的注解属性一致）
+- 若服务既是TM也是RM，则上面两步都要有
 
-[RM端添加resource/registry.conf文件](#2.4 RM端添加resource/registry.conf文件)
-
-[RM添加公共配置](#2.5 RM添加公共配置)
+![image-20211125220746114](images/image-20211125220746114.png)
 
 
 
-##### 2.2 修改数据库表结构,增加预留检查字段,⽤于提交和回滚
+##### 2.2 修改表结构，RM涉及分布式事务的表添加Try状态字段，作为预留检查字段
+
+也可不改表结构，预留检查数据可存入redis
 
 ```sql
 ALTER TABLE `seata_order`.`t_order` ADD COLUMN `status` int(0) NULL COMMENT '订单状态-0不可⽤,事务未提交 , 1-可⽤,事务提交' ;
@@ -957,7 +1027,331 @@ ALTER TABLE `seata_storage`.`t_storage` ADD COLUMN `frozen_storage` int(0) NULL 
 
 
 
-##### 2.3 改造service层。。。
+##### 2.3 以下四步与AT模式一致
+
+[RM和TM服务配置依赖](#2.3 TM和RM工程配置seata依赖)
+
+[RM和TM端添加resource/registry.conf文件](#2.4 TM和RM工程添加resource/registry.conf文件)
+
+[RM和TM添加公共配置](#2.5 TM和RM工程添加公共配置)
+
+[TM全局事务service方法添加@GlobalTransactional注解](#2.7 TM工程service方法添加注解@GlobalTransactional)
 
 
 
+##### 2.4 RM分支事务service接口
+
+- 接口添加注解@LocalTCC
+- try方法添加注解@TwoPhaseBusinessAction
+  - 注解属性name全局唯一性
+  - commitMethod和rollbackMethod分别指定confirm、cancel方法名
+
+- try方法形参使用注解@BusinessActionContextParameter
+
+  TCC模式通过@BusinessActionContextParameter注解标记参数，将其参数绑定到canfirm和cancel方法的入参中
+
+- 新增confirm、cancel方法
+
+  入参指定为BusinessActionContext context，try方法会将预留资源对象以 json格式 的参数传入context中
+
+**订单service接口**
+
+```java
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.tangdi.order.entity.Order;
+import io.seata.rm.tcc.api.BusinessActionContext;
+import io.seata.rm.tcc.api.BusinessActionContextParameter;
+import io.seata.rm.tcc.api.LocalTCC;
+import io.seata.rm.tcc.api.TwoPhaseBusinessAction;
+
+/**
+ * 接口被seata管理. 根据事务的状态完成提交或回滚操作
+ */
+@LocalTCC
+public interface OrderService extends IService<Order> {
+
+    @TwoPhaseBusinessAction(name = "addTCC",
+            commitMethod = "addCommit",rollbackMethod = "addRollBack")
+    void add(@BusinessActionContextParameter(paramName = "order") Order order);
+
+    public boolean addCommit(BusinessActionContext context);
+
+
+    public boolean addRollBack(BusinessActionContext context);
+
+}
+```
+
+**会员积分service接口**
+
+```java
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.tangdi.points.entity.Points;
+import io.seata.rm.tcc.api.BusinessActionContext;
+import io.seata.rm.tcc.api.BusinessActionContextParameter;
+import io.seata.rm.tcc.api.LocalTCC;
+import io.seata.rm.tcc.api.TwoPhaseBusinessAction;
+
+@LocalTCC
+public interface PointsService extends IService<Points> {
+
+    @TwoPhaseBusinessAction(name = "increaseTCC",
+            commitMethod = "increaseCommit",rollbackMethod = "increaseRollBack")
+    public void increase(@BusinessActionContextParameter(paramName = "username") String username,
+                         @BusinessActionContextParameter(paramName = "points")  Integer points);
+
+
+    public boolean increaseCommit(BusinessActionContext context);
+
+    public boolean increaseRollBack(BusinessActionContext context);
+
+}
+```
+
+**库存service接口**
+
+```java
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.tangdi.storage.entity.Storage;
+import io.seata.rm.tcc.api.BusinessActionContext;
+import io.seata.rm.tcc.api.BusinessActionContextParameter;
+import io.seata.rm.tcc.api.LocalTCC;
+import io.seata.rm.tcc.api.TwoPhaseBusinessAction;
+
+/**
+ * 仓库服务
+ */
+@LocalTCC
+public interface StorageService extends IService<Storage> {
+
+
+    @TwoPhaseBusinessAction(name = "decreaseTCC",
+            commitMethod = "decreaseCommit", rollbackMethod = "decreaseRollBack")
+    public void decrease(@BusinessActionContextParameter(paramName = "goodsId")
+                                 Integer goodsId, @BusinessActionContextParameter(paramName = "quantity") Integer quantity);
+
+
+    public boolean decreaseCommit(BusinessActionContext context);
+
+    public boolean decreaseRollBack(BusinessActionContext context);
+}
+```
+
+
+
+##### 2.5 RM分支事务service实现
+
+**订单service实现**
+
+```java
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONPath;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tangdi.order.entity.Order;
+import com.tangdi.order.mapper.OrderMapper;
+import com.tangdi.order.service.OrderService;
+import io.seata.rm.tcc.api.BusinessActionContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.Date;
+
+@Slf4j
+@Service
+public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements OrderService {
+
+    @Override
+    public void add(Order order) {
+        order.setCreateTime(new Date());//设置订单创建时间
+        order.setStatus(0);//try阶段-预检查
+        this.save(order);//保存订单
+    }
+
+    @Override
+    public boolean addCommit(BusinessActionContext context) {
+        Object jsonOrder = context.getActionContext("order");
+        Order order = JSON.parseObject(jsonOrder.toString(), Order.class);
+        order = this.getById(order.getId());
+        if (order != null) {
+            order.setStatus(1);//commit提交操作.1订单可用
+            this.saveOrUpdate(order);
+        }
+        log.info("-------->xid" + context.getXid() + " 提交成功!");
+        return true;//注意: 方法必须返回为true
+    }
+
+    @Override
+    public boolean addRollBack(BusinessActionContext context) {
+        Object jsonOrder = context.getActionContext("order");
+        Order order = JSON.parseObject(jsonOrder.toString(), Order.class);
+        order = this.getById(order.getId());
+        if (order != null) {
+            this.removeById(order.getId());//回滚操作-删除订单
+        }
+        log.info("-------->xid" + context.getXid() + " 回滚成功!");
+        return true;
+    }
+}
+```
+
+**会员积分service实现**
+
+```java
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tangdi.points.mapper.PointsMapper;
+import com.tangdi.points.entity.Points;
+import com.tangdi.points.service.PointsService;
+import io.seata.rm.tcc.api.BusinessActionContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+/**
+ * 会员积分服务
+ */
+@Slf4j
+@Service
+public class PointsServiceImpl extends ServiceImpl<PointsMapper, Points> implements PointsService {
+    @Autowired
+    PointsMapper pointsMapper;
+
+    /**
+     * 会员增加积分
+     *
+     * @param username 用户名
+     * @param points   增加的积分
+     * @return 积分对象
+     */
+    public void increase(String username, Integer points) {
+        QueryWrapper<Points> wrapper = new QueryWrapper<Points>();
+        wrapper.lambda().eq(Points::getUsername, username);
+        Points userPoints = this.getOne(wrapper);
+        if (userPoints == null) {
+            userPoints = new Points();
+            userPoints.setUsername(username);
+            //userPoints.setPoints(points);
+            userPoints.setFrozenPoints(points);//try-设置冻结积分
+        } else {
+            //userPoints.setPoints(userPoints.getPoints() + points);
+            userPoints.setFrozenPoints(points);//try-设置冻结积分
+        }
+        this.saveOrUpdate(userPoints);
+    }
+
+    @Override
+    public boolean increaseCommit(BusinessActionContext context) {
+        QueryWrapper<Points> wrapper = new QueryWrapper<Points>();
+        wrapper.lambda().eq(Points::getUsername,
+                context.getActionContext("username"));
+        Points userPoints = this.getOne(wrapper);
+        if(userPoints!=null){
+            //增加用户积分
+            userPoints.setPoints(userPoints.getPoints()+ userPoints.getFrozenPoints());
+            userPoints.setFrozenPoints(0);//冻结积分清零
+            this.saveOrUpdate(userPoints);
+        }
+        log.info("-------->xid" + context.getXid() + " 提交成功!");
+        return true;
+    }
+
+    @Override
+    public boolean increaseRollBack(BusinessActionContext context) {
+        QueryWrapper<Points> wrapper = new QueryWrapper<Points>();
+        wrapper.lambda().eq(Points::getUsername,
+                context.getActionContext("username"));
+        Points userPoints = this.getOne(wrapper);
+        if(userPoints!=null){
+            userPoints.setFrozenPoints(0);//冻结积分清零
+            this.saveOrUpdate(userPoints);
+        }
+        log.info("-------->xid" + context.getXid() + " 回滚成功!");
+        return true;
+    }
+}
+```
+
+**库存service实现**
+
+```java
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tangdi.storage.entity.Storage;
+import com.tangdi.storage.mapper.StorageMapper;
+import com.tangdi.storage.service.StorageService;
+import io.seata.rm.tcc.api.BusinessActionContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+/**
+ * 仓库服务
+ */
+@Slf4j
+@Service
+public class StorageServiceImpl extends ServiceImpl<StorageMapper, Storage> implements StorageService {
+
+    /**
+     * 减少库存
+     *
+     * @param goodsId  商品ID
+     * @param quantity 减少数量
+     * @return 库存对象
+     */
+    public void decrease(Integer goodsId, Integer quantity) {
+        QueryWrapper<Storage> wrapper = new QueryWrapper<Storage>();
+        wrapper.lambda().eq(Storage::getGoodsId, goodsId);
+        Storage goodsStorage = this.getOne(wrapper);
+        if (goodsStorage.getStorage() - goodsStorage.getFrozenStorage()  >= quantity) {
+            //设置冻结库存
+            goodsStorage.setFrozenStorage(quantity);
+        } else {
+            throw new RuntimeException(goodsId + "库存不足,目前剩余库存:" + goodsStorage.getStorage());
+        }
+        this.saveOrUpdate(goodsStorage);
+    }
+
+    @Override
+    public boolean decreaseCommit(BusinessActionContext context) {
+        QueryWrapper<Storage> wrapper = new QueryWrapper<Storage>();
+        wrapper.lambda().eq(Storage::getGoodsId, context.getActionContext("goodsId"));
+        Storage goodsStorage = this.getOne(wrapper);
+        if (goodsStorage != null) {
+            //扣减库存
+            goodsStorage.setStorage(goodsStorage.getStorage() - goodsStorage.getFrozenStorage());
+            goodsStorage.setFrozenStorage(0);//冻结库存清零
+            this.saveOrUpdate(goodsStorage);
+        }
+        log.info("-------->xid" + context.getXid() + " 提交成功!");
+        return true;
+    }
+
+    @Override
+    public boolean decreaseRollBack(BusinessActionContext context) {
+        QueryWrapper<Storage> wrapper = new QueryWrapper<Storage>();
+        wrapper.lambda().eq(Storage::getGoodsId, context.getActionContext("goodsId"));
+        Storage goodsStorage = this.getOne(wrapper);
+        if (goodsStorage != null) {
+            goodsStorage.setFrozenStorage(0);//冻结库存清零
+            this.saveOrUpdate(goodsStorage);
+        }
+        log.info("-------->xid" + context.getXid() + " 回滚成功!");
+        return true;
+    }
+}
+```
+
+
+
+
+
+##### 2.6 依次启动并测试，观察TC的两张表（TCC模式无行锁）
+
+![image-20211126003917501](images/image-20211126003917501.png)
+
+**TCC模式生成分支事务**
+
+![image-20211126005337074](images/image-20211126005337074.png)
+
+**生成全局事务**
+
+![image-20211126010125476](images/image-20211126010125476.png)
