@@ -1,12 +1,132 @@
 [toc]
 
-## 1.默认连接池
+## 1.springboot连接池
 
 spring-boot-starter-jdbc支持`HikariCP`、`Commons DBCP2`和`Tomcat JDBC Connection Pool`，其中2.0以上，默认使用`HikariCP`
 
-## 2.配置三方连接池，如Druid
+#### 引入spring-boot-starter-jdbc依赖
 
-#### 引入依赖
+```xml
+<dependency> 
+    <groupId>mysql</groupId> 
+    <artifactId>mysql-connector-java</artifactId> 
+</dependency>
+<dependency> 
+    <groupId>org.springframework.boot</groupId> 
+    <artifactId>spring-boot-starter-jdbc</artifactId> 
+</dependency>
+```
+
+#### 配置文件
+
+```properties
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver 
+spring.datasource.url=jdbc:mysql:///springboot_h?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=UTC 
+spring.datasource.username=root 
+spring.datasource.password=root
+```
+
+#### 测试
+
+```java
+package com.tangdi;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+
+/**
+ * @program: shardingjdbc-example
+ * @description:
+ * @author: Wangwt
+ * @create: 0:36 2021/12/1
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = ShardingApplication.class)
+public class ShardingTest {
+
+    @Autowired
+    private DataSource dataSource;
+
+
+    @Test
+    public void douTest() throws SQLException {
+        Connection connection = dataSource.getConnection();
+        System.out.println(connection);
+    }
+}
+
+```
+
+
+
+
+
+## 2.配置连接池
+
+### 2.1 整合spring-boot提供的连接池
+
+SpringBoot提供了三种数据库连接池：
+
+- HikariCP（spring boot2.x版本默认使用HikariCP）
+
+  直接引入`spring-boot-starter-jdbc` 即可
+
+  ```xml
+  <dependency> 
+      <groupId>org.springframework.boot</groupId> 
+      <artifactId>spring-boot-starter-jdbc</artifactId> 
+  </dependency>
+  ```
+
+- Commons DBCP2
+
+  ```xml
+  <dependency> 
+      <groupId>org.apache.commons</groupId> 
+      <artifactId>commons-dbcp2</artifactId> 
+  </dependency>
+  <dependency> 
+      <groupId>org.springframework.boot</groupId> 
+      <artifactId>spring-boot-starter-jdbc</artifactId> 
+      <exclusions> 
+          <exclusion> 
+              <groupId>com.zaxxer</groupId> 
+              <artifactId>HikariCP</artifactId> 
+          </exclusion> 
+      </exclusions> 
+  </dependency>
+  ```
+
+- Tomcat JDBC Connection Pool
+
+  ```xml
+  <dependency> 
+      <groupId>org.apache.tomcat</groupId> 
+      <artifactId>tomcat-jdbc</artifactId> 
+  </dependency> 
+  <dependency> 
+      <groupId>org.springframework.boot</groupId> 
+      <artifactId>spring-boot-starter-jdbc</artifactId> 
+      <exclusions> 
+          <exclusion> 
+              <groupId>com.zaxxer</groupId> 
+              <artifactId>HikariCP</artifactId> 
+          </exclusion> 
+      </exclusions> 
+  </dependency>
+  ```
+
+### 2.2 整合Druid
+
+##### 引入依赖
 
 ```xml
 <dependency>
@@ -16,7 +136,7 @@ spring-boot-starter-jdbc支持`HikariCP`、`Commons DBCP2`和`Tomcat JDBC Connec
 </dependency>
 ```
 
-#### 在application.yml中引入druid的相关配置
+##### 在application.yml中引入druid的相关配置
 
 ```yaml
 spring:
@@ -47,18 +167,64 @@ spring:
     connectionProperties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=500
 ```
 
-#### 编写整合druid的配置类DruidConfig
+##### 编写整合druid的配置类DruidConfig
+
+这是因为：如果单纯在yml文件中编写如上的配置，SpringBoot肯定是读取不到druid的相关配置的。因为它并不像我们原生的jdbc，系统默认就使用DataSourceProperties与其属性进行了绑定。所以我们应该编写一个类与其属性进行绑定
 
 ```java
+import com.alibaba.druid.pool.DruidDataSource;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import javax.sql.DataSource;
+
 @Configuration
 public class DruidConfig {
-   @ConfigurationProperties(prefix = "spring.datasource")
-   @Bean
-   public DataSource druid(){
-       return new DruidDataSource();
-   }
-}  
+
+
+	@ConfigurationProperties(prefix = "spring.datasource")
+	@Bean
+	public DataSource dataSource(){
+
+		return  new DruidDataSource();
+	}
+}
 ```
+
+##### 注意
+
+由于配置了`filters: stat,wall,log4j`，并且因为springBoot2.0以后使用的日志框架已经不再使用log4j了。此时应该引入相应的适配器。我们可以在pom.xml文件上加入
+
+```xml
+<!--引入适配器--> 
+<dependency> 
+    <groupId>org.slf4j</groupId> 
+    <artifactId>slf4j-log4j12</artifactId> 
+</dependency>
+```
+
+
+
+### 2.3 自动装配连接池原理
+
+spring-boot-autoconfigure自动装配依赖中的spring.factories找到数据源的自动配置类：DataSourceAutoConfiguration
+
+![image-20211201223541231](images/image-20211201223541231.png)
+
+![image-20211201224055381](images/image-20211201224055381.png)
+
+`@Conditional(PooledDataSourceCondition.class)` 根据判断条件，实例化这个类，指定了配置文件中，必须有type这个属性
+
+![image-20211201224324112](images/image-20211201224324112.png)
+
+Springboot 支持 type 类型设置的数据源，DataSourceConfiguration配置文件中没有指定数据源时候 会根据注解判断然后选择相应的实例化数据源对象！
+
+
+
+
+
+
 
 ## 3.整合Mybatis
 
