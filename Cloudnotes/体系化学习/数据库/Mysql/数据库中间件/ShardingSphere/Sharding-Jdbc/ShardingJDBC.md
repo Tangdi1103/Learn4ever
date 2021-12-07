@@ -817,9 +817,145 @@ Saga可以通过在项目的classpath中添加 saga.properties 来定制化Saga�
 
 #### 6. SPI加载
 
+在Apache ShardingSphere中，很多功能实现类的加载方式是通过SPI注入的方式完成的。ServiceProvider Interface （SPI）是Java提供的一套被第三方实现或扩展的API，它可以用于实现框架扩展或组件替换。
+
+##### 6.1 SQL解析
+
+主要接口是 **`SQLParserEntry`**，其内置实现类有**`MySQLParserEntry`**，**`PostgreSQLParserEntry`**，**`SQLServerParserEntry `**和 **`OracleParserEntry`**。
+
+##### 6.2 数据库协议
+
+用于 Sharding-Proxy 解析与适配访问数据库的协议
+
+主要接口是**`DatabaseProtocolFrontendEngine`**，其内置实现类有**`MySQLProtocolFrontendEngine`**和**`PostgreSQLProtocolFrontendEngine`**。
+
+##### 6.3 数据脱敏
+
+主要接口有两个是**`Encryptor`**和**`QueryAssistedEncryptor`**，其中**`Encryptor`**的内置实现类有 **`AESEncryptor`**和**`MD5Encryptor`**。
+
+##### 6.4 分布式主键
+
+主要接口为**`ShardingKeyGenerator`**，其内置实现类有**`UUIDShardingKeyGenerator`**和**`SnowflflakeShardingKeyGenerator`**。
+
+##### 6.5 分布式事务
+
+分布式事务的接口主要用于规定如何将分布式事务适配为本地事务接口。
+
+主要接口为**`ShardingTransactionManager`**，其内置实现类有**`XAShardingTransactionManager`**和**`SeataATShardingTransactionManager`**。
+
+##### 6.6 XA事务管理器
+
+XA事务管理器的接口主要用于规定如何将XA事务的实现者适配为统一的XA事务接口。
+
+主要接口为**`XATransactionManager`**，其内置实现类有**`AtomikosTransactionManager`**，**`NarayanaXATransactionManager`**和**`BitronixXATransactionManager`**。
+
+##### 6.7 注册中心
+
+注册中心的接口主要用于规定注册中心初始化、存取数据、更新数据、监控等行为。
+
+主要接口为**`RegistryCenter`**，其内置实现类有**`Zookeeper`**。
+
+
+
 
 
 #### 7. 编排治理
 
+编排治理模块提供配置中心/注册中心（以及规划中的元数据中心）、配置动态化、数据库熔断禁用、调用链路等治理能力。
 
+##### 7.1 配置中心
 
+配置中心数据结构
+
+![image-20211207170819190](images/image-20211207170819190.png)
+
+- config/authentication
+
+  ```yaml
+  password: root 
+  username: root
+  ```
+
+- config/sharding/props
+
+  ```yaml
+  sql.show: true
+  ```
+
+- config/schema/schemeName/datasource
+
+  多个数据库连接池的集合，不同数据库连接池属性自适配（例如：DBCP，C3P0，Druid,HikariCP）。
+
+  ```yaml
+  ds_0:
+    dataSourceClassName: com.zaxxer.hikari.HikariDataSource
+      properties:
+        url: jdbc:mysql://127.0.0.1:3306/demo1? serverTimezone=UTC&useSSL=false
+        password: root 
+        username: root 
+        maxPoolSize: 50 
+        minPoolSize: 1
+  ds_1:
+    dataSourceClassName: com.zaxxer.hikari.HikariDataSource
+      properties:
+        url: jdbc:mysql://127.0.0.1:3306/demo2? serverTimezone=UTC&useSSL=false
+        password: root 
+        username: root 
+        maxPoolSize: 50 
+        minPoolSize: 1
+  ```
+
+- config/schema/sharding_db/rule
+
+  ```yaml
+  tables: 
+    b_order: 
+      actualDataNodes: ds_${0..1}.b_order_${0..1} 
+      databaseStrategy:
+        inline:
+          shardingColumn: user_id 
+          algorithmExpression: ds_${user_id % 2}
+      keyGenerator: 
+        column: order_id
+      logicTable: b_order
+      tableStrategy: 
+        inline: 
+          shardingColumn: order_id 
+          algorithmExpression: b_order_${order_id % 2}
+    b_order_item: 
+      actualDataNodes: ds_${0..1}.b_order_item_${0..1} 
+      databaseStrategy:
+        inline: 
+          shardingColumn: user_id 
+          algorithmExpression: ds_${user_id % 2}
+      keyGenerator: 
+        column: order_item_id
+      logicTable: b_order_item
+      tableStrategy: 
+        inline: 
+          shardingColumn: order_id 
+          algorithmExpression: b_order_item_${order_id % 2}
+  ```
+
+- config/schema/masterslave/rule读写分离独立使用时使用该配置
+
+  ```yaml
+  name: ds_ms 
+  masterDataSourceName: master 
+  slaveDataSourceNames: 
+    - ds_slave0 
+    - ds_slave1 
+  loadBalanceAlgorithmType: ROUND_ROBIN
+  ```
+
+- 动态生效
+
+  在注册中心上修改、删除、新增相关配置，会动态推送到生产环境并立即生效
+
+  
+
+##### 7.2 注册中心
+
+##### 7.3 支持的配置中心和注册中心
+
+##### 7.4 应用性能监控
