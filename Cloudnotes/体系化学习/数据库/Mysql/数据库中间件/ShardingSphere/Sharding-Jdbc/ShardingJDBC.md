@@ -865,7 +865,9 @@ XA事务管理器的接口主要用于规定如何将XA事务的实现者适配�
 
 ##### 7.1 配置中心
 
-配置中心数据结构
+- 配置中心数据结构
+
+  配置中心在定义的命名空间的confifig下，以YAML格式存储，包括数据源，数据分片，读写分离
 
 ![image-20211207170819190](images/image-20211207170819190.png)
 
@@ -956,6 +958,59 @@ XA事务管理器的接口主要用于规定如何将XA事务的实现者适配�
 
 ##### 7.2 注册中心
 
+注册中心存放运行时的动态/临时状态数据，比如可用的proxy的实例，需要禁用或熔断的datasource实例。通过注册中心，可以提供熔断数据库访问程序对数据库的访问和禁用从库的访问的编排治理能力。治理仍然有大量未完成的功能
+
+- 注册中心数据结构
+
+  注册中心在定义的命名空间的state下，创建数据库访问对象运行节点，用于区分不同数据库访问实例。包括instances和datasources节点。
+
+  ![image-20211208111051159](images/image-20211208111051159.png)
+
+- state/instances
+
+  运行实例标识由运行服务器的IP地址和PID构成。运行实例标识均为临时节点，当实例上线时注册，下线时自动清理。注册中心监控这些节点的变化来治理运行中实例对数据库的访问等。
+
+- state/datasources
+
+  可以控制读写分离，可动态添加删除以及禁用
+
+- 熔断实例
+
+  可在IP地址@-@PID节点写入DISABLED（忽略大小写）表示禁用该实例，删除DISABLED表示启用。
+
+  Zookeeper命令如下：
+
+  ```shell
+  [zk: localhost:2181(CONNECTED) 0] set /your_zk_namespace/your_app_name/state/instances/your_instance_ip_a@-@your_instance_pid_x DISABLED
+  ```
+
+  
+
+- 禁用从库
+
+  在读写分离场景下，可在数据源名称子节点中写入DISABLED表示禁用从库数据源，删除DISABLED或节点表示启用。
+
+  Zookeeper命令如下：
+
+  ```shell
+  [zk: localhost:2181(CONNECTED) 0] set /your_zk_namespace/your_app_name/state/datasources/your_slave_datasource_nam e DISABLED
+  ```
+
+  
+
 ##### 7.3 支持的配置中心和注册中心
 
-##### 7.4 应用性能监控
+数据库治理模块**使用SPI方式载入数据到配置中心/注册中心**，进行**实例熔断**和**数据库禁用**。 目前，ShardingSphere内部支持**Zookeeper**和**Etcd**这种常用的配置中心/注册中心。 此外，您可以使用其他第三方配置中心/注册中心，例如**Apollo**、**Nacos**等，**并通过SPI的方式注入到ShardingSphere**，从而使用该配置中心/注册中心，实现数据库治理功能。
+
+##### 7.4 APM（应用性能监控）
+
+ShardingSphere仅负责产生具有价值的数据，并通过标准协议递交至相关系统。ShardingSphere可以通过两种方式对接应用性能监控系统。
+
+- OpenTracing API发送性能追踪数据
+
+  面向OpenTracing协议的APM产品都可以和ShardingSphere自动对接，比如SkyWalking，Zipkin和Jaeger。
+
+- SkyWalking的自动探针
+
+   ShardingSphere团队与SkyWalking团队共同合作，在SkyWalking中实现了ShardingSphere自动探针，可以将相关的应用性能数据自动发送到SkyWalking中。
+
