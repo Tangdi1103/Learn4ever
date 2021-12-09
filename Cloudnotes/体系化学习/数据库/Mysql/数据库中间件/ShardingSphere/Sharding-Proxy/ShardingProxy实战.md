@@ -33,7 +33,7 @@ Sharding-Proxy是ShardingSphere的第二个产品，定位为透明化的数据�
 
   配置端口启动： **`${sharding-proxy}\bin\start.sh ${port}`**
 
-- 使用客户端工具连接。如: **`mysql -h 127.0.0.1 -P 3307 -u root -p root`**
+- 使用客户端工具连接。如: **`mysql -uroot -proot -h127.0.0.1 -P3307`**
 
 若想使用Sharding-Proxy的数据库治理功能，则需要使用注册中心实现实例熔断和从库禁用功能。Sharding-Proxy默认提供了Zookeeper的注册中心解决方案。只需按照配置规则进行注册中心的配置，即可使用。
 
@@ -43,6 +43,6 @@ Sharding-Proxy是ShardingSphere的第二个产品，定位为透明化的数据�
 
 - Sharding-Proxy 默认不支持hint，如需支持，请在conf/server.yaml中，将props的属性proxy.hint.enabled设置为true。在Sharding-Proxy中，HintShardingAlgorithm的泛型只能是String类型。
 
-- Sharding-Proxy默认使用3307端口，可以通过启动脚本追加参数作为启动端口号。如:bin/start.sh 3308
+- **Sharding-Proxy默认使用3307端口**，可以通过启动脚本追加参数作为启动端口号。如:bin/start.sh 3308
 - Sharding-Proxy使用conf/server.yaml配置注册中心、认证信息以及公用属性。
 - Sharding-Proxy支持多逻辑数据源，每个以"config-"做前缀命名yaml配置文件，即为一个逻辑数据源。
