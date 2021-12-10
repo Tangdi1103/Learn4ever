@@ -310,3 +310,61 @@ dataHost 新增属性 **`switchType="3"`** 此时意味着开启 MySQL 集群复
 
 
 ### 6. Mycat事务
+
+Mycat 目前没有出来跨分片的事务强一致性支持，单库内部可以保证事务的完整性，如果跨库事务，在执行的时候任何分片出错，可以保证所有分片回滚，但是一旦应用发起 commit 指令，无法保证所有分片都成功，考虑到某个分片挂的可能性不大所以称为弱 XA。
+
+#### 6.1 XA事务
+
+**Mycat 从 1.6.5 版本开始支持标准 XA 分布式事务**，但是 MySQL 5.7 之前版本XA有bug，所以**推荐最佳搭配 XA 功能使用 MySQL 5.7 版本**
+
+Mycat 实现 XA 标准分布式事务，作为协调者角色，即使事务过程中 Mycat 宕机挂掉，由于 Mycat 会记录事务日志，所以 Mycat 恢复后会进行事务的恢复善后处理工作。考虑到分布式事务的性能开销比较大，所以只推荐在全局表的事务以及其他一些对一致性要 求比较高的场景
+
+**Mycat XA事务使用**
+
+- XA 事务需要设置手动提交
+
+  ```shell
+  set autocommit=0;
+  ```
+
+- 使用该命令开启 XA 事务
+
+  ```shell
+  set xa=on;
+  ```
+
+- 执行相应的 SQL 语句部分
+
+  ```sql
+  insert into city(id,name,province) values(200,'chengdu','sichuan'); 
+  update position set salary='300000' where id<5;
+  ```
+
+- 提交或回滚事务
+
+  ```shell
+  commit;
+  rollback;
+  ```
+
+
+
+
+
+ #### 6.2 保证RR可重复读
+
+mycat 有一个特性，就是开事务之后，如果不运行 update/delete/select for update 等更新类语句SQL 的话，不会将当前连接与当前 session 绑定。如下图所示:
+
+![image-20211210151939937](images/image-20211210151939937.png)
+
+这样做的好处是可以保证连接可以最大限度的复用，提升性能
+
+
+
+**解决办法**
+
+但是,这就会导致两次 select 中如果有其它的在提交的话，会出现两次同样的 select 不一 致的现象,即不能 Repeatable Read，这会让人直连 MySQL 的人很困惑，可能会在依赖 Repeatable Read 的场景出现问题。
+
+所以 Mycat 做了一个开关,当 **server.xml 的 system 配置为 strictTxIsolation=true** 的时候，会关掉这个特性，以保证 repeatable read，加了开关 后如下图所示：
+
+![image-20211210152012699](images/image-20211210152012699.png)
