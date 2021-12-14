@@ -892,7 +892,7 @@ XA事务管理器的接口主要用于规定如何将XA事务的实现者适配�
   ds_0:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
       properties:
-        url: jdbc:mysql://127.0.0.1:3306/demo1? serverTimezone=UTC&useSSL=false
+        url: jdbc:mysql://127.0.0.1:3306/demo1?serverTimezone=UTC&useSSL=false
         password: root 
         username: root 
         maxPoolSize: 50 
@@ -900,7 +900,7 @@ XA事务管理器的接口主要用于规定如何将XA事务的实现者适配�
   ds_1:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
       properties:
-        url: jdbc:mysql://127.0.0.1:3306/demo2? serverTimezone=UTC&useSSL=false
+        url: jdbc:mysql://127.0.0.1:3306/demo2?serverTimezone=UTC&useSSL=false
         password: root 
         username: root 
         maxPoolSize: 50 
