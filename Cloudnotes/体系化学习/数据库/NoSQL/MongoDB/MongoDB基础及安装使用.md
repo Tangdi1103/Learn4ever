@@ -46,7 +46,7 @@ BSON是⼀种类json的⼀种⼆进制形式的存储格式，简称Binary JSON�
 
   `./bin/mongod -f mongo.conf`
 
-- **配置案例案例及说明**
+- **配置案例及说明**
 
   ```
   dbpath=/data/mongo/
@@ -69,7 +69,7 @@ BSON是⼀种类json的⼀种⼆进制形式的存储格式，简称Binary JSON�
   | auth      | 是开启用户密码登陆           |
   | config    | 指定配置文件                 |
 
-- **启动**
+- **连接**
 
   ```sh
   #默认host及端口
