@@ -373,9 +373,9 @@ shardsvr=true
 var cfg ={"_id":"shard1",
 	"protocolVersion" : 1,
 	"members":[
-		{"_id":1,"host":"192.168.207.135:47017"},
-		{"_id":2,"host":"192.168.207.135:47018"},
-		{"_id":3,"host":"192.168.207.135:47019","arbiterOnly":true}
+		{"_id":1,"host":"192.168.207.135:37017"},
+		{"_id":2,"host":"192.168.207.135:37018"},
+		{"_id":3,"host":"192.168.207.135:37019","arbiterOnly":true}
 	]
 };
 rs.initiate(cfg)
@@ -432,7 +432,7 @@ configdb=configsvr/192.168.207.135:17017,192.168.207.135:17018,192.168.207.135:1
 进入路由mongos
 
 ```sh
-mongo --port 27017
+./bin/mongo --port 27017
 ```
 
 查看状态
@@ -444,7 +444,7 @@ sh.status()
 配置分片
 
 ```sh
-sh.addShard("shard1/192.168.207.135:37017,192.168.207.135:37018,192.168.207.135:37019,192.168.207.135:37020"); 
+sh.addShard("shard1/192.168.207.135:37017,192.168.207.135:37018,192.168.207.135:37019"); 
 sh.addShard("shard2/192.168.207.135:47017,192.168.207.135:47018,192.168.207.135:47019");
 ```
 
@@ -484,6 +484,8 @@ for(var i=1;i<= 1000;i++){
 最后分别进行 shard1 和 shard2 两个分片节点中的数据库进行验证
 
 
+
+#### 8. 程序访问route节点即可
 
 
 
@@ -560,13 +562,11 @@ db.createUser({
 用户未认证，连show dbs都无法执行。并且认证后，只能在自己权限范围内的数据库中进行操作
 
 ```sh
-> db.auth("zhangsan","123456")
-1
-> show dbs
-mydb1 0.000GB
-> show tables
-c1
-c2
+use mydb1
+
+db.auth("zhangsan","123456")
+
+show dbs
 ```
 
 
@@ -661,10 +661,10 @@ db.createUser({
 
 ```sh
 openssl rand -base64 756 > data/mongodb/testKeyFile.file
-chmod 600 data/mongodb/keyfile/testKeyFile.file
+chmod 600 data/mongodb/testKeyFile.file
 ```
 
-##### 配置节点集群和分片节点集群开启安全认证和指定密钥文件
+##### config节点集群和shard节点集群开启安全认证和指定密钥文件
 
 ```sh
 auth=true
@@ -677,7 +677,7 @@ keyFile=data/mongodb/testKeyFile.file
 keyFile=data/mongodb/testKeyFile.file
 ```
 
-##### 启动所有的配置节点 分片节点 和 路由节点 使用路由进行权限验证
+##### 启动所有的config节点、shard节点和route节点，使用route节点进行权限验证
 
 ```sh
 ./bin/mongod -f config/config-17017.conf
@@ -692,10 +692,47 @@ keyFile=data/mongodb/testKeyFile.file
 ./bin/mongos -f route/route-27017.conf
 ```
 
-##### Spring boot 连接安全认证的分片集群
+##### 进入route节点测试
+
+使用show dbs查看安全认证是否生效，如下表示生效
+
+```sh
+./bin/mongo --port 27017
+
+mongos> show dbs
+2021-12-14T08:59:01.699-0800 E QUERY    [js] Error: listDatabases failed:{
+	"ok" : 0,
+	"errmsg" : "command listDatabases requires authentication",
+	"code" : 13,
+	"codeName" : "Unauthorized",
+	"operationTime" : Timestamp(1639501137, 2),
+	"$clusterTime" : {
+		"clusterTime" : Timestamp(1639501137, 2),
+		"signature" : {
+			"hash" : BinData(0,"E10URxeK4L9fzVfJIrpOn7qMV2I="),
+			"keyId" : NumberLong("7041554549139570718")
+		}
+	}
+}
+```
+
+进行认证并测试
+
+```sh
+use lagou_resume
+db.auth("chengdao":"123456")
+show dbs
+```
+
+
+
+##### Spring boot 连接route节点，访问安全认证的分片集群
 
 ```properties
-spring.data.mongodb.username=账号
+spring.data.mongodb.host=192.168.207.135
+spring.data.mongodb.port=27017
+spring.data.mongodb.database=lagou_resume
+spring.data.mongodb.username=用户名
 spring.data.mongodb.password=密码
 #spring.data.mongodb.uri=mongodb://账号:密码@IP:端⼝/数据库名
 ```
