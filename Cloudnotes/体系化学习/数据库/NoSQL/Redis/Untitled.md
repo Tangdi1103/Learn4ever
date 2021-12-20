@@ -165,7 +165,22 @@ redis整合lua
     ./redis-cli -h 127.0.0.1 -p 6379 --eval list.lua listname:01
     ```
 
-    
+
+
+
+
+
+
+
+
+
+![image-20211220213502454](images/image-20211220213502454.png)
+
+
+
+
+
+
 
 
 
@@ -177,8 +192,15 @@ redis整合lua
 
 持久化：
 
+![image-20211220234025727](images/image-20211220234025727.png)
+
 - RDB：存储二进制快照，可能丢数据
+
+  ![image-20211220235809271](images/image-20211220235809271.png)
+
 - AOF：存命令
+
+  ![image-20211221005316013](images/image-20211221005316013.png)
 
 数据结构
 
