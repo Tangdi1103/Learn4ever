@@ -242,11 +242,9 @@ Lua是一种底层使用C语言编写的脚本语言，其设计目的是为了�
 
 ### 2. Redis整合lua
 
-从Redis2.6.0版本开始，通过**内置的lua编译/解释器**，可以使用 **`EVAL`** 命令操作Lua语言，并且Lua脚本的命令具有原子性以及隔离性，可以代替Redis的事务使用
+从Redis2.6.0版本开始，通过**内置的lua编译/解释器**，可以使用 **`EVAL`** 命令操作Lua语言，并且Lua脚本的命令具有**原子性以及隔离性，可以代替Redis的事务使用**
 
-
-
-- 直接使用 **`EVAL`** 执行lua语句
+- **直接使用 `EVAL` 执行lua语句**
 
   客户端每次执行 **`EVAL`** 都要向server发送lua语句，然后编译。缺点：即占用带宽，又需要重复编译
 
@@ -262,7 +260,7 @@ Lua是一种底层使用C语言编写的脚本语言，其设计目的是为了�
   eval "return redis.call('set',KEYS[1],ARGV[1])" 1 n1 zhaoyun
   ```
 
-- 使用EvalSha执行 **`script load lua`** 语句生成的 **`sha1`**，**`sha1`** 对应 redis server中缓存的编译好的lua语句
+- **使用EvalSha执行 `script load lua` 语句生成的 `sha1`，`sha1` 对应 redis server中缓存的编译好的lua语句**
 
   ```sh
   192.168.24.131:6380> script load "return redis.call('set',KEYS[1],ARGV[1])"
@@ -277,9 +275,9 @@ Lua是一种底层使用C语言编写的脚本语言，其设计目的是为了�
   - SCRIPT EXISTS：根据给定的脚本校验和，检查指定的脚本是否存在于脚本缓存
   - SCRIPT KILL：杀死当前正在运行的脚本
 
-- 编写lua脚本，然后直接执行
+- **编写lua脚本，然后直接执行**
 
-  利用Redis整合Lua脚本，主要是为了性能以及**事务的原子性**。因为redis帮我们提供的事务功能太差。
+  利用Redis整合Lua脚本，主要是利用Lua脚本的**完全的原子性和隔离性**，这一点Redis的事务无法做到的。但是脚本执行期间，**另外的客户端其它任何脚本或者命令都无法执行**
 
   - test.lua
 
