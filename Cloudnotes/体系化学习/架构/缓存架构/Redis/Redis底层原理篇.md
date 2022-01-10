@@ -700,9 +700,9 @@ TTL 淘汰策略仅针对设置了过期时间的数据，取 ttl 值最小的�
 
 
 
-## 四、Redis 通讯协议及时间处理机制
+## 四、Redis 通讯协议及事件处理机制
 
-### 1. Redis 的请求响应模式
+### 1. Redis 请求响应模式
 
 Redis通讯协议基于TCP连接，Client 和 Server保持双工连接，拥有以下几种请求响应模式
 
@@ -736,7 +736,67 @@ Redis通讯协议基于TCP连接，Client 和 Server保持双工连接，拥有�
 
 ### 2. Redis 请求协议及命令处理流程
 
-### 3. Redis 多路复用模式以及实现方式
+#### 2.1 请求协议
+
+Redis Client和Server通过 **TCP 连接**来网络通信，服务器默认的端口号为 6379，使用序列化文本协议（RESP），**RESP是以字符串数组的形式来传输命令及参数**
+
+Client 发送 set命令
+
+```sh
+redis> SET mykey Hello 
+"OK"
+```
+
+Client 实际发送请求的RESP协议的格式如下
+
+![image-20220110160544815](images/image-20220110160544815.png)
+
+Client 实际接收响应的RESP协议格式如下
+
+![image-20220110160750942](images/image-20220110160750942.png)
+
+RESP协议说明如下
+
+- 间隔符号，在Linux下是**\r\n**，Windows下是\n
+- （小）Simple Strings，以 "**+**"加号 开头
+- （大）Bulk Strings，以 "**$**"美元符号开头，长度限制512M
+- Errors，以"**-**"减号 开头
+- Integer，以 "**:**" 冒号开头
+- Arrays，以 "*****"星号开头
+
+#### 2.2 命令处理流程
+
+![image-20220110161922935](images/image-20220110161922935.png)
+
+- 调用 lookupCommand 方法获得对应的 redisCommand
+- 检测当前 Redis 是否可以执行该命令
+- 调用 call 方法真正执行命令
+
+
+
+### 3. Redis 事件处理机制
+
+Redis 是典型的**事件驱动系统**，Redis又将事件分为 文件事件 和 时间事件
+
+#### 3.1 文件事件
+
+文件事件也就是读写事件，即IO事件。
+
+Redis的事件处理机制采用的是 **单线程的[Reactor模式](../../框架/Netty/Netty基础及原理)**，Reactor是**事件驱动的一种模式**，也是 **IO多路复用的常见模式**
+
+##### 3.1.1 Reactor 模型原理及流程
+
+![image-20220110172108111](images/image-20220110172833019.png)
+
+1. 主程序向事件分派器（Reactor）注册要监听的事件
+2. Reactor调用OS提供的事件处理分离器，监听事件（wait）
+3. 当有事件产生时，Reactor将事件派给相应的处理器来处理 handle_event()
+
+
+
+#### 3.2 时间事件
+
+
 
 ### 4. Redis 时间事件处理机制、文件事件处理机制
 
