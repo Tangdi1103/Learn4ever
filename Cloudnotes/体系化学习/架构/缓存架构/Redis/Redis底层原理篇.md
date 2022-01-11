@@ -774,31 +774,41 @@ RESP协议说明如下
 
 
 
+
+
 ### 3. Redis 事件处理机制
 
 Redis 是典型的**事件驱动系统**，Redis又将事件分为 文件事件 和 时间事件
 
-#### 3.1 文件事件
+#### 3.1 文件事件（IO事件）
 
 文件事件也就是读写事件，即IO事件。
 
-Redis的事件处理机制采用的是 **单线程的[Reactor模式](../../框架/Netty/Netty基础及原理)**，Reactor是**事件驱动的一种模式**，也是 **IO多路复用的常见模式**
+Redis的事件处理机制采用的是 **单线程的[Reactor模式](../../框架/Netty/Netty基础及原理)**，Reactor是**事件驱动的一种设计模式**，**IO多路复用默认采用的是 epoll方式实现**
 
-##### 3.1.1 Reactor 模型原理及流程
-
-Reactor 模式采用的是 epoll实现方式
+##### 3.1.1 Reactor 模型及流程
 
 ![image-20220110172108111](images/image-20220110172833019.png)
 
-1. 主程序向事件分派器（Reactor）注册要监听的事件
+1. 主程序向事件分派器（Reactor）注册要监听的事件，并指定事件处理函数
 2. Reactor调用OS提供的事件处理分离器，监听事件（wait）
 3. 当有事件产生时，Reactor将事件派给相应的处理器来处理 handle_event()
 
+##### 3.1.2 Redis Reactor 源码解析
+
 ###### 主循环
 
-Redis在主循环中统一处理文件事件和时间事件，信号事件则由专门的handler来处理。
-
 ![image-20220111100923355](images/image-20220111100923355.png)
+
+Redis在主循环中 不断地循环 **`aeEventLoop `**处理就绪事件
+
+- **`aeEventLoop`** 是整个事件驱动的核心，它管理着所有事件列表等
+
+![image-20220112001015826](images/image-20220112001015826.png)
+
+- **`aeProcessEvent`**
+
+  调用 aeApiPoll 函数去等待底层的I/O多路复用事件就绪
 
 ###### 事件处理器
 
@@ -806,13 +816,13 @@ Redis在主循环中统一处理文件事件和时间事件，信号事件则由
 
   当 Client 向 Server 建立Socket连接时，aeEventLoop 会调用 acceptTcpHandler函数，创建client socket对象，并创建对应读写事件来监听读写操作
 
-  ![image-20220111101133008](images/image-20220111101133008.png)
+  ![image-20220112000454675](images/image-20220112000454675.png)
 
 - 请求事件处理器readQueryFromClient
 
   当 Client通过Socket 向Server发送数据时，aeEventLoop 会调用 readQueryFromClient 方函数，从 socket 中读取数据到输入缓冲区中，然后判断其大小是否大于系统设置的 `client_max_querybuf_len`，如果大于，则向 Redis返回错误信息，并关闭 client
 
-  ![image-20220111101345198](images/image-20220111101345198.png)
+  ![image-20220112000515876](images/image-20220112000515876.png)
 
 - 响应处理器sendReplyToClien
 
@@ -820,16 +830,41 @@ Redis在主循环中统一处理文件事件和时间事件，信号事件则由
 
   
 
-##### 3.1.2 IO 多路复用具体实现
+##### 3.1.3 IO 多路复用实现
 
 - select
+
+  调用select 等待事件就绪是阻塞的，直到有事件发生或者超时（timeout指定等待时间，如果立即返回设为null即可）
+
+  - 优点：所有平台都支持
+
+  - 缺点：**单个进程打开的文件描述/句柄是有一定限制的，它由FD_SETSIZE设置，默认值是1024**；在检查文件描述符/句柄是否需要读写时，**无论socket是否活跃都将线性扫描整个数组**
+
 - poll
+
+  与select基本相同
+
+  - 优点：**采样链表的形式存储**，所以**监听的事件没有限制**
+
+  - 缺点：在检查文件描述符/句柄是否需要读写时，**无论socket是否活跃都将线性扫描整个链表**
+
 - epoll
+
+  epoll**创建一个epoll的文件描述符/句柄管理多个描述符**，将用户关系的文件描述符的事件存放到内核的一个事件表中，这样在用户空间和内核空间的copy只需一次
+
+  - 优点：epoll 没有最大并发连接的限制，**上限是最大可以打开文件的数目**（在1GB内存的机器上大约是10万左右）；**检查fd是否需要读写时，只关心活跃的socket连接**；epoll使用了共享内存，不用做内存拷贝
+
 - kqueue
+
+  kqueue 是 **unix** 下的一个IO多路复用库，注册一批socket描述符到 kqueue 以后，当其中的描述符状态发生变化时，kqueue 将一次性通知应用程序哪些描述符
+
+  - 优点：能处理大量数据，性能较好
 
 
 
 #### 3.2 时间事件
+
+
 
 
 
