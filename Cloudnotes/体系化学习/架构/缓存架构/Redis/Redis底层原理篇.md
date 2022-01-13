@@ -615,7 +615,7 @@ Redis的删除方式包含**主动删除、惰性删除和定时删除**三种�
 主动删除的前提是**设置了maxmemory且不为0**，在` redis.conf` 配置 `maxmemory`
 
 ```sh
-maxmemory 1024mb
+maxmemory 1024mb # 最大缓存量 一般为内存的3/4 
 ```
 
 配置主动删除（淘汰策略），在` redis.conf` 配置 `maxmemory-policy`（默认为no-enviction）

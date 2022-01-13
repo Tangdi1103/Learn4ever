@@ -433,7 +433,35 @@ redisTemplate.opsForValue().set(key,value,20, TimeUnit.SECONDS);
 
 
 
-## 四、Redis 数据类型
+## 四、Redis 主要性能监控指标
+
+通过**`info`** 查看状态
+
+```sh
+connected_clients:68 #连接的客户端数量 
+used_memory:433264648 # 已使用的内存大小
+used_memory_rss_human:847.62M #系统给redis分配的内存 
+used_memory_peak_human:794.42M #内存使用的峰值大小 
+total_connections_received:619104 #服务器已接受的连接请求数量 
+instantaneous_ops_per_sec:1159 #服务器每秒钟执行的命令数量 
+qps instantaneous_input_kbps:55.85 #redis网络入口kps 
+instantaneous_output_kbps:3553.89 #redis网络出口kps 
+rejected_connections:0 #因为最大客户端数量限制而被拒绝的连接请求数量 
+keyspace_hits:1000 #缓存命中 
+keyspace_misses:20 #缓存未命中 
+expired_keys:0 #因为过期而被自动删除的数据库键数量 
+evicted_keys:0 #因为最大内存容量限制而被驱逐（evict）的键数量 
+keyspace_hits:0 #查找数据库键成功的次数 
+keyspace_misses:0 #查找数据库键失败的次数
+```
+
+
+
+
+
+
+
+## 五、Redis 数据类型
 
 ### 1. Redis Key-Value 简述
 
