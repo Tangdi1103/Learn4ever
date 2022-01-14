@@ -789,6 +789,17 @@ mysqlbinlog "文件名" > "test.sql"
 
 mysqldump：定期全部备份数据库数据。
 
+```sh
+mysqldump -uroot -p --all-databases>all.sql #导出所有数据库，默认保存在bin文件夹下面
+mysqldump -uroot -p --databases db1 db2>dbs.sql #导出db1和db2两个数据库，默认保存在bin文件夹下面
+mysqldump -uroot -p --no-data --databases db1>s1.sql #导出db1数据库所有的表结构，默认保存在bin文件夹下面
+mysqldump -uroot -p --databases test --tables t1 t2>two.sql #导多个表
+mysqldump -h127.0.0.1 -P3306 -uroot -p  -d --databases db1 --tables users>d:/user.sql #只导表结构
+mysqldump -h127.0.0.1 -P3306 -uroot -p  -t --databases db1 --tables users>d:/user.sql #只导表数据
+```
+
+
+
 mysqlbinlog：可以做增量备份和恢复操作。
 
 ```
