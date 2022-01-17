@@ -109,6 +109,8 @@ Reading messages... (press Ctrl-C to quit)
 
 ### 2. Redis 事务操作
 
+#### 2.1 命令操作事务
+
 - **multi：**用于标记事务块的开始（事务开始）
 
 - **exec：**执行命令队列（事务提交）
@@ -153,6 +155,14 @@ QUEUED
 222 
 127.0.0.1:6379> unwatch 
 OK
+```
+
+#### 2.2 java操作事务
+
+```java
+Transaction tx = jedis.multi(); 
+tx.incr(redisKey); 
+List list = tx.exec();
 ```
 
 
