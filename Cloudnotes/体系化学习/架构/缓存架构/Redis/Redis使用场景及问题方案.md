@@ -107,6 +107,10 @@ update数据库但未commit，同时删除了缓存，此时有请求进来读�
 
 
 
+
+
+
+
 ## 二、分布式锁
 
 ### 1. 乐观锁（基于watch）
@@ -115,7 +119,9 @@ update数据库但未commit，同时删除了缓存，此时有请求进来读�
 
 Redis 基于 wacth监听机制 实现乐观锁：**监听某个key并开启事务，当该key的值被修改，则事务的命令会被清空。**
 
-简单实现
+#### 基于乐观锁的秒杀实现
+
+*秒杀等场景的防止超卖，使用CAS方式实现*
 
 ```java
 public class Second {
@@ -172,17 +178,218 @@ public class Second {
 }
 ```
 
+
+
+
+
 ### 2. 分布式锁
 
-#### 2.1 setnx
+#### 2.1 set|nx|ex
+
+##### 2.1.1 获取锁
+
+**推荐使用set命令实现**，**切勿使用setnx和expire两步实现**，因为要保证该操作的原子性，防止死锁
+
+```java
+/**
+* 使用redis的set命令实现获取分布式锁
+* @param lockKey 可以就是锁
+* @param requestId 请求ID，保证同一性 uuid+threadID
+* @param expireTime 过期时间，避免死锁
+* @return 
+*/
+public boolean getLock(String lockKey,String requestId,int expireTime) {
+    // set|nx|ex 保证了原子性，当key存在则返回失败并设置了ttl
+    String result = jedis.set(lockKey, requestId, "NX", "EX", expireTime);
+    
+    if("OK".equals(result)) { 
+        return true; 
+    }
+    
+    return false;
+}
+```
+
+##### 2.1.2 释放锁
+
+**推荐使用lua脚本实现**，切勿先get然后del，要保证该操作的原子性，防止误删（由于并发get和del的不是同一个key）
+
+```java
+public static boolean releaseLock(String lockKey, String requestId) {
+    String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"; 
+    Object result = jedis.eval(script, Collections.singletonList(lockKey),Collections.singletonList(requestId));
+    
+    if (result.equals(1L)) { 
+        return true; 
+    }
+    return false;
+}
+```
+
+##### 2.1.3 存在缺陷
+
+- **无法保证数据（锁）的强一致性**
+
+  主从+哨兵架构中无法保证数据的强一致性，所以当主宕机，从切换为主时数据尚未同步，导致分布式锁被重复获取，引发并发问题
+
+![image-20220117232902160](images/image-20220117232902160.png)
+
+- **无法续租**
+
+
 
 #### 2.2 Red lock
 
-#### 2.3 Redisson
+为了解决数据一致性问题，Redis作者提出了红锁方案：搭建多个主从Redis，当客户端成功在一半以上的主从获取锁，则表示成功获得分布式锁。这就防止了客户端2重复获得锁的问题。
+
+![image-20220117233331483](images/image-20220117233331483.png)
+
+
+
+#### 2.3 Redisson（强烈推荐）
+
+**Redisson是架设在Redis基础上**的一个Java驻内存数据网格（In-Memory Data Grid）
+
+Redisson在**基于NIO的Netty框架上，生产环境使用分布式锁**
+
+##### 2.3.1 Redisson 使用
+
+- 引入依赖
+
+  ```xml
+  <dependency> 
+      <groupId>org.redisson</groupId> 
+      <artifactId>redisson</artifactId> 
+      <version>2.7.0</version> 
+  </dependency>
+  ```
+
+- 配置Redisson
+
+  ```java
+  public class RedissonManager{
+      private static Config config = new Config(); 
+      //声明redisso对象 
+      private static Redisson redisson = null;
+      
+      //实例化redisson
+      static{
+          config.useClusterServers()
+              // 集群状态扫描间隔时间，单位是毫秒
+              .setScanInterval(2000)
+              //cluster方式至少6个节点(3主3从，3主做sharding，3从用来保证主宕机后可以高可用)
+              .addNodeAddress("redis://127.0.0.1:6379")
+              .addNodeAddress("redis://127.0.0.1:6380")
+              .addNodeAddress("redis://127.0.0.1:6381")
+              .addNodeAddress("redis://127.0.0.1:6382")
+              .addNodeAddress("redis://127.0.0.1:6383")
+              .addNodeAddress("redis://127.0.0.1:6384");
+          
+          //得到redisson对象
+          redisson = (Redisson) Redisson.create(config);
+      }
+      
+      //获取redisson对象的方法 
+      public static Redisson getRedisson(){ 
+          return redisson; 
+      }
+  }
+  ```
+
+- 锁获取与释放
+
+  ```java
+  public class DistributedRedisLock{
+      //从配置类中获取redisson对象
+      private static Redisson redisson = RedissonManager.getRedisson(); 
+      private static final String LOCK_TITLE = "redisLock_";
+      
+      //加锁
+      public static boolean acquire(String lockName){
+          //声明key对象 
+          String key = LOCK_TITLE + lockName; 
+          //获取锁对象 
+          RLock mylock = redisson.getLock(key); 
+          //加锁，并且设置锁过期时间3秒，防止死锁的产生 uuid+threadId 
+          mylock.lock(2,3,TimeUtil.SECOND); 
+          //加锁成功 
+          return true;
+      }
+      
+      //锁的释放
+      public static void release(String lockName){
+          //必须是和加锁时的同一个key 
+          String key = LOCK_TITLE + lockName; 
+          //获取所对象 
+          RLock mylock = redisson.getLock(key); 
+          //释放锁（解锁） 
+          mylock.unlock();
+      }
+      
+  }
+  ```
+
+- 结合业务使用
+
+  ```java
+  public String discount() throws IOException{ 
+      String key = "lock001"; 
+      //加锁 
+      DistributedRedisLock.acquire(key); 
+      
+      //执行具体业务逻辑
+      String something = dosomething();
+      
+      //释放锁 
+      DistributedRedisLock.release(key); 
+      
+      //返回结果 
+      return something; 
+  }
+  ```
+
+  
+
+##### 2.3.2 Redisson 原理
+
+Redisson的原理图
+
+![image-20220117235013145](images/image-20220117235013145.png)
+
+- **基于lua脚本的加锁：**
+
+  lua脚本保证复杂逻辑的原子性操作，并且逻辑提供了互斥和可重入锁的实现
+
+  ```lua
+  "if (redis.call('exists',KEYS[1])==0) then "+		--查看锁是否被获取，0表示不存在
+  	"redis.call('hset',KEYS[1],ARGV[2],1); "+		--加锁的客户端ID (UUID.randomUUID()） + “:” + threadId)
+  	"redis.call('pexpire',KEYS[1],ARGV[1]); "+ 		--设置过期时间，默认30s
+  	"return nil; end ;" + 
+  "if (redis.call('hexists',KEYS[1],ARGV[2]) ==1 ) then "+		--查看锁以及客户端ID是否对应
+  		"redis.call('hincrby',KEYS[1],ARGV[2],1); "+			--重入锁，value加1
+  		"redis.call('pexpire',KEYS[1],ARGV[1]) ; "+
+  	"return nil; end ;" + 
+  "return redis.call('pttl',KEYS[1]) ;" 				--其他等待的客户端获取锁ttl（剩余时间）
+  ```
+
+  - 互斥锁：第一个判断为锁是否被获取，体现互斥性
+  - 可重入锁：第二个判断为锁及获取锁的客户端检查，是的话则客户端重入锁（基于hash数据类型实现）
+
+- **看门狗：**
+
+  **一旦加锁成功，就会启动一个watch dog看门狗**，他是一个**后台线程**，会每隔**10秒**检查一下，如果客户端1还持有锁key，那么就会不断的**延长锁key的生存时间**
+
+- **基于lua脚本的释放锁：**
+
+  脚本略。。每次执行lock.unlock()，都将对重入锁的加锁次数 -1，**直到 0 为止才会调用`del key`**，并发布 **`publish` 一条解锁的消息**
+
+
+
+
 
 ### 3. 与ZK分布式锁的对比
 
-
+![image-20220118003625116](images/image-20220118003625116.png)
 
 
 
