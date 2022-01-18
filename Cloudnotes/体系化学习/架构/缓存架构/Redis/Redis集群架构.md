@@ -1,16 +1,129 @@
 [toc]
 
-## 一、主从
+## 一、主从复制
+
+主从复制特点：同Mysql主从特点相同（读扩展，容灾备份）
+
+主从复制缺点：同Mysql主从特点相同（主挂从不会自动切换为主，主从数据同步延时问题）
+
+### 1. 主从搭建
+
+- 按照[基础篇](Redis基础篇)在多台服务器上安装Redis
+
+- 主 Redis
+
+  无需特殊配置
+
+  Master可通过配置**防止主服务器在不安全的情况下执行写命令**，修改 `redis.conf`
+
+  ```sh
+  min-slaves-to-write 3  #或者min-replicas-to-write 3，表示slavers少于3时，master拒绝执行写命令
+  min-slaves-max-lag 10 #或者min-replicas-max-lag 10，表示slavers的延迟（心跳命令的延迟）值都大于或等于10秒
+  ```
+
+- 从 Redis
+
+  修改 `redis.conf`
+
+  ```sh
+  # slaveof <masterip> <masterport> 
+  # 表示当前【从服务器】对应的【主服务器】的IP是192.168.10.135，端口是6379。
+  replicaof 127.0.0.1 6379
+  ```
+
+### 2. 主从原理
+
+#### 2.1 复制流程
+
+![image-20220118234503516](images/image-20220118234503516.png)
+
+- Slaver 与 Master **创建socket连接**（slaver相当于master的client端），并**进行权限验证**
+- 接收Master的**RDB文件进行全量复制（第一次连接上Master才会全量复制）**
+- 第一次的全量复制完之后，主从进入**命令传播阶段**，Master会将执行的命令传播给Slaver（**增量复制**）
+- 当Slaver**断线重连**后，全量还是增量同步由 Master **判断offset偏移量是否一致**来决定
+
+#### 2.3 心跳检测
+
+在命令传播阶段，从服务器默认会以每秒一次的频率向主服务器发送命令：
+
+```sh
+replconf ack <replication_offset> 
+#ack :应答 
+#replication_offset：从服务器当前的复制偏移量
+```
+
+向主服务器发送`INFO replication`命令，查看最后一次向master发送命令距离现在过了多少秒。lag如果超过1则说明主从之间的连接有故障
 
 
 
 
 
+## 二、主从+哨兵（sentinel）
+
+哨兵模式是Redis**主从架构高可用的解决方案**，用于故障时**进行主从切换**，由一个或多个sentinel实例组成**sentinel集群**可以**监视一个或多个主服务器和多个从服务器**，示意图如下
+
+![image-20220119000201008](images/image-20220119000201008.png)
+
+### 1. 哨兵搭建
+
+- 按照[基础篇](Redis基础篇)在三台服务器上安装Redis，作为sentinel集群节点
+
+- 从源码目录 拷贝 redis-5.0.5/sentinel.conf 配置文件到 Redis 安装目录的 bin 目录
+
+  ```sh
+  cp sentinel.conf /usr/local/redis/bin/
+  ```
+
+- 修改 `sentinel.conf` 配置文件并修改 
+
+  ```sh
+  # 哨兵sentinel实例运行的端口 默认26379 
+  port 26379 
+  
+  # 将`daemonize`由`no`改为`yes` 
+  daemonize yes
+  
+  # 哨兵sentinel监控的redis主节点的 ip port 
+  # master-name 可以自己命名的主节点名字 只能由字母A-z、数字0-9 、这三个字符".-_"组成。 
+  # quorum 当这些quorum个数sentinel哨兵认为master主节点失联 那么这时 客观上认为主节点失联了 
+  # sentinel monitor <master-name> <ip> <redis-port> <quorum> 
+  sentinel monitor mymaster 127.0.0.1 6379 2
+  
+  
+  # 当在Redis实例中开启了requirepass foobared 授权密码 这样所有连接Redis实例的客户端都要提供密码 
+  # 设置哨兵sentinel 连接主从的密码 注意必须为主从设置一样的验证密码 
+  # sentinel auth-pass <master-name> <password> 
+  sentinel auth-pass mymaster MySUPER--secret-0123passw0rd
+  
+  
+  # 指定多少毫秒之后 主节点没有应答哨兵sentinel 此时 哨兵主观上认为主节点下线 默认30秒，改成3 秒
+  # sentinel down-after-milliseconds <master-name> <milliseconds> 
+  sentinel down-after-milliseconds mymaster 3000
+  
+  # 重新生成master时，最多可以有多少个slave同时对新的master进行同步，越大则主从切换的时间的越快，但是阻塞的时间也越长
+  # 设为 1 保证了每次只有一个slave 处于不能处理命令请求的状态
+  sentinel parallel-syncs mymaster 1
+  
+  # 故障转移的超时时间 failover-timeout
+  sentinel failover-timeout mymaster 180000
+  ```
+
+- 以此启动主从和哨兵
+
+  ```sh
+  #启动redis-master和redis-slaver 
+  在redis-master目录下 ./redis-server redis.conf 
+  在redis-slaver1目录下 ./redis-server redis.conf 
+  在redis-slaver2目录下 ./redis-server redis.conf 
+  #启动redis-sentinel 
+  在redis-sentinel1目录下 ./redis-sentinel sentinel.conf 
+  在redis-sentinel2目录下 ./redis-sentinel sentinel.conf 
+  在redis-sentinel3目录下 ./redis-sentinel sentinel.conf
+  ```
 
 
-## 二、主从+哨兵
 
-
+### 2. 哨兵原理
 
 
 

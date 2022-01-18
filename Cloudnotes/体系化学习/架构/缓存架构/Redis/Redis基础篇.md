@@ -127,13 +127,13 @@ Redis 没有官方的 Windows 版本，所以建议在 Linux 系统上安装运�
 
 ### 4. Redis 服务端启动
 
-#### 非守护进程启动
+#### 4.1 非守护进程启动
 
 ```sh
 ./redis-server
 ```
 
-#### 守护进程启动
+#### 4.2 守护进程启动
 
 - 拷贝 redis-5.0.5/redis.conf 配置文件到 Redis 安装目录的 bin 目录
 
