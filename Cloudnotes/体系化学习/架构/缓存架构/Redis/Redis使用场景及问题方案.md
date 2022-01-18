@@ -103,7 +103,7 @@ update数据库但未commit，同时删除了缓存，此时有请求进来读�
 
 - 拆分成多个key存储
 - 实在无法拆分，则使用MongoDB存储，或者缓存到边缘缓存CDN
-- 删除big key使用 **`unlink`**命令，这是一个异步的删除命令
+- 删除big key使用 **`unlink`**命令，这是一个异步的删除命令（redis 4.0已经支持key的异步删除）
 
 
 
@@ -177,8 +177,6 @@ public class Second {
     }
 }
 ```
-
-
 
 
 
@@ -383,11 +381,27 @@ Redisson的原理图
 
   脚本略。。每次执行lock.unlock()，都将对重入锁的加锁次数 -1，**直到 0 为止才会调用`del key`**，并发布 **`publish` 一条解锁的消息**
 
-
-
-
-
 ### 3. 与ZK分布式锁的对比
 
 ![image-20220118003625116](images/image-20220118003625116.png)
+
+
+
+
+
+## 三、相关工具
+
+#### 1、数据同步
+
+redis间数据同步可以使用：redis-port
+
+#### 2、big key搜索
+
+redis大key搜索工具
+
+#### 3、热点key寻找
+
+内部实现使用monitor，所以建议短时间使用facebook的redis-faina
+
+阿里云Redis已经在内核层面解决热点key问题
 

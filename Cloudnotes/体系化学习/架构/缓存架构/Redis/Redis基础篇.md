@@ -459,9 +459,45 @@ keyspace_misses:0 #查找数据库键失败的次数
 
 
 
+## 五、Redis 使用规范
+
+- **键值设计**
+
+  key：使用业务名或者数据库名作为前缀，使用冒号分隔，切勿使用空格、斜线等转义字符。正例：order:16424869562100001
+
+  value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过5000个
+
+- **操作规范**
+
+  - hgetall、lrange、smembers、zrange、sinter这些命令，可使用**hscan、sscan、zscan**代替
+
+  - **禁止线上使用keys、flushall、flushdb等**
+  - 使用批量操作提高效率，如原生命令的hmset，pipeline的管道查询
+  - 事务，Redis集群对于事务的使用，要求所有的key必须在同个 **slot** 上（可以使用hashtag功能解决）
+
+- **删除bigkey**
+
+  redis 4.0已经支持key的异步删除
+
+  - Hash删除: hscan + hdel
+
+    ![image-20220118143413809](images/image-20220118143413809.png)
+
+  - List删除: ltrim
+
+    ![image-20220118143424208](images/image-20220118143424208.png)
+
+  - Set删除: sscan + srem
+
+    ![image-20220118143435169](images/image-20220118143435169.png)
+
+  - SortedSet删除: zscan + zrem
+
+    ![image-20220118143448657](images/image-20220118143448657.png)
 
 
-## 五、Redis 数据类型
+
+## 六、Redis 数据类型
 
 ### 1. Redis Key-Value 简述
 
@@ -476,7 +512,7 @@ Value 的常见数据类型有：
 - Set：底层是
   - 存储整数且整数值小于64位时采用 intset
   - 否则采用dict
-- sortedSet：底层是
+- SortedSet/ZSet：底层是
   - 元素个数过小且是小整数或小字符串时采用ziplist
   - 否则采用skiplist
 - Hash：底层是
@@ -651,7 +687,7 @@ Redis 的 Set类型是一个 **无序且唯一元素**的结构
 
 
 
-#### 3.4 SortedSet 有序集合类型
+#### 3.4 SortedSet/ZSet 有序集合类型
 
 ##### 使用方法
 
