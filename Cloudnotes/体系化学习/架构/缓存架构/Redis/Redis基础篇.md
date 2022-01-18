@@ -494,11 +494,10 @@ Value 的不常见数据类型有：
 ### 2. Key 设计
 
 - 用:分割
-
-- 把表名转换为key前缀,，比如：user:
-- 第二段根据实际查询字段设置，比如：根据uid的值查询，则 user:${uid}
+- key的前两段分别使用业务名和表名作为key的前缀，比如：boot:user:
+- 第三段根据实际查询字段设置，比如：根据uid的值查询，则 boot:user:${uid}
 - 若使用hash存储value或使用json存储value，可不设置第三段
-- 若使用单值String类型存储value，可使用列名存储第三段，比如：根据uid的值查询手机号，则user:${uid}:phoneNo
+- 若使用单值String类型存储value，可使用列名存储第三段，比如：根据uid的值查询手机号，则boot:user:${uid}:phoneNo
 
 
 
