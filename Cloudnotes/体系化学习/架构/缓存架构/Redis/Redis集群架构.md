@@ -37,6 +37,7 @@
 
 ![image-20220118234503516](images/image-20220118234503516.png)
 
+- Slaver启动，加载redis.conf文件，读取配置 `replicaof masterIp masterPort`
 - Slaver 与 Master **创建socket连接**（slaver相当于master的client端），并**进行权限验证**
 - 接收Master的**RDB文件进行全量复制（第一次连接上Master才会全量复制）**
 - 第一次的全量复制完之后，主从进入**命令传播阶段**，Master会将执行的命令传播给Slaver（**增量复制**）
@@ -84,19 +85,19 @@ replconf ack <replication_offset>
   daemonize yes
   
   # 哨兵sentinel监控的redis主节点的 ip port 
-  # master-name 可以自己命名的主节点名字 只能由字母A-z、数字0-9 、这三个字符".-_"组成。 
-  # quorum 当这些quorum个数sentinel哨兵认为master主节点失联 那么这时 客观上认为主节点失联了 
+  # master-name：可以自己命名的主节点名字 只能由字母A-z、数字0-9 、这三个字符".-_"组成。 
+  # quorum：当这些quorum个数sentinel哨兵认为master主节点失联，那么就认为主节点失联了 
   # sentinel monitor <master-name> <ip> <redis-port> <quorum> 
   sentinel monitor mymaster 127.0.0.1 6379 2
   
   
   # 当在Redis实例中开启了requirepass foobared 授权密码 这样所有连接Redis实例的客户端都要提供密码 
-  # 设置哨兵sentinel 连接主从的密码 注意必须为主从设置一样的验证密码 
+  # 设置哨兵sentinel连接主从的密码，注意必须为主从设置一样的验证密码 
   # sentinel auth-pass <master-name> <password> 
   sentinel auth-pass mymaster MySUPER--secret-0123passw0rd
   
   
-  # 指定多少毫秒之后 主节点没有应答哨兵sentinel 此时 哨兵主观上认为主节点下线 默认30秒，改成3 秒
+  # 指定多少毫秒之后，主节点没有应答哨兵sentinel，哨兵主观上认为主节点下线，默认30秒，改成3秒
   # sentinel down-after-milliseconds <master-name> <milliseconds> 
   sentinel down-after-milliseconds mymaster 3000
   
@@ -121,9 +122,49 @@ replconf ack <replication_offset>
   在redis-sentinel3目录下 ./redis-sentinel sentinel.conf
   ```
 
-
-
 ### 2. 哨兵原理
+
+#### 2.1 工作流程
+
+- Sentinel 启动，加载sentinel.conf文件，读取配置
+
+- **Sentinel 向Redis主节点建立2个连接**，分别是**命令连接**、**订阅连接**
+
+  ![image-20220119102008394](images/image-20220119102008394.png)
+
+- Sentinel **每10秒**向Redis主节点发送一次 **`info` 命令**，获取**主和从**服务器的**信息**
+
+- 根据在Redis主节点获取的从服务器信息，**向Redis主从节点建立2个连接**，分别是**命令**和**订阅连接**，并**每隔10秒**向Redis从节点发送一次 **`info`命令**，获取**从节点状态**
+
+  ![image-20220119141759302](images/image-20220119141759302.png)
+
+- Sentinel **每2秒**向 **`_sentinel_:hello`频道推送**sentinel和Redis主节点节点的信息，给到所有Redis节点
+
+- Sentinel 同时也 **订阅了`_sentinel_:hello`频道**，接收Redis主节点和从节点的信息
+
+- Sentinel 集群的各个**Sentinel节点之间，只建立命令连接**，通过订阅Redis主从节点，发现新加入的Sentinel，然后通过命令连接进行通信
+
+- Sentinel **每秒**向所有建立了命令连接的节点（Redis主从节点、其他Sentinel节点）**发送PING命令**
+
+- 节点有以下情况则**被该sentinel认定为主观下线**
+
+  - 若节点在**`down-after-milliseconds`时间内未回复**
+  - 若节点**返回无效回复**（除了PONG、LOADING、MASTERDOWN外）
+
+- 经过下述过程才会被sentinel集群认定为**客观下线**
+  - 该sentinel发现某节点主观下线后，**向其他sentinel发送查询命令**
+  - 若判定该节点**主观下线**的**sentinel数量达到quorum**，则认为**该节点客观下线了**
+  
+- Sentinel 集群**通过[Raft共识算法](../../分布式架构设计/分布式理论基础与一致性算法)选举Sentinel Leader**，由这个**Sentinel Leader来执行Redis的主从切换**（failover）
+
+#### 2.2 主从切换/故障转义的流程
+
+- Sentinel Leader从众多Slavers中选择一个Slaver，升级为Master
+  - 选择 **`slave-priority` 最高**的slaver，若没有则继续往下选择
+  - 选择**复制偏移量offset最大的slaver**，offset越大表示复制越完整，若没有则继续往下选择
+  - 选择 **`run_id`** 最小的slaver，**`run_id`**越小表示重启次数越少
+
+- 将剩余Slaver
 
 
 
