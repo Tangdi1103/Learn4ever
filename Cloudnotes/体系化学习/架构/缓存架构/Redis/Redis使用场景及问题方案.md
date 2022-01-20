@@ -124,58 +124,71 @@ Redis 基于 wacth监听机制 实现乐观锁：**监听某个key并开启事�
 *秒杀等场景的防止超卖，使用CAS方式实现*
 
 ```java
-public class Second {
-    public static void main(String[] arg){
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Transaction;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class TestCAS {
+
+    public static void main(String[] args){
         String redisKey = "lock";
-        
+
         ExecutorService executorService = Executors.newFixedThreadPool(20);
         try {
-            Jedis jedis = new Jedis("127.0.0.1", 6378); 
-            // 初始值 
-            jedis.set(redisKey, "0"); 
+            Jedis jedis = new Jedis("192.168.127.128", 6380);
+            // 初始值
+            jedis.set(redisKey, "0");
             jedis.close();
-        } catch (Exception e) { 
-            e.printStackTrace(); 
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        
+
         for (int i = 0; i < 1000; i++) {
-            executorService.execute(() ->{
-                Jedis jedis1 = new Jedis("127.0.0.1", 6378);
-                try{
-                    jedis1.watch(redisKey); 
-                    String redisValue = jedis1.get(redisKey); 
-                    int valInteger = Integer.valueOf(redisValue); 
+
+            executorService.execute(() -> {
+
+                Jedis jedis1 = new Jedis("192.168.127.128", 6380);
+                try {
+                    jedis1.watch(redisKey); //第二次 前面改过的值
+                    String redisValue = jedis1.get(redisKey);
+                    int valInteger = Integer.valueOf(redisValue);
                     String userInfo = UUID.randomUUID().toString();
-                    
+
                     // 没有秒完
-                    if (valInteger < 20){
-                        Transaction tx = jedis1.multi(); 
-                        tx.incr(redisKey); 
+                    if (valInteger < 20) {
+                        Transaction tx = jedis1.multi();
+                        //自增
+                        tx.incr(redisKey);
+                        // watch
                         List list = tx.exec();
-                        
-                        // 秒成功 失败返回空list而不是空
-                        if (list != null && list.size() > 0){
-                            System.out.println("用户：" + userInfo + "，秒杀成功！ 当前成功人数：" + (valInteger + 1));
-                        } 
-                        // 版本变化，被别人抢了。
-                        else{
-                            System.out.println("用户：" + userInfo + "，秒杀失 败");
+                        // 秒成功   失败返回空list而不是空
+                        if (list != null && list.size() > 0) {
+                            System.out.println("用户：" + userInfo + "，秒杀成功！当前成功人数：" + (valInteger + 1));
                         }
-                    } 
+                        // 版本变化，被别人抢了。
+                        else {
+                            System.out.println("用户：" + userInfo + "，秒杀失败");
+                        }
+                    }
                     // 秒完了
                     else {
                         System.out.println("已经有20人秒杀成功，秒杀结束");
                     }
-                } catch (Exception e) { 
-                    e.printStackTrace(); 
+                } catch (Exception e) {
+                    e.printStackTrace();
                 } finally {
-                    jedis.close();
+                    jedis1.close();
                 }
             });
         }
         executorService.shutdown();
     }
 }
+
 ```
 
 
@@ -224,7 +237,133 @@ public static boolean releaseLock(String lockKey, String requestId) {
 }
 ```
 
-##### 2.1.3 存在缺陷
+##### 2.1.3 锁自旋
+
+```java
+import redis.clients.jedis.Jedis;
+
+public class RedisDistributedLock {
+
+    //每次请求的时间为200ms
+    private  Long PER_REQ_MILL = null;
+    //总体等待时间不超过10s
+    private  Long WAIT_TIME_OUT = null;
+    //锁名称
+    private  String LOCK_NAME = null;
+    //锁过期时间
+    private Long EXPIRE_TIME = null;
+
+    public RedisDistributedLock() {
+        LOCK_NAME = Thread.currentThread().getName();
+        PER_REQ_MILL = 200l; //默认每次自旋请求间隔200ms
+        WAIT_TIME_OUT = 10 * 1000l; //默认自旋时间10s
+        EXPIRE_TIME = 2 * 1000l;//默认过期时间2s
+    }
+
+    public RedisDistributedLock(String lockName, Long perReqMill, Long waitTimeOut, Long expireTime) {
+        LOCK_NAME = lockName;
+        PER_REQ_MILL = perReqMill;
+        WAIT_TIME_OUT = waitTimeOut;
+        EXPIRE_TIME = expireTime;
+    }
+
+
+    public void lock() {
+        //先用set key value nx ex expireAt 命令查询是否已经有了该锁
+        Jedis jedis = JedisUtil.getJedis();
+        String isSet = jedis.set(this.LOCK_NAME, this.LOCK_NAME, "NX", "EX", this.EXPIRE_TIME / 1000);
+        if ("OK".equals(isSet)) {
+            //没有该锁，则直接占用
+            System.out.println("<<<<<线程" + Thread.currentThread().getName() + "占用" + this.LOCK_NAME + "锁成功");
+            return;
+        } else {
+            //该锁仍然存在,原地自旋，每隔一段时间请求一次，直至成功或超时抛出错误
+            spin();
+        }
+    }
+
+    /**
+     * 锁的自旋
+     */
+    private void spin() {
+        //进入时的时间
+        long beginTime = System.currentTimeMillis();
+        //获取锁
+        Jedis jedis = JedisUtil.getJedis();
+        String isSet = jedis.set(this.LOCK_NAME, this.LOCK_NAME, "NX", "EX", this.EXPIRE_TIME / 1000);
+        if ("OK".equals(isSet)) {
+            //没有该锁，则直接占用
+            System.out.println("<<<<<线程" + Thread.currentThread().getName() + "占用" + this.LOCK_NAME + "锁成功");
+        } else {
+            while (true) {
+                try {
+                    //睡眠短暂时间继续请求
+                    Thread.sleep(this.PER_REQ_MILL);
+                    System.out.println("线程"+Thread.currentThread().getName()+"自旋睡眠"+this.PER_REQ_MILL+"毫秒");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                if (System.currentTimeMillis() - beginTime >= this.WAIT_TIME_OUT) {
+                    //已经超时
+                    System.out.println("线程"+Thread.currentThread().getName()+"超过了" + this.WAIT_TIME_OUT + "毫秒都无法获取到名为"+this.LOCK_NAME+"的锁，超时退出");
+                    throw new RuntimeException("获取锁失败");
+                } else {
+                    //没有超时，继续请求
+                    isSet = jedis.set(this.LOCK_NAME, this.LOCK_NAME, "NX", "EX", this.EXPIRE_TIME / 1000);
+                    if ("OK".equals(isSet)) {
+                        //上锁成功
+                        System.out.println("<<<<<线程" + Thread.currentThread().getName() + "占用" + this.LOCK_NAME + "锁成功");
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+
+    public void unlock() {
+        Jedis jedis = JedisUtil.getJedis();
+        //先获取该锁
+        String lockValue = jedis.get(this.LOCK_NAME);
+        if (lockValue == null) {
+            System.out.println(">>>>>" + Thread.currentThread().getName() + "解除了对" + this.LOCK_NAME + "的占用");
+            return;
+        } else if (this.LOCK_NAME.equals(lockValue)){
+            Long del = jedis.del(this.LOCK_NAME);
+            System.out.println(">>>>>"+Thread.currentThread().getName() + "解除了对" + this.LOCK_NAME + "的占用");
+            return;
+        }
+        System.out.println("*****"+Thread.currentThread().getName() + "无法解除对" + this.LOCK_NAME + "的占用");
+    }
+    
+    
+    
+    public static void main(String[] args) throws Exception{
+        ExecutorService executor = Executors.newCachedThreadPool();
+        executor.submit(() -> {
+        //设置每500ms请求自旋一次，超时时间为5s,锁过期时间为5s
+            RedisDistributedLock lock1 = new RedisDistributedLock("lock", 500l, 10 * 1000l, 5 * 1000l);
+            lock1.lock();
+            try {
+                //占用锁４ｓ钟
+                Thread.sleep(4 * 1000l);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lock1.unlock();
+        });
+
+        RedisDistributedLock lock2 = new RedisDistributedLock("lock", 500l, 10 * 1000l, 5 * 1000l);
+        lock2.lock();
+        Thread.sleep(2000l);
+        lock2.unlock();
+    }
+}
+```
+
+
+
+##### 2.1.4 存在缺陷
 
 - **无法保证数据（锁）的强一致性**
 
