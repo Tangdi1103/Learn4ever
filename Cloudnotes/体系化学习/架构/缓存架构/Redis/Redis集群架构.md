@@ -159,12 +159,12 @@ replconf ack <replication_offset>
 
 #### 2.2 主从切换/故障转义的流程
 
-- Sentinel Leader从众多Slavers中选择一个Slaver，升级为Master
+- Sentinel Leader从众多Slavers中**选择一个Slaver，升级为Master**
   - 选择 **`slave-priority` 最高**的slaver，若没有则继续往下选择
   - 选择**复制偏移量offset最大的slaver**，offset越大表示复制越完整，若没有则继续往下选择
   - 选择 **`run_id`** 最小的slaver，**`run_id`**越小表示重启次数越少
 
-- 将剩余Slaver
+- 将剩余Slaver改为**复制新Master**，客户端请求到旧Master时将会被集群**告知新Master地址**，Sentinel也将改为**监视新Master**
 
 
 
@@ -172,7 +172,23 @@ replconf ack <replication_offset>
 
 ## 三、主从+集群分区
 
-### 1. 按照[基础篇](Redis基础篇)在多台服务器上安装Redis
+Redis的集群分区的方式有以下几种
+
+- application端分区
+
+  应用端根据KEY自行决定路由至哪个redis，需自行编写代码
+
+- proxy端分区
+
+  Codis
+
+- RedisCluster
+
+  采用去中心化架构，最少需要三台节点才能运行，[Gossip协议](../../分布式架构设计/分布式理论基础与一致性算法)实现一致性
+
+  redis-cluster把所有的物理节点映射到[0-16383]个**slot哈希槽**上，基本上采用平均分配和连续分配的方式，使用**CRC16算法**对KEY进行hash运算，再将值**与16384取模**，根据余数分配到**对应哈希槽的Redis节点上**
+
+### 1. 按照[基础篇](Redis基础篇)安装至少三台Redis
 
 ### 2. 修改 redis.conf 配置
 
