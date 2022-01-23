@@ -628,10 +628,10 @@ maxmemory-policy allkeys-lru
 
 LRU (Least recently used) 即最近最少使用，通用的实现思想如下
 
-- **新数据**插入到**链表头部**
-- 每当缓存命中（即缓存数据**被访问**），则将**数据移到链表头部**
-- 当**链表满**的时候，将链表**尾部的数据丢弃**
-- 在 Java中可以使用**LinkHashMap**（哈希链表）去实现LRU
+- 在 Java中可以使用**LinkHashMap**去实现LRU，利用队列的FIFO思想，淘汰队首结点
+- **新数据**插入到**队尾**
+- 每当缓存命中（即缓存数据**被访问**），则将**数据移到链队列尾部**
+- 当**链队列满**的时候，将链表**首结点的数据丢弃**
 
 而Redis的LRU算法包含volatile-lru和allkeys-lru两种，基于 **redisObject对象的 LRU属性值**最近访问时间实现淘汰数据
 
