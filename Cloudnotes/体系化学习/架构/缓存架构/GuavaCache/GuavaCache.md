@@ -115,7 +115,7 @@ cache.put(key,value);
 
 ##### 3.1 基于容量大小的被动删除
 
-通过LRU删除最不常访问的缓存，实现原理是使用队列的FIFO原理
+基于**LRU**删除最不常访问的缓存，实现原理是使用**队列的FIFO原理**
 
 ```java
 LoadingCache<String,Object> cache = CacheBuilder
@@ -191,14 +191,16 @@ display(cache);
 
 ##### 3.3 基于引用被动删除
 
-通过 weakKeys 和 weakValues方法 指定键值对的引用为弱引用，被 JVM 发生GC时 对象被自动回收
+通过 weakKeys 和 weakValues方法 指定键值对的引用为弱引用，**JVM 进行GC时 对象被自动回收**
 
-由于values占用内存较大，所以一般指定值为弱引用类型
+由于values占用内存较大，**若要使用，则一般指定值为弱引用类型**
+
+当然也可使用 softKeys 和 softValues，软引用，只有在即将OOM时，才会回收
 
 ```java
 LoadingCache<String,Object> cache = CacheBuilder
     .newBuilder()
-    // 值设为弱引用
+    // value使用弱引用
     .weakValues()
     .build(new CacheLoader<String,Object>(){
         //读取数据源
@@ -207,12 +209,12 @@ LoadingCache<String,Object> cache = CacheBuilder
             return dao.getXXX(key);
         }
     });
-// 创建强引用
+// 创建强引用v
 Object v = new Object();
 cache.put("1", v);
-// 原对象不再有强引用
+// 将v指向其他对象
 v = new Object();
-//强制垃圾回收
+// 强制垃圾回收
 System.gc();
 System.out.println("================================");
 display(cache);
@@ -221,18 +223,15 @@ display(cache);
 ##### 3.4 主动删除
 
 ```java
-//将key=1 删除 
+// 单个删除 
 cache.invalidate("1");
-
-//清空
+// 清空
 cache.invalidateAll();
-
-
-//删多个
+// 批量删除
 cache.invalidateAll(Arrays.asList("1","3"));
 ```
 
-##### 3.5 删除通知
+##### 3.5 监听删除事件
 
 ```java
 LoadingCache<String,Object> cache = CacheBuilder
@@ -283,13 +282,24 @@ System.out.println(cache.stats().toString());
 
 #### 1. 内部数据结构
 
-![image-20220124002237252](images/image-20220124002237252.png)
+`LocalCache `为 Guava Cache 的核心类，其中最主要的是有一个 **Segment数组**，每个Segment内又有**5个队列**和**一个原子引用数组**
 
-ValueReference默认为强引用值
+与ConcurrentHashMap类似，LocalCache也采用了分段锁的方式处理并发，每个Segment段都使用单独的锁，**继承ReentrantLock**，所以写操作必须得先获取锁
+
+**ValueReference默认为强引用值**
+
+![image-20220124143514761](images/image-20220124143514761.png)
+
+
 
 #### 2. 回收/删除方式
 
 - 惰性回收（删除）
+
+  GuavaCache是在每次进行缓存操作的时候，惰性删除 如get()或者put()的时候，判断缓存是否过期
+
+  如上述的[最大容量删除](#3.1 基于容量大小的被动删除)、[引用删除](#3.3 基于引用被动删除)、[访问/写过期删除](#3.2 基于过期时间的被动删除)
+
 - 主动回收（删除）
 
 
