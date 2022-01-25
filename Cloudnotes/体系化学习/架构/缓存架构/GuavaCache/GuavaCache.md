@@ -300,13 +300,21 @@ System.out.println(cache.stats().toString());
 
   如上述的[最大容量删除](#3.1 基于容量大小的被动删除)、[引用删除](#3.3 基于引用被动删除)、[访问/写过期删除](#3.2 基于过期时间的被动删除)
 
-- 主动回收（删除）
+- [主z动回收（删除）](#3.4 主动删除)
 
-
+  
 
 
 
 #### 3. 两次hash定位数据存放位置
+
+- 先通过key做hash**定位到所在的Segment**，通过位运算找首地址的偏移量 SegmentCount>=并发数且为2的n次方
+
+![image-20220125164148626](images/image-20220125164148626.png)
+
+- **再找到**segment中的**Entry链数组**，通过key的hash定位到某个Entry节点
+
+![image-20220125164252609](images/image-20220125164252609.png)
 
 
 
@@ -336,7 +344,7 @@ LoadingCache<String,Object> cache = CacheBuilder
 
 ##### 2. 更新锁定
 
-解决查数据源回填缓存的并发问题（缓存击穿），只让一个线程去查源，然后回填
+解决查数据源**回填缓存的并发问题（缓存击穿）**，只有**一个线程回源取数据**，**其他线程会阻塞（block）**在一个固定时间段，如果在该时间段内没有获得新值则返回旧值
 
 ```java
 LoadingCache<String,Object> cache = CacheBuilder
@@ -362,8 +370,81 @@ LoadingCache<String,Object> cache = CacheBuilder
 
 #### 3. 自定义LRU
 
+```java
+public class LinkedHashLRUcache<k, v> {
+    /**
+     * LinkedHashMap（自身实现了ＬＲＵ算法）
+     * 有序
+     * 每次访问一个元素，都会加到尾部
+     */
+
+
+    int limit;
+    LRUcache<k, v> lruCache;
+
+
+    public LinkedHashLRUcache(int limit) {
+
+        this.limit = limit;
+        this.lruCache = new LRUcache(limit);
+    }
+
+
+    public void put(k key, v value) {
+
+        this.lruCache.put(key, value);
+    }
+
+    public v get(k key) {
+
+        return this.lruCache.get(key);
+    }
+
+
+    public static void main(String[] args) {
+        LinkedHashLRUcache lru = new LinkedHashLRUcache(3);
+        lru.put(1, "zhangfei1");
+        lru.put(2, "zhangfei2");
+        lru.put(3, "zhangfei3");
+        lru.get(1);
+        lru.put(4, "zhangfei4");
+        for (Object o : lru.lruCache.values()) {
+            System.out.println(o.toString());
+        }
+    }
+}
+```
+
+```java
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public class LRUcache<k, v> extends LinkedHashMap<k, v> {
+    private final int limit;
+
+    public LRUcache(int limit) {
+        //初始化 accessOrder ： true 改变尾结点
+        super(16, 0.75f, true);
+        this.limit = limit;
+    }
+
+    //是否删除最老的数据
+    @Override
+    protected boolean removeEldestEntry(Map.Entry<k, v> eldest) {
+
+        return size() > limit;
+    }
+}
+```
+
+
+
 #### 4. 面试问题
 
 - 防止内存溢出
 
   缓存时间设置相对小些，使用弱引用方式存储对象（默认为强引用值）
+
+- Guava cache缓存过期，会立即清除吗？
+
+  不会，GuavaCache是在每次进行缓存操作的时候，如get()或者put()的时候，判断缓存是否过期
