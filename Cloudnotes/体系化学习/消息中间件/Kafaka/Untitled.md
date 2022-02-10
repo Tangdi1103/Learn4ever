@@ -1,3 +1,5 @@
+
+
 [toc]
 
 特性：
@@ -10,7 +12,7 @@
 
 - 日志收集
 
-- 支持**集群分区**和**高可用**，**多个Broker体现高可用**，**每个主题多个分区体现横向扩展**
+- 支持**分区**和**高可用**，**多个Broker体现高可用**，**每个主题多个分区体现横向扩展**
 
   多个Broker组成集群，每个主题有多个横向扩展的分区，并且每个**首领分区**在别的Broker中有一份**跟随者分区**，**首领分区负责读写，跟随者分区只是备份**
 
@@ -38,7 +40,17 @@
 优势
 
 - **kafka吞吐量大**，可以达到上千万的吞吐量，使用**字节数组**传输消息，然后根据**分区器**路由**发送到不同分区**，同一个主题和分区为**一个批次并进行压缩**
+
 - **单个broker**可以轻松处理**数千个分区**和**每秒百万级的消息量**，如果做**集群分区，吞吐量将轻松千万级别**
+
+- 横向扩展
+
+  topic主题可创建多个分区，提供kafka的处理性能
+
+- 高可用
+
+  每个主题的每个分区，都可有多个副本，分别在不同的broker上
+
 - broker接收生产者的消息，为消息设置偏移量，并将消息持久化到磁盘，做出了如下优化
   - 零拷贝
   - 顺序读写
@@ -54,3 +66,72 @@
 消费者
 
 Broker
+
+
+
+
+
+### 安装及配置
+
+##### 修改kafka配置server.conf，在vim编辑模式下使用 `set nu`，标识文本的行号，修改内容如下
+
+- zookeeper配置
+
+  ```sh
+  zookeeper.connect=localhost:2181/kafka
+  ```
+
+- kafka持久化数据的存储目录
+
+  ```sh
+  log.dir=/var/kafka/kafka-logs
+  ```
+
+##### 使用sh脚本启动kafka
+
+- 非守护线程启动
+
+  ```sh
+  kafka-server.start.sh ../config/server.properties
+  ```
+
+- 守护线程启动
+
+  ```sh
+  kafka-server.start.sh -daemon ../config/server.properties
+  ```
+
+##### 使用sh脚本停止kafka
+
+```sh
+kafka-server-stop.sh
+```
+
+
+
+### Linux操作kafka
+
+##### 主题管理
+
+```sh
+# 列出所有主题
+kafka-topics.sh --list --zookeeper localhost:2181/myKafka
+
+
+```
+
+
+
+
+
+### 配置
+
+##### 内外网隔离
+
+- listeners 分别配置两个host，对外提供服务
+
+  监听器名称和端口不能一样
+
+- 配置 broker节点间通信的 host
+
+![image-20220206211654172](images/image-20220206211654172.png)
