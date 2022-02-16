@@ -8,8 +8,8 @@
 
 解决方案：
 
-- Key的失效期分开（设置不同的TTL），防止某时段大批量的key同时过期
-- 不设置TTL
+- Key的失效期分散（设置不同的TTL），防止某时段大批量的key同时过期
+- 不设置TTL，然后通过中间件canal将修改数据发布到MQ，然后再修改缓存中的数据
 - 搭建Redis高可用集群（RedisCluster）
 
 
@@ -21,7 +21,7 @@
 解决方案：
 
 - 使用分布式锁，去控制这些热点Key访问的代码块
-- 热点Key不设置TTL
+- 不设置TTL，然后通过中间件canal将修改数据发布到MQ，然后再修改缓存中的数据
 
 
 
@@ -383,13 +383,35 @@ public class RedisDistributedLock {
 
 
 
-#### 2.3 Redisson（强烈推荐）
+
+
+#### 2.3 Lua脚本
+
+lua脚本保证以下语句的结对原子性和隔离性，执行过程中不会执行其他命令
+
+```lua
+local sku = KEYS[1] 
+local num = tonumber(ARGV[1]) 
+local stock = tonumber(redis.call('GET',sku)) 
+local result = 0 
+if(stock >= num) then 
+redis.call('DECRBY',sku,num) 
+result = 1 
+end 
+return result
+```
+
+
+
+
+
+#### 2.4 Redisson（强烈推荐）
 
 **Redisson是架设在Redis基础上**的一个Java驻内存数据网格（In-Memory Data Grid）
 
 Redisson在**基于NIO的Netty框架上，生产环境使用分布式锁**
 
-##### 2.3.1 Redisson 使用
+##### 2.4.1 Redisson 使用
 
 - 引入依赖
 
@@ -487,7 +509,7 @@ Redisson在**基于NIO的Netty框架上，生产环境使用分布式锁**
 
   
 
-##### 2.3.2 Redisson 原理
+##### 2.4.2 Redisson 原理
 
 Redisson的原理图
 
