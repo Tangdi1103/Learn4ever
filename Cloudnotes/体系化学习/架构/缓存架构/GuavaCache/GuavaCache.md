@@ -45,6 +45,14 @@ Guava cache的设计来源于 **CurrentHashMap**，可以按照**多种策略**�
 
 ## 二、实战
 
+```xml
+<dependency>
+    <groupId>com.google.guava</groupId>
+    <artifactId>guava</artifactId>
+    <version>28.2-jre</version>
+</dependency>
+```
+
 #### 1. 创建及查询（支持自动回填缓存）
 
 ##### 1.1 *CacheLoader* 集成数据源

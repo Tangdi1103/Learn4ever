@@ -1,0 +1,117 @@
+
+
+
+
+## 1. AQS（AbstractQueuedSynchronizer）
+
+**AQS抽象队列同步器**，是**JUC包中的规范锁机制的抽象类**，维护了一个**共享资源 state 和一个 FIFO 的CLH等待队列**，底层利用了 **CAS 机制来保证操作的原子性**
+
+#### 原理
+
+![image-20220219235140410](images/image-20220219235140410.png)
+
+- state为volatile修饰，保证可见性
+- 当state为0时，表示未被锁定
+
+![image-20220220000011968](images/image-20220220000011968.png)
+
+#### 实现AQS的类
+
+![image-20220220000620242](images/image-20220220000620242.png)
+
+#### 如何使用AQS自定义独占锁
+
+![image-20220220001244786](images/image-20220220001244786.png)
+
+![image-20220220001610097](images/image-20220220001610097.png)
+
+![image-20220220001813289](images/image-20220220001813289.png)
+
+#### ReentrantLock原理
+
+![image-20220220002250593](images/image-20220220002250593.png)
+
+#### CountDownLatch原理
+
+![image-20220220002504912](images/image-20220220002504912.png)
+
+
+
+
+
+
+
+## 2. 阻塞队列-BLQ
+
+常见实现类为**FIFO（ArrayBlockingQueue、LinkedBlockingQueue）** 和 **优先级出队PriorityBlockingQueue**
+
+常用方法如下
+
+- put：若队列满，则阻塞直到队列有空位可存，然后存（存）
+- offer：如果队列可以容纳，则返回true，否则返回false（存）
+
+- take：若队列空，则阻塞直到队友有数据，然后取（取）
+- pool：若队列空，则返回null（取）
+
+#### ArrayBlockingQueue
+
+- 1个数组对象 + 1个reentrantLock锁 + 2个Condition条件
+- 数组必须指定大小，无法扩容
+- 入队和出队使用同一把锁，所以入队和出队无法被并发执行
+
+![image-20220219230208980](images/image-20220219230208980.png)
+
+![image-20220219230147475](images/image-20220219230147475.png)
+
+![image-20220219230231465](images/image-20220219230231465.png)
+
+![image-20220219230244640](images/image-20220219230244640.png)
+
+![image-20220219230256002](images/image-20220219230256002.png)
+
+#### LinkedBlockingQueue 
+
+- 单向链表 + 2个ReentrantLock锁 + 2个Condition条件
+- 该单链表最大容量可以是Int最大值
+- 提供了并发度，入队和出队各由1把锁控制，所以可以并发进行入队和出队
+- count为队列的元素个数，由于出队和入队不由1把锁控制，所以count必须保证原子性，所以使用AtomicInteger原子类型
+
+![image-20220219230950941](images/image-20220219230950941.png)
+
+![image-20220219231319980](images/image-20220219231319980.png)
+
+![image-20220219231805294](images/image-20220219231805294.png)
+
+![image-20220219231919585](images/image-20220219231919585.png)
+
+
+
+#### PriorityBlockingQueue
+
+- 与ArrayBlockingQueue类似，区别在于使用数组**实现一个最小堆，堆顶优先出队**
+- 没有notfull条件，即**队列满不会阻塞，而是扩容**
+
+
+
+#### 自定义阻塞队列
+
+![image-20220219223249081](images/image-20220219223249081.png)
+
+##### 1. 使用synchronized、wait、和notifyAll实现
+
+![image-20220219223306529](images/image-20220219223306529.png)
+
+
+
+##### 2. 使用ReetrantLock（AQS-CLH同步队列）实现，这也是ArrayBlockingQueue的实现方式
+
+![image-20220219223151744](images/image-20220219223151744.png)
+
+![image-20220219223117215](images/image-20220219223117215.png)
+
+![image-20220219223226365](images/image-20220219223226365.png)
+
+
+
+## 3. ConcurrentHashMap
+
