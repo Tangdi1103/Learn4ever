@@ -1,6 +1,4 @@
-
-
-
+[toc]
 
 ## 1. AQS（AbstractQueuedSynchronizer）
 
@@ -19,7 +17,7 @@
 
 ![image-20220220000620242](images/image-20220220000620242.png)
 
-#### 如何使用AQS自定义独占锁
+#### 如何使用AQS自定义锁
 
 ![image-20220220001244786](images/image-20220220001244786.png)
 
@@ -30,6 +28,8 @@
 #### ReentrantLock原理
 
 ![image-20220220002250593](images/image-20220220002250593.png)
+
+默认为非公平锁
 
 #### CountDownLatch原理
 
@@ -114,4 +114,38 @@
 
 
 ## 3. ConcurrentHashMap
+
+##### 实现原理
+
+**JDK 7**
+
+![image-20220220161413929](images/image-20220220161413929.png)
+
+![image-20220220161553867](images/image-20220220161553867.png)
+
+**JDK 8** 
+
+![image-20220220162035802](images/image-20220220162035802.png)
+
+##### JDK7 和 JDK8 的ConcurrentHashMap的区别
+
+![image-20220220205620054](images/image-20220220205620054.png)
+
+![image-20220220213045877](images/image-20220220213045877.png)
+
+![image-20220220213023725](images/image-20220220213023725.png)
+
+##### get方法需要加锁吗？为什么?
+
+不需要，因为Entry节点和Value变量都是被volatile修饰的，保证了变量可见性，修改后能被立即可见
+
+##### 不支持key或value为null的原因？
+
+key不能为null仅仅可能是作者不喜欢key为null
+
+value不能为null，是因为一旦 `get(key) == null` 时，在多线程的环境下很难确定是key为null 还是 value为null
+
+##### 迭代器是强一致性还是弱一致性？
+
+弱一致性，未遍历到的地方若被修改，迭代器遍历出来则也会更改。而HashMap的迭代器的数据是在迭代器生成那一刻的数据，当同时有线程修改数据，则遍历出来的还是就数据。
 
