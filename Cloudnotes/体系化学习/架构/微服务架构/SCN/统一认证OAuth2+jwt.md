@@ -10,15 +10,19 @@
 
 用户登陆成功后，将信息写入Session，并**==通过Redis、Session复制==**等方式实现分布式架构下的**==Session共享==**，并将**==SessionId写入cookie响应给客户端==**。
 
-**缺点：**目前时代发展，**==并不是所有客户端都支持cookie了==**，比如移动端以及一些新的浏览器
+**缺点：**目前时代发展，**==并不是所有客户端都支持cookie了==**，比如移动端以及一些新的浏览器；并且容易跨域
 
-### 2. 基于Token的认证方式
+### 2. 使用Token的认证方式（推荐、主流）
 
-基于Token的认证⽅式，**==服务端不用存储认证信息（Token）==**。
+利用token进行用户身份验证的流程：
 
-在登陆时，**==统一认证中心认证通过后，生成Token（含认证信息的加密字符串可基于 JWT实现）==**，Token返回给客户端，客户端可将Token存储在任意地方，只需要在请求后端服务时带上即，后端服务在进行验证
+- 客户端使用用户名和密码请求登录
 
-**缺点：**Token数据量较⼤，⽽且每次请求都需要传递，因此⽐较占带宽，服务端需要验签解密比较占用资源
+- 服务端收到请求，验证用户名和密码
+- **验证成功后，服务端会签发一个token，再把这个token返回给客户端**
+- 客户端收到token后可以把它存储起来，比如放到cookie中
+- 客户端每次向服务端请求资源时**需要携带服务端签发的token**，可以在cookie或者**header中携带**
+- 服务端收到请求，然后去**验证客户端请求里面带着的token**，如果验证成功，就向客户端返回请求数据
 
 
 
@@ -95,21 +99,51 @@
 
 
 
-## 三、Spring Cloud OAuth2 + JWT 实现实现统一认证
+## 三、JWT 
+
+### 1. JWT简介
+
+JWT是 Token的一种具体实现方式，其全称是JSON WebToken，官网地址：https://jwt.io/
+
+**JWT的本质就是一个字符串**，它是**将用户信息保存到一个Json字符串**中，然后进行**编码后得到一个token**，并且这个JWT **token带有签名信息（使用RSA非对称加密算法签名），接收后可以校验是否被篡改**，所以可以用于在各方之间**安全地将信息作为 Json对象传输**
 
 
 
-### 1.  JWT 简介
+### 2. Token进行用户身份验证的流程
 
-**==JSON Web Token==**（JWT）是⼀个开放的⾏业标准（RFC 7519），它定义了⼀种简介的、⾃包含的协议格式，⽤于在通信双⽅传递 **==JSON格式的数据==**，传递的信息**==经过数字签名==**可以被验证和信任。JWT 可以**==使⽤HMAC算法==**或**==使⽤RSA的公 钥/私钥对来签名==**，防⽌被篡改
+![image-20220225191916140](images/image-20220225191916140.png)
 
-JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图所示
+- 客户端使用用户名和密码请求登录
 
-![image-20210905230048630](images/image-20210905230048630.png)
+- 服务端收到请求，验证用户名和密码
+- **验证成功后，服务端会签发一个token，再把这个token返回给客户端**
+- 客户端收到token后可以把它存储起来，比如放到cookie中
+- 客户端每次向服务端请求资源时**需要携带服务端签发的token**，可以在cookie或者**header中携带**
+- 服务端收到请求，然后去**验证客户端请求里面带着的token**，如果验证成功，就向客户端返回请求数据
+
+### 3. JWT结构
+
+JWT由3部分组成：**标头(Header)**、**有效载荷(Payload)** 和 **签名(Signature)**
+
+在传输的时候，会将JWT的3部分分别进行Base64编码后用 `.` 进行连接形成最终传输的字符串，jwt格式如下
+
+```
+JWTString = Base64(Header).Base64(Payload).HMACSHA256(base64UrlEncode(header)+"."+base64UrlEncode(payload),secret)
+```
+
+注意：
+
+- header和payload可以直接利用base64解码出原文，从**header中获取 哈希签名的算法**，从**payload中获取有效数据** 
+- **signature**由于使用了不可逆的加密算法，无法解码出原文，它的**作用 是校验token有没有被篡改**。服务端获取header中的加密算法之后，利 用该算法加上secretKey对header、payload进行加密，比对加密后的 数据和客户端发送过来的是否一致。注意secretKey只能保存在服务端，而且对于不同的加密算法其含义有所不同，一般对于MD5类型的摘要加密算法，secretKey实际上代表的是盐值
+
+![image-20220225193223568](images/image-20220225193223568.png)
 
 - Header
 
-  **头部**包括令牌的类型（即JWT）、**使⽤的哈希算法**（如HMAC SHA256或RSA），例如
+  标头描述JWT元数据的JSON对象
+
+  - alg-签名使用的算法，默认是HMACSHA256
+  - typ-令牌的类型
 
   ```json
   {
@@ -122,7 +156,9 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
 
 - Payload
 
-  **存放有效信息**的地⽅，它可以存放jwt提供的现成字段，⽐ 如：iss（签发者）,exp（过期时间戳）, sub（⾯向的⽤户）等，也可⾃定义字段，**请勿存放敏感信息**，此部分可解码为明文
+  有效载荷**存放主题内容**，JWT指定了七个默认字段：iss（发行人）、exp（到期时间）、sub（主题）、aud（用户）、iat：发布时间、jti：JWT ID
+
+  也可⾃定义字段，**请勿存放敏感信息**，此部分可解码为明文
 
   ```json
   {
@@ -136,12 +172,10 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
 
 - Signature
 
-  **签名**，此部分⽤于防⽌jwt内容被篡改。 这个部分**使⽤base64url将前两部分进⾏编码**，编码后使⽤点（.）连接组成字符串，最后使⽤**header中声明的签名算法进⾏签名**
+  **签名**，用于**校验jwt内容是否被篡改**。 **secret**是生成签名所使用的**私钥**
 
-  - base64UrlEncode(header)：jwt令牌的第⼀部分
-
-  - base64UrlEncode(payload)：jwt令牌的第⼆部分
-  - **secret：签名所使⽤的密钥**
+  - **对前两部分进行base64url编码**，编码后使用`.`连接
+  - 然后使用**header中声明的签名算法进行签名**
 
   ```json
   HMACSHA256(
@@ -150,27 +184,28 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
    secret)
   ```
 
-  
 
 
 
-### 2. Spring Cloud OAuth2 是 Spring Cloud 体系对OAuth2协议的实现
+
+
+## 四、Spring Cloud OAuth2 + JWT 实现实现统一认证
+
+Spring Cloud OAuth2 是 Spring Cloud 体系对OAuth2协议的实现
 
 可以⽤来做多个微服务的统⼀认证（验证身份合法性）授权（验证权限）。通过向OAuth2服务（统⼀认证授权服务）发送某个类型的grant_type进⾏集中认证和授权，从⽽获得access_token（访问令牌），⽽这个token是受其他微服务信任的
 
-
-
-### 3. 认证中心在微服务架构中
+### 1. 认证中心在微服务架构
 
 ![image-20210905223427119](images/image-20210905223427119.png)
 
 
 
-### 4. 搭建认证中心
+### 2. 搭建认证中心
 
 认证服务器（Authorization Server），负责登陆认证、生成并颁发token、验证token、刷新token
 
-#### 4.1 pom.xml
+#### 2.1 pom.xml
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -256,7 +291,7 @@ JWT令牌由三部分组成，每部分中间使⽤点（.）分隔，如下图�
 
 
 
-#### 4.2 全局配置文件
+#### 2.2 全局配置文件
 
 ##### 系统级配置
 
@@ -352,7 +387,7 @@ eureka:
 
 
 
-#### 4.3 OAuth授权的客户端信息DDL
+#### 2.3 OAuth授权的客户端信息DDL
 
 ```sql
 SET NAMES utf8mb4;
@@ -388,7 +423,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 
 
-#### 4.4 用户信息DDL
+#### 2.4 用户信息DDL
 
 ```sql
 SET NAMES utf8mb4;
@@ -414,7 +449,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 
 
-#### 4.5 OAuth2 认证中心启动类
+#### 2.5 OAuth2 认证中心启动类
 
 ```java
 package com.tangdi;
@@ -442,7 +477,7 @@ public class OAuthServerApplication {
 
 
 
-#### 4.6 OAuth2 认证中心配置类 
+#### 2.6 OAuth2 认证中心配置类 
 
 ```java
 package com.tangdi.config;
@@ -501,12 +536,12 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
         super.configure(security);
         // 相当于打开endpoints 访问接口的开关，这样的话后期我们能够访问该接口
         security
-                // 允许客户端表单认证
-                .allowFormAuthenticationForClients()
-                // 开启端口/oauth/token_key的访问权限（允许）
-                .tokenKeyAccess("permitAll()")
-                // 开启端口/oauth/check_token的访问权限（允许）
-                .checkTokenAccess("permitAll()");
+            // 允许客户端表单认证
+            .allowFormAuthenticationForClients()
+            // 开启端口/oauth/token_key的访问权限（允许）
+            .tokenKeyAccess("permitAll()")
+            // 开启端口/oauth/check_token的访问权限（允许）
+            .checkTokenAccess("permitAll()");
     }
 
     /**
@@ -549,13 +584,13 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
         super.configure(endpoints);
         endpoints
-                // 指定token的存储方法
-                .tokenStore(tokenStore())
-                // token服务的一个描述，可以认为是token生成细节的描述，比如有效时间多少等
-                .tokenServices(authorizationServerTokenServices())
-                // 指定认证管理器，随后注入一个到当前类使用即可
-                .authenticationManager(authenticationManager)
-                .allowedTokenEndpointRequestMethods(HttpMethod.GET,HttpMethod.POST);
+            // 指定token的存储方法
+            .tokenStore(tokenStore())
+            // token服务的一个描述，可以认为是token生成细节的描述，比如有效时间多少等
+            .tokenServices(authorizationServerTokenServices())
+            // 指定认证管理器，随后注入一个到当前类使用即可
+            .authenticationManager(authenticationManager)
+            .allowedTokenEndpointRequestMethods(HttpMethod.GET,HttpMethod.POST);
     }
 
 
@@ -604,15 +639,25 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
      * @return
      */
     private JwtAccessTokenConverter jwtAccessTokenConverter() {
-        JwtAccessTokenConverter jwtAccessTokenConverter = new JwtAccessTokenConverter();
+        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
+        /*//钥匙对
+        KeyPair keyPair = new KeyStoreKeyFactory(
+                keyProperties.getKeyStore().getLocation(),                          //证书路径
+                keyProperties.getKeyStore().getSecret().toCharArray())              //证书密钥
+                .getKeyPair(
+                        keyProperties.getKeyStore().getAlias(),                     //证书别名
+                        keyProperties.getKeyStore().getPassword().toCharArray());   //证书密码
+        converter.setKeyPair(keyPair);*/
+        
+        
         // 签名密钥
-        jwtAccessTokenConverter.setSigningKey(sign_key);
+        converter.setSigningKey(sign_key);
         // 验证时使用的密钥，和签名密钥保持一致
-        jwtAccessTokenConverter.setVerifier(new MacSigner(sign_key));
+        converter.setVerifier(new MacSigner(sign_key));
         // 扩展jwt生成器
-        jwtAccessTokenConverter.setAccessTokenConverter(myAccessTokenConvertor);
+        converter.setAccessTokenConverter(myAccessTokenConvertor);
 
-        return jwtAccessTokenConverter;
+        return converter;
     }
 }
 
@@ -650,7 +695,7 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
 
 
 
-#### 4.7 用户信息认证安全配置类
+#### 2.7 用户信息认证安全配置类
 
 ```java
 package com.tangdi.config;
@@ -719,7 +764,7 @@ public class SecurityConfiger extends WebSecurityConfigurerAdapter {
 
 
 
-#### 4.8 实现UserDetailsService接口，查询用户详情Service
+#### 2.8 实现UserDetailsService接口，查询用户详情Service
 
 ```java
 package com.tangdi.service;
@@ -758,7 +803,7 @@ public class JdbcUserDetailsService implements UserDetailsService {
 
 
 
-#### 4.9 用户实体类及Dao
+#### 2.9 用户实体类及Dao
 
 ```java
 package com.tangdi.domain.user;
@@ -796,11 +841,11 @@ public interface UsersRepository extends JpaRepository<Users,Long> {
 
 
 
-#### 4.10 基于Oauth2的 JWT 令牌信息扩展
+#### 2.10 基于Oauth2的 JWT 令牌信息扩展
 
-##### 		4.10.1 往 JWT令牌 写入自定义字段，如请求的ip，用于在网关中的IP验证
+##### 		2.10.1 往 JWT令牌 写入自定义字段，如请求的ip，用于在网关中的IP验证
 
-##### 4.10.2 将自定义转换器注入认证服务配置类中
+##### 2.10.2 将自定义转换器注入认证服务配置类中
 
 ```java
 package com.tangdi.config;
@@ -839,9 +884,9 @@ public class MyAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 
 
-#### 4.11 对外提供的API接口 
+#### 2.11 对外提供的API接口 
 
-##### 4.11.1 认证并生成token
+##### 2.11.1 认证并生成token
 
 http://localhost:8084/oauth/token?client_secret=abcxyz&grant_type=password&username=admin&password=123456&client_id=client_lagou
 
@@ -857,7 +902,7 @@ http://localhost:8084/oauth/token?client_secret=abcxyz&grant_type=password&usern
 
 - **password**：密码
 
-##### 4.11.2 验证token
+##### 2.11.2 验证token
 
 http://localhost:8084/oauth/check_token?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2NzEzMzg3LCJqdGkiOiIzNGYzMzE4NS1iYjU0LTQ2ZGYtOTQwYy03MGE4YjFkNGRkZDYiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.-_PB3t4po_vcuqzZT7EiDOjmisBJKpmNPKjo7L6bo80
 
@@ -867,7 +912,7 @@ http://localhost:8084/oauth/check_token?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVC
 
 
 
-##### 4.11.3 刷新token
+##### 2.11.3 刷新token
 
 http://localhost:8084/oauth/token?grant_type=refresh_token&client_id=client_lagou&client_secret=abcxyz&refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImF0aSI6IjIxY2EyMTNjLTBhNjItNDI3ZS1hZjc0LTg3NThmMGVkYzJlYyIsImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2OTcyMzQ3LCJqdGkiOiIzMGM2NDgwMy05OTc5LTQ4ZDctOGU3YS1lODhmMjM5ZTY0MzgiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.B6oxxVXXTS1rHfdo4-ihM5XTZ2N3oAeEMCW5koSFSGw
 
@@ -877,15 +922,15 @@ http://localhost:8084/oauth/token?grant_type=refresh_token&client_id=client_lago
 
 
 
-### 5. 资源服务器（希望访问被认证的微服务）
+### 3 资源服务器（希望访问被认证的微服务）
 
 在原有的微服务中改造，添加Spring Cloud Oauth相关的配置及代码，
 
-#### 5.1 无需认证的微服务，则无需改造为资源服务器
+#### 3.1 无需认证的微服务，则无需改造为资源服务器
 
 
 
-#### 5.2 添加依赖
+#### 3.2 添加依赖
 
 ```xml
 <!--导入spring cloud oauth2依赖-->
@@ -914,7 +959,7 @@ http://localhost:8084/oauth/token?grant_type=refresh_token&client_id=client_lago
 
 
 
-#### 5.3 资源服务配置类
+#### 3.3 资源服务配置类
 
 ```java
 package com.tangdi.config;
@@ -1028,9 +1073,78 @@ public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
 
 ```
 
+或者
+
+```java
+@Configuration
+@EnableResourceServer
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
+public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
+
+    //公钥
+    private static final String PUBLIC_KEY = "public.key";
+
+    /***
+         * 定义JwtTokenStore
+         * @param jwtAccessTokenConverter
+         * @return
+         */
+    @Bean
+    public TokenStore tokenStore(JwtAccessTokenConverter jwtAccessTokenConverter) {
+        return new JwtTokenStore(jwtAccessTokenConverter);
+    }
+
+    /***
+         * 定义JwtAccessTokenConverter
+         * @return
+         */
+    @Bean
+    public JwtAccessTokenConverter jwtAccessTokenConverter() {
+        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
+        converter.setVerifierKey(getPubKey());
+        return converter;
+    }
+
+    /**
+         * 获取非对称加密公钥 Key
+         *
+         * @return 公钥 Key
+         */
+    private String getPubKey() {
+        Resource resource = new ClassPathResource(PUBLIC_KEY);
+        try {
+            InputStreamReader inputStreamReader = new InputStreamReader(resource.getInputStream());
+            BufferedReader br = new BufferedReader(inputStreamReader);
+            return br.lines().collect(Collectors.joining("\n"));
+        } catch (IOException ioe) {
+            return null;
+        }
+    }
+
+    /***
+         * Http安全配置，对每个到达系统的http请求链接进行校验
+         * @param http
+         * @throws Exception
+         */
+    @Override
+    public void configure(HttpSecurity http) throws Exception {
+        //所有请求必须认证通过
+        http.authorizeRequests()
+            //下边的路径放行
+            .antMatchers(
+            "/template/**") //放行模板接口
+            .permitAll()
+            .anyRequest()
+            .authenticated(); //其他地址需要认证授权
+    }
+}
+```
 
 
-#### 5.4 取出Oauth2的 JWT 令牌信息
+
+
+
+#### 3.4 取出Oauth2的 JWT 令牌信息
 
 ```java
 package com.tangdi.config;
@@ -1060,7 +1174,7 @@ public class MyAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 
 
-#### 5.5 在需要认证的接口中，获取 JWT 信息
+#### 3.5 在需要认证的接口中，获取 JWT 信息
 
 ```java
 package com.tangdi.controller;
@@ -1091,7 +1205,7 @@ public class TestController {
 
 
 
-#### 5.6 资源服务器验证
+#### 3.6 资源服务器验证
 
 http://localhost:8081/code/codeTest/test?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2NzEzMjU2LCJqdGkiOiI4NWUxZTYwYS1lZGIzLTRhNDAtOGZiYi02NTlhZTFjNjc1ZTgiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.gCtHiavOTIXx30bj27cgiFQuRiCBKPWz6MkZAp-zTzg
 
@@ -1099,9 +1213,48 @@ http://localhost:8081/code/codeTest/test?access_token=eyJhbGciOiJIUzI1NiIsInR5cC
 
 
 
+#### 3.7 令牌传递(通过feign拦截器，添加token到请求头)
+
+```java
+@Configuration
+public class FeginInterceptor implements RequestInterceptor {
+    @Override
+    public void apply(RequestTemplate requestTemplate) {
+        try {
+            Map<String, String> headers = getHeaders();
+            for (String headerName : headers.keySet()) {
+                requestTemplate.header(headerName, headers.get(headerName));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private Map<String, String> getHeaders() {
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        Map<String, String> map = new LinkedHashMap<>();
+        Enumeration<String> enumeration = request.getHeaderNames();
+        while (enumeration.hasMoreElements()) {
+            String key = enumeration.nextElement();
+            String value = request.getHeader(key);
+            map.put(key, value);
+        }
+        return map;
+    }
+}
+```
 
 
-### 6. 网关配置
+
+
+
+
+
+
+
+
+
+### 4. 网关配置
 
 #### 新增路由-认证中心
 
