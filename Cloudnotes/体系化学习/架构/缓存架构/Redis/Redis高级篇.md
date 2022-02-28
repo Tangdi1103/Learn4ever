@@ -340,7 +340,7 @@ Redis会将被执行的脚本及其参数复制到 AOF 文件和从服务器中
 开启命令传播模式，用户在使用脚本执行任何写操作之前，需要先在脚本里面调用以下函数 **`redis.replicate_commands()`**，并且**只对调用该函数的脚本有效**，其他脚本依然使用默认的脚本传播模式
 
 ```sh
-eval "redis.replicate_commands();redis.call('set',KEYS[1],ARGV[1]);redis.call('set',K EYS[2],ARGV[2])" 2 n1 n2 zhaoyun11 zhaoyun22
+eval "redis.replicate_commands();redis.call('set',KEYS[1],ARGV[1]);redis.call('set',KEYS[2],ARGV[2])" 2 n1 n2 zhaoyun11 zhaoyun22
 ```
 
 
