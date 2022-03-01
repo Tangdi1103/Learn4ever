@@ -333,7 +333,9 @@ String originalFilename = uploadFile.getOriginalFilename();
 
 
 
-### 3.在控制器中处理异常
+### 3. 全局异常处理
+
+可以让我们优雅的捕获所有Controller对象handler⽅法抛出的异常
 
 ```java
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -342,17 +344,20 @@ import org.springframework.web.servlet.ModelAndView;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-// 可以让我们优雅的捕获所有Controller对象handler⽅法抛出的异常
-@ControllerAdvice
+@Slf4j
+@RestControllerAdvice
 public class GlobalExceptionResolver{
-    
-    @ExceptionHandler(ArithmeticException.class)
-    public ModelAndView handleException(ArithmeticException exception, HttpServletResponse response) {
-        ModelAndView modelAndView = new ModelAndView();
-        modelAndView.addObject("msg",exception.getMessage());
-        modelAndView.setViewName("error");
-        return modelAndView;
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseDTO<?> handleException(Exception e, HttpServletRequest request) {
+        log.error("handleException - url：{} requestParam:{} errMsg:{}",request.getRequestURI(),JSON.toJSONString(request.getParameterMap()), e);
+        if(e instanceof AlertException) {
+            return ResponseDTO.ofError(((AlertException) e).getCode(),e.getMessage());
+        }
+        return ResponseDTO.ofError(ResultCode.SERVER_ERROR.getMessage());
     }
+
 }
 ```
 
