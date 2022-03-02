@@ -451,19 +451,19 @@ InnoDB中使用了大量的 AIO（Async IO）来做读写处理，这样可以�
 
 IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==**insert buffer**==和==**log thread**==，其中read thread和write thread分别为4个，因此IO Thread一共有10个。
 
-#### 1.1 write thread：负责写操作，将Buffer Pool中的脏页刷新到磁盘。4个
+##### 1.1 write thread：负责写操作，将Buffer Pool中的脏页刷新到磁盘。4个
 
-#### 1.2 read thread：负责读取操作，将数据从磁盘加载到缓存page页。4个
+##### 1.2 read thread：负责读取操作，将数据从磁盘加载到缓存page页。4个
 
-#### 1.3 insert buffer thread：负责将Change Buffer中的内容刷新到磁盘，与磁盘的记录合并。1个
+##### 1.3 insert buffer thread：负责将Change Buffer中的内容刷新到磁盘，与磁盘的记录合并。1个
 
-#### 1.4 log thread：负责将Log Buffer中的内容刷新到磁盘。1个
+##### 1.4 log thread：负责将Log Buffer中的内容刷新到磁盘。1个
 
 
 
 ### 2. ==Purge Thread==
 
-**当事务提交后**，Purge Thread则会**回收内存中的 Undo日志**数据
+当**事务提交后**，Purge Thread则会**回收内存中的 Undo log**数据
 
 **`show variables like '%innodb_purge_threads%';`**
 
@@ -473,19 +473,21 @@ IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==*
 
 **`show variables like '%innodb_page_cleaners%'`**
 
-**作用：**回收内存中undo log
-
-**将脏页中的数据刷新到磁盘**，脏数据刷盘后相应的redo log也就可以覆盖，即可以同步数据，又能达到redo log循环使用的目的，**会调用write thread线程处理**
+**作用：**将BP的脏页刷到磁盘（数据刷盘），并且Redo log对应的数据就可被覆盖重写，**调用write thread线程处理**
 
 
 
 ### 4. ==Master Thread==
 
-**作用：**作用是**将缓冲池中的数据异步刷新到磁盘** ，保证数据的一致性
+##### 4.1 作用：
 
-Master thread是**InnoDB的主线程**，负责**调度其他各线程**，优先级最高。
+- Master thread是**InnoDB的主线程**，负责**调度其他各线程**，优先级最高。
 
-#### 4.1 每隔 1 秒的处理
+- 调用其他线程将Buffer Pool的脏页数据刷到新盘，保证数据一致性
+- 事务提交后，调用其他线程回收Undo Log
+- 日志缓存刷入磁盘
+
+##### 4.2 每隔 1 秒的处理
 
 - 刷新日志缓冲区，刷到磁盘
 
@@ -493,7 +495,7 @@ Master thread是**InnoDB的主线程**，负责**调度其他各线程**，优�
 
 - 刷新脏页数据到磁盘，根据脏页比例达到75%才操作（**`innodb_max_dirty_pages_pct`**，**`innodb_io_capacity`**） 
 
-#### 4.2 每隔 10 秒的处理
+##### 4.3 每隔 10 秒的处理
 
 - 刷新脏页数据到磁盘
 
@@ -553,7 +555,7 @@ Undo Log 是为了==实现事务的原子性==而出现的产物。如前文介�
 
 #### 4.2 实现MVCC（多版本并发控制）
 
-Undo Log 在 InnoDB 存储引擎中用来==实现多版本并发控制==。事务提交之前，Undo Log保存了修改前的版本数据，Undo Log 中的数据可作为  ==数据旧版本快照供其他并发事务进行快照读==。
+Undo Log 在 InnoDB 存储引擎中用来==实现多版本并发控制==。事务提交之前，Undo Log保存了修改前的版本数据，Undo Log 中的数据可作为  ==数据旧版本快照供其他并发事务进行**快照读**==。
 
 流程如下，此处不过多解读。
 
@@ -579,7 +581,7 @@ Undo Log 在 InnoDB 存储引擎中用来==实现多版本并发控制==。事�
 
 ### 2. Redo Log 产生及销毁时机
 
-事务操作的执行，就会生成Redo Log，**==再事务提交时会将Redo Log写入Log Buffer==**，并不是随着事务的提交就立刻写入磁盘文件。**==等事务操作的脏页写入到磁盘之后，Redo Log 的使命也就完成了==**，Redo Log占用的空间就可以重用（被覆盖写入）。
+事务操作的执行，就会生成Redo Log，**==再事务提交时会将Redo Log写入Log Buffer==**，并不是随着事务的提交就立刻写入磁盘文件。**==等事务操作的脏页写入到磁盘之后，Redo Log 对应的数据就可以被重写（覆盖）==**
 
 
 
@@ -601,8 +603,8 @@ Redo Buffer 持久化到 Redo Log 的策略，可通过  **`Innodb_flush_log_at_
 
 **`innodb_flush_log_at_trx_commit // 参数控制日志刷新行为，默认为1`**
 
-- **0：** 每秒提交 Redo buffffer ->OS cache -> flflush cache to disk，可能丢失一秒内的事务数据。由后台Master线程每隔 1秒执行一次操作。
-- **1：**每次事务提交执行 Redo Buffer -> OS cache -> flflush cache to disk，最安全，性能最差的方式。
+- **0：** 每秒提交 Redo buffer ->OS cache -> flush cache to disk，可能丢失一秒内的事务数据。由后台Master线程每隔 1秒执行一次操作。
+- **1：**每次事务提交执行 Redo Buffer -> OS cache -> flush cache to disk，最安全，性能最差的方式。
 - **2：**每次事务提交执行 Redo Buffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flflush cache to disk 的操作。
 
 一般建议选择取值2，因为 MySQL 挂了数据没有损失，整个服务器挂了才会损失1秒的事务提交数据

@@ -172,6 +172,8 @@ replconf ack <replication_offset>
 
 ## 三、主从+集群分区
 
+### Redis集群方案
+
 Redis的集群分区的方式有以下几种
 
 - application端分区
@@ -182,15 +184,31 @@ Redis的集群分区的方式有以下几种
 
   Codis
 
-- RedisCluster
+- **RedisCluster（主流）**
 
-  采用去中心化架构，最少需要三台节点才能运行，[Gossip协议](../../分布式架构设计/分布式理论基础与一致性算法)实现一致性
+  Redis3.0之后，Redis官方提供了完整的集群解决方案。
 
-  redis-cluster把所有的物理节点映射到[0-16383]个**slot哈希槽**上，基本上采用平均分配和连续分配的方式，使用**CRC16算法**对KEY进行hash运算，再将值**与16384取模**，根据余数分配到**对应哈希槽的Redis节点上**
+  方案采用去中心化的方式，包括：sharding（分区）、replication（复制）、failover（故障转移）。称为RedisCluster。
+  
+  Redis5.0前采用redis-trib进行集群的创建和管理，需要ruby支持
+  
+  Redis5.0可以直接使用Redis-cli进行集群的创建和管理
 
-### 1. 按照[基础篇](Redis基础篇)安装至少三台Redis
+### RedisCluster
 
-### 2. 修改 redis.conf 配置
+![image-20220302162903132](images/image-20220302162903132.png)
+
+采用**去中心化架构**，最少需要三台节点才能运行，使用**[Gossip协议](../../分布式架构设计/分布式理论基础与一致性算法)实现一致性**
+
+redis-cluster把所有的物理节点映射到[0-16383]个**slot哈希槽**上，基本上采用平均分配和连续分配的方式，使用**CRC16算法**对KEY进行hash运算，再将值**与16384取模**，根据余数分配到**对应哈希槽的Redis节点上**
+
+为什么是16384？
+
+因为CRC16算法的值最大为 $2^{16}$= 65536，值太大了没必要，超过1000个节点集群容易出错，所以选择了$2^{14}$ = 16384槽位
+
+#### 1. 按照[基础篇](Redis基础篇)安装至少三台Redis
+
+#### 2. 修改 redis.conf 配置
 
 ```
 vim /usr/local/redis-cluster/7001/bin/redis.conf
@@ -213,7 +231,7 @@ daemonize yes
 cluster-enabled yes
 ```
 
-### 3. 启动所有Redis服务
+#### 3. 启动所有Redis服务
 
 此处redis安装在一个服务器内，伪集群，因此需要一个个启动
 
@@ -221,7 +239,7 @@ cluster-enabled yes
 ./redis-server redis.conf
 ```
 
-### 4. 创建Redis集群（创建时Redis里不要有数据）
+#### 4. 创建Redis集群（创建时Redis里不要有数据）
 
 - **在任意redis服务器上执行以下命令**
 
@@ -243,7 +261,7 @@ cluster-enabled yes
 
 ![image-20220104234433238](images/image-20220104234433238.png)
 
-### 5. 客户端相关命令
+#### 5. 客户端相关命令
 
 - **命令客户端连接集群**
 
@@ -265,7 +283,7 @@ cluster-enabled yes
   127.0.0.1:7003> cluster info
   ```
 
-### 6. （主从+集群）架构扩容
+#### 6. （主从+集群）架构扩容
 
 ##### 6.1 先创建Redis7007节点 （无数据，需重新安装，切勿从有数据的Redis拷贝）
 
@@ -372,7 +390,7 @@ cluster-enabled yes
 
 解决方法是删除 nodes.conf，再执行 **`./redis-cli --cluster add-node`** 指令
 
-### 7. （主从+集群）架构缩容
+#### 7. （主从+集群）架构缩容
 
 执行以下命令即删除集群中某个节点
 
@@ -388,7 +406,7 @@ cluster-enabled yes
 
 需要将该结点占用的hash槽分配出去即可
 
-### 8. RedisCluster在JAVA中的使用
+#### 8. RedisCluster在JAVA中的使用
 
 ##### 8.1 添加依赖
 
