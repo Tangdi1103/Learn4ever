@@ -459,41 +459,70 @@ keyspace_misses:0 #查找数据库键失败的次数
 
 
 
-## 五、Redis 使用规范
+## 五、Redis 使用手册
 
-- **键值设计**
+### 1. 键值设计
 
-  key：使用业务名或者数据库名作为前缀，使用冒号分隔，切勿使用空格、斜线等转义字符。正例：order:16424869562100001
+key：使用业务名或者数据库名作为前缀，使用冒号分隔，切勿使用空格、斜线等转义字符。正例：order:16424869562100001
 
-  value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过5000个
+value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过5000个
 
-- **操作规范**
+### 2. 命令规范
 
-  - hgetall、lrange、smembers、zrange、sinter这些命令，可使用**hscan、sscan、zscan**代替
+- hgetall、lrange、smembers、zrange、sinter这些命令，可使用**hscan、sscan、zscan**代替
+- **禁止线上使用keys、flushall、flushdb等**
+- 使用批量操作提高效率，如原生命令的hmset，pipeline的管道查询
+- 事务，Redis集群对于事务的使用，要求所有的key必须在同个 **slot** 上（可以使用hashtag功能解决）
 
-  - **禁止线上使用keys、flushall、flushdb等**
-  - 使用批量操作提高效率，如原生命令的hmset，pipeline的管道查询
-  - 事务，Redis集群对于事务的使用，要求所有的key必须在同个 **slot** 上（可以使用hashtag功能解决）
+### 3. 客户端使用
 
-- **删除bigkey**
+- 避免多个应用使用一个Redis实例，对庞大的业务拆分成多个服务
 
-  redis 4.0已经支持key的异步删除
+- 使用连接池
 
-  - Hash删除: hscan + hdel
+  ![image-20220303194702889](images/image-20220303194702889.png)
 
-    ![image-20220118143413809](images/image-20220118143413809.png)
+- 熔断功能
 
-  - List删除: ltrim
+- 合理的加密，可以使用SSL加密访问（阿里云Redis支持）
 
-    ![image-20220118143424208](images/image-20220118143424208.png)
+- 淘汰策略
 
-  - Set删除: sscan + srem
 
-    ![image-20220118143435169](images/image-20220118143435169.png)
 
-  - SortedSet删除: zscan + zrem
+### 4. 相关工具
 
-    ![image-20220118143448657](images/image-20220118143448657.png)
+- 1、数据同步
+
+  redis间数据同步可以使用：redis-port
+
+- 2、big key搜索
+
+  redis大key搜索工具
+
+- 3、热点key寻找
+
+  内部实现使用monitor，所以建议短时间使用facebook的redis-faina阿里云Redis已经在内核层面解决热点key问题
+
+### 5. 删除bigkey
+
+redis 4.0已经支持key的异步删除
+
+- Hash删除: hscan + hdel
+
+  ![image-20220118143413809](images/image-20220118143413809.png)
+
+- List删除: ltrim
+
+  ![image-20220118143424208](images/image-20220118143424208.png)
+
+- Set删除: sscan + srem
+
+  ![image-20220118143435169](images/image-20220118143435169.png)
+
+- SortedSet删除: zscan + zrem
+
+  ![image-20220118143448657](images/image-20220118143448657.png)
 
 
 
