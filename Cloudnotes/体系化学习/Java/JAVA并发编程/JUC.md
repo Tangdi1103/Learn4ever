@@ -35,6 +35,14 @@
 
 ![image-20220220002504912](images/image-20220220002504912.png)
 
+#### ConditionObject原理
+
+![image-20220304130315078](images/image-20220304130315078.png)
+
+当调用**Condition.await**的时候，将**当前线程封装到Node中，放到条件队列（单向链表）**，并且**线程状态设置为Condition.waitStatus**。通过signal唤醒的时候，就将**条件队列中的一个头部节点转到CLH等待队列中**
+
+我们可以创建多个Condition，按照不同的Condition将不同条件的线程进行阻塞和唤醒。
+
 
 
 
@@ -45,19 +53,21 @@
 
 常见实现类为**FIFO（ArrayBlockingQueue、LinkedBlockingQueue）** 和 **优先级出队PriorityBlockingQueue**
 
-常用方法如下
+常用方法如下，**比Queue接口多了阻塞的方法**
 
-- put：若队列满，则阻塞直到队列有空位可存，然后存（存）
+- **put：若队列满，则阻塞直到队列有空位可存，然后存（存）**
 - offer：如果队列可以容纳，则返回true，否则返回false（存）
 
-- take：若队列空，则阻塞直到队友有数据，然后取（取）
+- **take：若队列空，则阻塞直到队列有数据，然后取（取）**
 - pool：若队列空，则返回null（取）
 
 #### ArrayBlockingQueue
 
-- 1个数组对象 + 1个reentrantLock锁 + 2个Condition条件
-- 数组必须指定大小，无法扩容
-- 入队和出队使用同一把锁，所以入队和出队无法被并发执行
+- 1个**数组**对象 + **1个reentrantLock锁** + **2个Condition条件**
+  - **入队和出队使用同一把锁**，所以入队和出队无法被并发执行
+  - 使用**两个Condition，防止读写线程互相唤醒**
+- 数组必须指定大小，**无法扩容**
+- 由于出队和入队由同一个锁控制，所以**count队列元素个数可以使用 int 非原子类型**
 
 ![image-20220219230208980](images/image-20220219230208980.png)
 
@@ -71,10 +81,11 @@
 
 #### LinkedBlockingQueue 
 
-- 单向链表 + 2个ReentrantLock锁 + 2个Condition条件
+- **单向链表** + **2个ReentrantLock锁** + **2个Condition条件**
+  - **提供了并发度，入队和出队各由1把锁控制**，所以可以并发进行入队和出队
+  - 两个Condition，防止读写线程互相唤醒
 - 该单链表最大容量可以是Int最大值
-- 提供了并发度，入队和出队各由1把锁控制，所以可以并发进行入队和出队
-- count为队列的元素个数，由于出队和入队不由1把锁控制，所以count必须保证原子性，所以使用AtomicInteger原子类型
+- **count为队列的元素个数，使用AtomicInteger原子类型**，由于**出队和入队由不同锁控制**，**所以count必须保证原子性**
 
 ![image-20220219230950941](images/image-20220219230950941.png)
 
@@ -110,6 +121,10 @@
 ![image-20220219223117215](images/image-20220219223117215.png)
 
 ![image-20220219223226365](images/image-20220219223226365.png)
+
+
+
+
 
 
 
