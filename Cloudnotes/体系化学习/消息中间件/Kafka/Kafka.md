@@ -19,15 +19,7 @@
   - 每个 **Topic** 主题可分为多个**Partition** 分区，横向扩展提高系统吞吐量与性能
   - 每个 **Partition** 分区，又拥有多个 **Replicas** 副本，体现了高可用
 
-  ![image-20220213164408120](images/image-20220213164408120.png)
-
-  **首领副本负责读写，跟随者分区只是备份**
-
-  集群中有一个Broker是集群控制器，职能如下：若一个Broker宕机了，则将宕机Broker**对应的跟随者副本提升为首领副本**，同时**分配其他Broker一个跟随者副本**
-
-  集群控制器的选举使用的是**ZK的分布式锁原理（创建临时节点）**，选举**成功后其他Broker监听该节点**
-
-- 单机支持每秒几十万的并发量
+- **单机吞吐量达几十万的TPS**
 
 - 消费组中有多个消费者，kafka可以保证消息不会重复消费
 
@@ -46,7 +38,7 @@
 
 - **kafka吞吐量大**，可以达到上千万的吞吐量，使用**字节数组**传输消息，然后根据**分区器**路由**发送到不同分区**，同一个主题和分区为**一个批次并进行压缩**
 
-- **单个broker**可以轻松处理**数千个分区**和**每秒百万级的消息量**，如果做**集群分区，吞吐量将轻松千万级别**
+- **单个broker**可以轻松处理**数千个分区**和**每秒几十万级的消息量**，如果做**集群分区，吞吐量将轻松千万级别**
 
 - 横向扩展
 
@@ -60,6 +52,7 @@
   - 零拷贝
   - 顺序读写
   - Linux 页缓存
+  
 - 消费者定义一个消费组，消费组保证每个分区只会被一个消费者消费，并且消费时会移动偏移量，保证消息不被重复消费
 
 #### 4. 角色作用及配置
@@ -348,7 +341,7 @@
   }
   ```
 
-  
+
 
 
 
@@ -440,13 +433,54 @@ public class UserDeserializer implements Deserializer<User> {
   }
   ```
 
-  
 
-##### 4.3 Partition-分区
+
+
+
+
+
+
+##### 4.3 Partition-分区、Replicas-副本
 
 ###### 副本机制
 
+一个Topic可以有多个partition分区，每个partition分区可以有多个副本，存储再多个broker中
+
 ![image-20220214000053411](images/image-20220214000053411.png)
+
+![image-20220304150653604](images/image-20220304150653604.png)
+
+- **Leader：**Leader副本负责读写
+- **Follower：**Follower副本同步数据，用作容灾备份
+  - **ISR：**与leader副本保持**一定程度同步的Follower副本**（包括Leader），有一定程度可以接受的滞后，可以**通过参数进行配置**
+  - **OSR：**与leader副本**同步滞后较大的Follower副本**（不包括leader）副本
+
+- **HW：**表示**高水位的offset**，消费者只能拉取到HW之前的消息
+- **LEO：**表示副本**下一条待写入消息的offset**
+
+###### Leader选举
+
+有三台broker，三个Partition，每个Partition有三个Replicas，布局如下
+
+![image-20220213164408120](images/image-20220213164408120.png)
+
+集群中有一个Broker是**集群控制器**，负责broker宕机后的选举，场景如下：
+
+- 仅仅P1 Leader所在的Broker0宕机
+
+  Kafka在Zookeeper上，针对每个Topic都有⼀个动态变化的ISR集合，会从ISR中选举一个成为Leader。当Broker0重新恢复，会把之前commit的数据清空，重新从 Leader 里 pull 数据
+
+  **选举的方式：**Zookeeper分布式锁（**创建临时节点**），成功创建的成为Leader，其他Broker监听该节点
+
+- 所有副本所在得broker都宕机，即Broker0、Broker1、Broker2都宕机
+
+  - 等待 ISR 中的一个恢复后，并选它作为Leader**（需要时间等待）**
+
+  - 选择第一个恢复的 OSR副本作为新的leader，**等待时间短，但会造成数据丢失**，需要设置如下
+
+    ```
+    unclean.leader.election.enable=true
+    ```
 
 ###### 分区分配
 
@@ -492,6 +526,20 @@ public class UserDeserializer implements Deserializer<User> {
   ```sh
   kafka-topics.sh --zookeeper localhost:2181/myKafka --describe --topic tp_re_01
   ```
+
+
+
+##### 4.4 Broker-Kafka服务器
+
+Kafka 服务器被称为broker，集群中有多台Broker，有一个BroKer充当了**集群控制器**，负责 **分区分配** 和 **监控broker**。
+
+- Kafka 使用 Zookeeper 的**分布式锁选举控制器**，并在节点加入集群或退出集群时通知控制器。
+
+- 控制器负责在节点加入或离开集群时进行分区Leader选举。
+
+- （不懂为啥会有脑裂，向Zookeeper争取分布式锁不是只有一个能成功吗）控制器使用epoch 来避免**“脑裂”（集群中两个Broker同时认为自己是当前集群的控制器）**，当epoch最新的为控制器
+
+
 
 
 
