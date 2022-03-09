@@ -2,11 +2,32 @@
 
 ## 1. AQS（AbstractQueuedSynchronizer）
 
-**AQS抽象队列同步器**，是**JUC包中的规范锁机制的抽象类**，维护了一个**共享资源 state 和一个 FIFO 的CLH等待队列**，底层利用了 **CAS 机制来保证操作的原子性**
+**AQS抽象队列同步器**，是**JUC包中的规范锁机制的抽象类**，维护了一个**共享资源 state 和一个 FIFO 的CLH等待队列**，底层利用了 **CAS 机制来保证共享变量操作的原子性**
 
 #### 原理
 
 ![image-20220219235140410](images/image-20220219235140410.png)
+
+```java
+public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchronizer implements java.io.Serializable {
+    
+    // 以下为双向链表的首尾结点，代表入口等待队列
+    private transient volatile Node head;
+    private transient volatile Node tail;
+    
+    // 共享变量 state
+    private volatile int state;
+    
+    
+    
+    // cas 获取 / 释放 state，保证线程安全地获取锁
+    protected final boolean compareAndSetState(int expect, int update) {
+        // See below for intrinsics setup to support this
+        return unsafe.compareAndSwapInt(this,stateOffset, expect, update);
+    }
+    // ...
+}
+```
 
 - state为volatile修饰，保证可见性
 - 当state为0时，表示未被锁定
