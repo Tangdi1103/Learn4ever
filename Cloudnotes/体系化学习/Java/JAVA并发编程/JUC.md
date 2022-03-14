@@ -34,7 +34,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 ![image-20220220000011968](images/image-20220220000011968.png)
 
-#### 实现AQS的类
+#### 基于AQS的类
 
 ![image-20220220000620242](images/image-20220220000620242.png)
 
