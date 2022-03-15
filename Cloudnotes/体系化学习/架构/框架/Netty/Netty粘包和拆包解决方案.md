@@ -30,7 +30,15 @@ TCP是个“流”协议，所谓流，就是没有界限的一串数据。TCP�
 
 ### 二、TCP粘包和拆包产生的原因
 
-数据从发送方到接收方需要经过操作系统的缓冲区，而造成粘包和拆包的主要原因就在这个缓冲区上。粘包可以理解为缓冲区数据堆积，导致多个请求数据粘在一起，而拆包可以理解为发送的数据大于缓冲区，进行拆分处理。
+- **粘包原因**
+
+  通过**操作系统内核缓冲区**向外发送数据时，缓冲区**数据堆积**，导致**多个请求数据粘在一起**
+
+- **拆包原因**
+
+  **操作系统内核缓冲区**接收硬件传来的数据时，**数据大于缓冲区**，**进行拆分处理**
+
+
 
 
 
@@ -159,6 +167,12 @@ public class NettyServerHandler implements ChannelInboundHandler {
 
 ![image-20210807015640724](images/image-20210807015640724.png)
 
+
+
+
+
+
+
 ### 四、粘包和拆包的解决方法
 
 #### 1. 业内解决方案
@@ -189,32 +203,33 @@ Netty提供了4种解码器来解决，分别如下：
 
 ##### LineBasedFrameDecoder解码器
 
-pipeline中添加行解码器
+- 客户端和服务端的pipeline添加**行解码器**
 
-```java
-ch.pipeline().addLast(new LineBasedFrameDecoder(2048)); 
-```
+  ```java
+  ch.pipeline().addLast(new LineBasedFrameDecoder(2048));
+  ```
 
-业务handle中输出数据添加 `/n`换行符
+- 客户端handle中输出数据添加 `/n`换行符
 
-```java
-ctx.writeAndFlush(Unpooled.copiedBuffer("你好呀,我是Netty客户端"+i+"\n", CharsetUtil.UTF_8));
-```
+  ```java
+  ctx.writeAndFlush(Unpooled.copiedBuffer("你好呀,我是Netty客户端"+i+"\n",CharsetUtil.UTF_8));
+  ```
 
-
+  
 
 ##### DelimiterBasedFrameDecoder解码器
 
-pipeline中添加自定义解码器
+- 客户端和服务端的pipeline添加**自定义解码器**
 
-```java
-ByteBuf byteBuf = Unpooled.copiedBuffer("$".getBytes(StandardCharsets.UTF_8)); ch.pipeline().addLast(new 
-ch.pipeline().addLast(new DelimiterBasedFrameDecoder(2048, byteBuf));
-```
+  ```java
+  ch.pipeline().addLast(new DelimiterBasedFrameDecoder(2048, Unpooled.copiedBuffer("$".getBytes(StandardCharsets.UTF_8))));
+  ```
+  
+- 客户端handle中输出数据添加 `$` 自定义符号
 
-业务handle中输出数据添加 `$` 自定义符号
+  ```java
+  ctx.writeAndFlush(Unpooled.copiedBuffer("你好呀,我是Netty客户端"+i+"$",CharsetUtil.UTF_8));
+  ```
 
-```java
-ctx.writeAndFlush(Unpooled.copiedBuffer("你好呀,我是Netty客户端"+i+"$", CharsetUtil.UTF_8));
-```
+  
 
