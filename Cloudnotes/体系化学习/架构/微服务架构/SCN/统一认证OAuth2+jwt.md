@@ -2,9 +2,7 @@
 
 
 
-## 一、统一身份认证/SSO单点登陆实现方式
-
-
+## 一、统一身份认证鉴权（SSO单点登陆实现方式）
 
 ### 1. 使用Session的传统方式实现
 
@@ -12,14 +10,14 @@
 
 **缺点：**目前时代发展，**==并不是所有客户端都支持cookie了==**，比如移动端以及一些新的浏览器；并且容易跨域
 
-### 2. 使用Token的认证方式（推荐、主流）
+### 2. 使用Token的认证、鉴权方式（推荐、主流）
 
 利用token进行用户身份验证的流程：
 
 - 客户端使用用户名和密码请求登录
 
 - 服务端收到请求，验证用户名和密码
-- **验证成功后，服务端会签发一个token，再把这个token返回给客户端**
+- **认证成功后，服务端会签发一个token，再把这个token返回给客户端**
 - 客户端收到token后可以把它存储起来，比如放到cookie中
 - 客户端每次向服务端请求资源时**需要携带服务端签发的token**，可以在cookie或者**header中携带**
 - 服务端收到请求，然后去**验证客户端请求里面带着的token**，如果验证成功，就向客户端返回请求数据
@@ -189,11 +187,11 @@ JWTString = Base64(Header).Base64(Payload).HMACSHA256(base64UrlEncode(header)+".
 
 
 
-## 四、Spring Cloud OAuth2 + JWT 实现实现统一认证
+## 四、Spring Cloud OAuth2 + JWT 实现实现统一认证和鉴权
 
 Spring Cloud OAuth2 是 Spring Cloud 体系对OAuth2协议的实现
 
-可以⽤来做多个微服务的统⼀认证（验证身份合法性）授权（验证权限）。通过向OAuth2服务（统⼀认证授权服务）发送某个类型的grant_type进⾏集中认证和授权，从⽽获得access_token（访问令牌），⽽这个token是受其他微服务信任的
+可以⽤来做多个微服务的统⼀认证（验证身份合法性）鉴权（验证权限）。通过向OAuth2服务（统⼀认证、鉴权服务）发送某个类型的grant_type进⾏集中认证和授权，从⽽获得access_token（访问令牌），⽽这个token是受其他微服务信任的
 
 ### 1. 认证中心在微服务架构
 
@@ -414,9 +412,7 @@ CREATE TABLE `oauth_client_details` (
 -- Records of oauth_client_details
 -- ----------------------------
 BEGIN;
-INSERT INTO `oauth_client_details` VALUES ('client_lagou',
-'autodeliver,resume', 'abcxyz', 'all', 'password,refresh_token',
-NULL, NULL, 7200, 259200, NULL, NULL);
+INSERT INTO `oauth_client_details` VALUES ('client_wf', 'code', 'abcdef', 'all', 'password,refresh_token', NULL, NULL, 7200, 259200, NULL, NULL);
 COMMIT;
 SET FOREIGN_KEY_CHECKS = 1;
 ```
@@ -442,7 +438,7 @@ CREATE TABLE `users` (
 -- Records of users
 -- ----------------------------
 BEGIN;
-INSERT INTO `users` VALUES (4, 'admin', '123456');
+INSERT INTO `users` VALUES (1, 'zhangsan', 'xswl123');
 COMMIT;
 SET FOREIGN_KEY_CHECKS = 1;
 ```
@@ -613,9 +609,9 @@ public class OauthServerConfiger extends AuthorizationServerConfigurerAdapter {
         // 针对jwt令牌的添加
         defaultTokenServices.setTokenEnhancer(jwtAccessTokenConverter());
 
-        // 设置令牌有效时间（一般设置为2个小时，此处设置20秒）
+        // 设置令牌有效时间（一般设置为2个小时，此处设置一个小时）
         // access_token就是我们请求资源需要携带的令牌
-        defaultTokenServices.setAccessTokenValiditySeconds(20);
+        defaultTokenServices.setAccessTokenValiditySeconds(3600);
         // 设置刷新令牌的有效时间
         // 3天
         defaultTokenServices.setRefreshTokenValiditySeconds(259200);
@@ -888,9 +884,9 @@ public class MyAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 ##### 2.11.1 认证并生成token
 
-http://localhost:8084/oauth/token?client_secret=abcxyz&grant_type=password&username=admin&password=123456&client_id=client_lagou
+http://localhost:7074/oauth/token?client_secret=abcdef&grant_type=password&username=zhangsan&password=xswl123&client_id=client_wf
 
-![image-20211112183523873](images/image-20211112183523873.png)
+![image-20220316161348229](images/image-20220316161348229.png)
 
 - **client_id**：客户端id
 
@@ -904,29 +900,25 @@ http://localhost:8084/oauth/token?client_secret=abcxyz&grant_type=password&usern
 
 ##### 2.11.2 验证token
 
-http://localhost:8084/oauth/check_token?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2NzEzMzg3LCJqdGkiOiIzNGYzMzE4NS1iYjU0LTQ2ZGYtOTQwYy03MGE4YjFkNGRkZDYiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.-_PB3t4po_vcuqzZT7EiDOjmisBJKpmNPKjo7L6bo80
+http://localhost:7074/oauth/check_token?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiY29kZSJdLCJ1c2VyX25hbWUiOiJ6aGFuZ3NhbiIsInNjb3BlIjpbImFsbCJdLCJjbGllbnRJcCI6IjA6MDowOjA6MDowOjA6MSIsImV4cCI6MTY0NzQyMTg2NiwianRpIjoiMTkwOTk2ZjMtNjA1MS00OWQ3LTkzZmMtNzZkYjA5Y2RlYTQ5IiwiY2xpZW50X2lkIjoiY2xpZW50X3dmIn0._u_okvRGoycE_CYsZNTioYPldumek8EQNlDUoWIBuPY
 
-![image-20211112183643254](images/image-20211112183643254.png)
-
-
-
-
+![image-20220316161324613](images/image-20220316161324613.png)
 
 ##### 2.11.3 刷新token
 
-http://localhost:8084/oauth/token?grant_type=refresh_token&client_id=client_lagou&client_secret=abcxyz&refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImF0aSI6IjIxY2EyMTNjLTBhNjItNDI3ZS1hZjc0LTg3NThmMGVkYzJlYyIsImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2OTcyMzQ3LCJqdGkiOiIzMGM2NDgwMy05OTc5LTQ4ZDctOGU3YS1lODhmMjM5ZTY0MzgiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.B6oxxVXXTS1rHfdo4-ihM5XTZ2N3oAeEMCW5koSFSGw
+http://localhost:7074/oauth/token?grant_type=refresh_token&client_id=client_wf&client_secret=abcdef&refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiY29kZSJdLCJ1c2VyX25hbWUiOiJ6aGFuZ3NhbiIsInNjb3BlIjpbImFsbCJdLCJhdGkiOiIxOTA5OTZmMy02MDUxLTQ5ZDctOTNmYy03NmRiMDljZGVhNDkiLCJjbGllbnRJcCI6IjA6MDowOjA6MDowOjA6MSIsImV4cCI6MTY0NzY3NzQ2NiwianRpIjoiOTZiOGU5NGQtZmM3NC00M2Y2LTlmOTEtNmEwOTI3NTljMzQ5IiwiY2xpZW50X2lkIjoiY2xpZW50X3dmIn0.MaWme-EsbryfqOXuj6xI6QR1-7Js0JA5FyMZxGr5UzI
 
-![image-20211112183702059](images/image-20211112183702059.png)
-
-
+![image-20220316161709921](images/image-20220316161709921.png)
 
 
 
-### 3 资源服务器（希望访问被认证的微服务）
+
+
+### 3 资源服务器（希望访问被鉴权的微服务）
 
 在原有的微服务中改造，添加Spring Cloud Oauth相关的配置及代码，
 
-#### 3.1 无需认证的微服务，则无需改造为资源服务器
+#### 3.1 无需鉴权的微服务，则无需改造为资源服务器
 
 
 
@@ -1017,7 +1009,7 @@ public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
 
 
         // jwt令牌改造
-        resources.resourceId("autodeliver").tokenStore(tokenStore()).stateless(true);// 无状态设置
+        resources.resourceId("code").tokenStore(tokenStore()).stateless(true);// 无状态设置
     }
 
 
@@ -1036,11 +1028,9 @@ public class ResourceServerConfiger extends ResourceServerConfigurerAdapter {
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .and()
                 .authorizeRequests()
-                // autodeliver为前缀的请求需要认证
-                .antMatchers("/autodeliver/**").authenticated()
-                // codeTest为前缀的请求需要认证
-                .antMatchers("/codeTest/**").authenticated()
-                .anyRequest().permitAll();  //  其他请求不认证
+                // codeTest/test为前缀的请求需要鉴权
+                .antMatchers("/codeTest/test/**").authenticated()
+                .anyRequest().permitAll();  //  其他请求不鉴权
     }
 
 
@@ -1142,8 +1132,6 @@ public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
 
 
 
-
-
 #### 3.4 取出Oauth2的 JWT 令牌信息
 
 ```java
@@ -1174,7 +1162,7 @@ public class MyAccessTokenConvertor extends DefaultAccessTokenConverter {
 
 
 
-#### 3.5 在需要认证的接口中，获取 JWT 信息
+#### 3.5 接口中可获取 JWT 信息
 
 ```java
 package com.tangdi.controller;
@@ -1205,15 +1193,7 @@ public class TestController {
 
 
 
-#### 3.6 资源服务器验证
-
-http://localhost:8081/code/codeTest/test?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsicmVzdW1lIiwiY29kZSIsImF1dG9kZWxpdmVyIl0sInVzZXJfbmFtZSI6ImFkbWluIiwic2NvcGUiOlsiYWxsIl0sImNsaWVudElwIjoiMDowOjA6MDowOjA6MDoxIiwiZXhwIjoxNjM2NzEzMjU2LCJqdGkiOiI4NWUxZTYwYS1lZGIzLTRhNDAtOGZiYi02NTlhZTFjNjc1ZTgiLCJjbGllbnRfaWQiOiJjbGllbnRfbGFnb3UifQ.gCtHiavOTIXx30bj27cgiFQuRiCBKPWz6MkZAp-zTzg
-
-![image-20211112183847778](images/image-20211112183847778.png)
-
-
-
-#### 3.7 令牌传递(通过feign拦截器，添加token到请求头)
+#### 3.6 令牌传递(通过feign拦截器，添加token到请求头)
 
 ```java
 @Configuration
@@ -1246,11 +1226,37 @@ public class FeginInterceptor implements RequestInterceptor {
 
 
 
+#### 3.7 资源服务器api鉴权测试
 
+##### 需要鉴权的api
 
+- 带正确的token
 
+  http://localhost:7071/code/codeTest/test?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiY29kZSJdLCJ1c2VyX25hbWUiOiJ6aGFuZ3NhbiIsInNjb3BlIjpbImFsbCJdLCJjbGllbnRJcCI6IjA6MDowOjA6MDowOjA6MSIsImV4cCI6MTY0NzQyMTg2NiwianRpIjoiMTkwOTk2ZjMtNjA1MS00OWQ3LTkzZmMtNzZkYjA5Y2RlYTQ5IiwiY2xpZW50X2lkIjoiY2xpZW50X3dmIn0._u_okvRGoycE_CYsZNTioYPldumek8EQNlDUoWIBuPY
 
+  ![image-20220316162811932](images/image-20220316162811932.png)
 
+- 不带token或错误token
+
+  http://localhost:7071/code/codeTest/test
+
+  http://localhost:7071/code/codeTest/test?access_token=1111
+
+  ![image-20220316162924447](images/image-20220316162924447.png)
+
+![image-20220316162940020](images/image-20220316162940020.png)
+
+##### 无需鉴权的api
+
+- 带token
+
+  ![image-20220316163304784](images/image-20220316163304784.png)
+
+- 不带token
+
+  http://localhost:7071/code/codeTest/notToken
+
+  ![image-20220316163324268](images/image-20220316163324268.png)
 
 
 
