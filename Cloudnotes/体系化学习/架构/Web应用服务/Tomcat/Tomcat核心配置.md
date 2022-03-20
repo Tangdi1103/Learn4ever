@@ -2,11 +2,11 @@
 
 ## 注意：
 
-- Tomcat 作为服务器的配置，主要是 server.xml ⽂件的配置；
+- Tomcat 作为服务器的配置，主要是 server.xml 文件的配置；
 
 - server.xml中包含了 Servlet容器的相关配置，即 Catalina 的配置；
 
-- Xml ⽂件的讲解主要是标签的使⽤
+- Xml 文件的讲解主要是标签的使用
 
 ## 主要标签结构如下：
 
@@ -27,7 +27,7 @@
 
 
 
-## Server 标签（1级标签）
+## 1. Server 标签详情（1级标签）
 
 ```xml
 <!--port：关闭服务器的监听端⼝shutdown：关闭服务器的指令字符串-->
@@ -82,40 +82,48 @@
 </Server>
 ```
 
-### Service 标签（2级标签）
+### 1.1 Listener（2级标签）
+
+定义监听器，如系统日志监听、资源声明周期监听等
+
+
+
+### 1.2 GlobalNamingResources（2级标签）
+
+定义服务器的全局JNDI资源
+
+
+
+### 1.3 Service 标签（2级标签）
+
+该标签用于创建 Service 实例，默认使⽤ org.apache.catalina.core.StandardService。默认情况下，Tomcat 仅指定了Service 的名称， 值为 "Catalina"。Service ⼦标签为 ： Listener、Executor、Connector、Engine，
+
+- Listener 用于为Service添加生命周期监听器，
+- **Executor** 用于配置Service 共享**线程池**，
+- **Connector** 用于配置Service 包含的**连接器**，
+- **Engine** 用于配置Service中连接器对应的**Servlet 容器引擎**
 
 ```xml
-<!--
- 该标签⽤于创建 Service 实例，默认使⽤ org.apache.catalina.core.StandardService。
- 默认情况下，Tomcat 仅指定了Service 的名称， 值为 "Catalina"。
- Service ⼦标签为 ： Listener、Executor、Connector、Engine，
- 其中：
- Listener ⽤于为Service添加⽣命周期监听器，
- Executor ⽤于配置Service 共享线程池，
- Connector ⽤于配置Service 包含的链接器，
- Engine ⽤于配置Service中链接器对应的Servlet 容器引擎
--->
 <Service name="Catalina">
  ...
 </Service>
 ```
 
-#### Executor 标签（3级标签）
+#### 1.3.1 Executor 标签（3级标签）
 
-Service 并未添加共享线程池配置，可手动配置如下
+Service 共享线程池配置，可手动配置如下
+
+- **name：**线程池名称，⽤于 Connector中指定
+- namePrefix：所创建的每个线程的名称前缀，⼀个单独的线程名称为namePrefix+threadNumber
+- **minSpareThreads：核心线程数**
+-  **prestartminSpareThreads：**线程池启动是否直接初始化核心线程数的线程，默认值为false
+- **maxIdleTime：空闲线程存活时间**，默认值为60000（1分钟），单位毫秒
+- **maxThreads：**池中**最大线程数**
+- **maxQueueSize：任务阻塞队列**，当达到最大线程数并且没有线程空闲时，放入阻塞队列，**大小默认为Integer.MAX_VALUE**
+-  threadPriority：线程池中线程优先级，默认值为5，值从1到10
+- className：线程池实现类，未指定情况下，默认实现类为 org.apache.catalina.core.StandardThreadExecutor。如果想使⽤⾃定义线程池⾸先需要实现org.apache.catalina.Executor接⼝
 
 ```xml
-<!--默认情况下，Service 并未添加共享线程池配置。 如果我们想添加⼀个线程池， 可以在<Service> 下添加如下配置：
- name：线程池名称，⽤于 Connector中指定
- namePrefix：所创建的每个线程的名称前缀，⼀个单独的线程名称为namePrefix+threadNumber
- maxThreads：池中最⼤线程数
- minSpareThreads：活跃线程数，也就是核⼼池线程数，这些线程不会被销毁，会⼀直存在
- maxIdleTime：线程空闲时间，超过该时间后，空闲线程会被销毁，默认值为6000（1分钟），单位毫秒
- maxQueueSize：在被执⾏前最⼤线程排队数⽬，默认为Int的最⼤值，也就是⼴义的⽆限。除⾮特殊情况，这个值 不需要更改，				否则会有请求不会被处理的情况发⽣
- prestartminSpareThreads：启动线程池时是否启动 minSpareThreads部分线程。默认值为false，即不启动
- threadPriority：线程池中线程优先级，默认值为5，值从1到10
- className：线程池实现类，未指定情况下，默认实现类为 org.apache.catalina.core.StandardThreadExecutor。如			果想使⽤⾃定义线程池⾸先需要实现org.apache.catalina.Executor接⼝
--->
 <Executor name="commonThreadPool"
  namePrefix="thread-exec-"
  maxThreads="200"
@@ -127,28 +135,26 @@ Service 并未添加共享线程池配置，可手动配置如下
  className="org.apache.catalina.core.StandardThreadExecutor"/>
 ```
 
-#### Connector 标签（3级标签）
+#### 1.3.2 Connector 标签（3级标签）
 
-Connector 标签⽤于创建链接器实例
+Service 默认配置两个连接器，分别监听8080和8009，8080使用HTTP协议，8009使用AJP协议
 
-默认情况下，server.xml 配置了两个链接器，⼀个⽀持HTTP协议，⼀个⽀持AJP协议
-
-⼤多数情况下，我们并不需要新增链接器配置，只是根据需要对已有链接器进⾏优化
+- **port：**连接器监听的端口号
+- **protocol：**连接器使用的协议，默认为 HTTP/1.1，使用 NIO 方式进行读写
+- **connectionTimeOut：**连接器等待超时时间， 单位为 毫秒。 -1 表示不超时。
+- **redirectPort：**当前连接器不支持SSL请求，当需要SSL传输，将请求重定向到指定的HTTPS端口
+- **executor：**指定共享线程池的名称，**也可以内部自定义线程池**
+- URIEncoding：用于指定编码URI的字符编码，Tomcat8.x版本默认的编码为 UTF-8，Tomcat7.x版本默认为ISO-8859-1
+- **maxConnections：**最大连接数，CPU密集型程序不建议设置过大（如500） ; 对于IO密集型程序可以设置大些（如2000）
+- **acceptCount：连接等待队列长度，默认100**。达到最大连接数时将请求放入等待队列
 
 ```xml
-<!--
- port：端⼝号，Connector ⽤于创建服务端Socket 并进⾏监听，以等待客户端请求链接。如果该属性设置为0，Tomcat将会随		机选择⼀个可⽤的端⼝号给当前Connector使⽤
- protocol：当前Connector ⽀持的访问协议。 默认为 HTTP/1.1 ， 并采⽤⾃动切换机制选择⼀个基于 JAVA NIO 的链接			器或者基于本地APR的链接器（根据本地是否含有Tomcat的本地库判定）
- connectionTimeOut：Connector 接收链接后的等待超时时间， 单位为 毫秒。 -1 表示不超时。
- redirectPort：当前Connector不⽀持SSL请求，接收到了⼀个请求，并且也符合security-constraint 约束，需要SSL传				输，Catalina⾃动将请求重定向到指定的端⼝。
- executor：指定共享线程池的名称， 也可以通过maxThreads、minSpareThreads 等属性配置内部线程池。
- URIEncoding：⽤于指定编码URI的字符编码， Tomcat8.x版本默认的编码为 UTF-8 , Tomcat7.x版本默认为ISO-8859-1
- maxConnections：最大连接数，对于CPU要求更⾼(计算密集型)时，建议不要配置过⼤ ; 对于CPU要求不是特别⾼时，建议配				置在2000左右(受服务器性能影响)。 当然这个需要服务器硬件的⽀持
- maxThreads：最大线程数，需要根据服务器的硬件情况，进⾏⼀个合理的设置
- acceptCount：最⼤排队等待数，当最大连接数满时，进入等待队列。⼀台Tomcat的最⼤的请求处理数量，是最大连接数+最大排				队等待数
--->
-<!--org.apache.coyote.http11.Http11NioProtocol ， ⾮阻塞式 Java NIO 链接器-->
-<Connector port="8080" protocol="HTTP/1.1" connectionTimeout="20000" redirectPort="8443" />
+<!--org.apache.coyote.http11.Http11NioProtocol，即HTTP1.1协议、NIO非阻塞读写模式-->
+<!--<Connector port="8080" protocol="HTTP/1.1" connectionTimeout="20000" redirectPort="8443" />-->
+
+<!--org.apache.coyote.http11.Http11AprProtocol，即HTTP1.1协议、APR异步读写模式-->
+<Connector port="8080" protocol="org.apache.coyote.http11.Http11AprProtocol" connectionTimeout="20000" redirectPort="8443" />
+
 
 <Connector port="8009" protocol="AJP/1.3" redirectPort="8443" />
 
@@ -168,53 +174,44 @@ Connector 标签⽤于创建链接器实例
  URIEncoding="UTF-8" />
 ```
 
-#### Engine 标签（3级标签）
+#### 1.3.3 Engine 标签（3级标签）
 
 Engine 表示 Servlet 引擎
 
+- name： 用于指定Engine 的名称， 默认为Catalina
+- defaultHost：默认虚拟主机名， 当URL请求无效主机，则使用该默认虚拟主机
+
 ```xml
-<!--
-name： ⽤于指定Engine 的名称， 默认为Catalina
-defaultHost：默认使⽤的虚拟主机名称， 当客户端请求指向的主机⽆效时， 将交由默认的虚拟主机处
-理， 默认为localhost
--->
 <Engine name="Catalina" defaultHost="localhost">
  ...
 </Engine>
 ```
 
-##### **Host** 标签（4级标签）
+##### 1.3.3.1 Host 标签（4级标签）及Context 标签
 
-Host 标签⽤于配置⼀个虚拟主机，可配置多个Host，根据不同的虚拟主机访问到不同的项目
+每个Tomcat一般只配置一个Host，**每个虚拟主机的webapps下可以有多个webapp，每个webapp的context默认为webapp的war包名**
+
+- name：虚拟主机地址
+- addBase：应用项目存放目录
+
+也可以为每个webapp设置个性化的context，使用Context标签配置
+
+- docBase：应用项目或者War包路径，可以是绝对路径，也可以是相对于 Host appBase的相对路径
+- path：应用项目的context
+
+如下Host名为 `www.wangfeng.com` ， pay-server 和 order-server的 context分别为 wf1 和 wf2
 
 ```xml
 <Host name="localhost" appBase="webapps" unpackWARs="true" autoDeploy="true">
- ...
+    <!--定义访问日志命名及日志格式-->
+    <Valve className="org.apache.catalina.valves.AccessLogValve"
+           directory="logs"
+           prefix="localhost_access_log" suffix=".txt"
+           pattern="%h %l %u %t &quot;%r&quot; %s %b" />
 </Host>
 
 <Host name="www.wangfeng.com" appBase="webapps2" unpackWARs="true" autoDeploy="true">
- ...
+    <Context docBase="pay-server" path="wf1"></Context>
+    <Context docBase="order-server" path="/wf2"></Context>
 </Host>
 ```
-
-###### Context 标签（5级标签）
-
-Context 标签⽤于配置⼀个Web应⽤，如下：
-
-```xml
-<Host name="www.abc.com" appBase="webapps" unpackWARs="true" autoDeploy="true">
-<!-- docBase：Web应⽤⽬录或者War包的部署路径。可以是绝对路径，也可以是相对于 Host appBase的相对路径。
- 	path：Web应⽤的Context 路径。如果我们Host名为localhost， 则该web应⽤访问的根路径：http://localhost:8080/web3。
--->
- <Context docBase="/Users/yingdian/web_demo" path="/web3"></Context> 
- 
- <!--定义访问日志命名及日志格式-->
- <Valve className="org.apache.catalina.valves.AccessLogValve"
-directory="logs"
- prefix="localhost_access_log" suffix=".txt"
- pattern="%h %l %u %t &quot;%r&quot; %s %b" />
-</Host>
-```
-
-
-

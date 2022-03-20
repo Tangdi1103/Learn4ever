@@ -492,7 +492,7 @@ public class NIOSelectorServer {
                     int read = socketChannel.read(allocate);
                     if (read > 0) {
                         System.out.println("客户端消息:" + new String(allocate.array(), 0, read
-                                , StandardCharsets.UTF_8));
+                                                                 , StandardCharsets.UTF_8));
                         //12. 给客户端回写数据
                         socketChannel.write(ByteBuffer.wrap("没钱".getBytes(StandardCharsets.UTF_8)));
                         socketChannel.close();
