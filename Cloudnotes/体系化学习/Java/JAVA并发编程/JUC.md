@@ -61,11 +61,11 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 原理与对象锁的wait()和notify()类似
 
 - wait()方法将当前线程放入Monitor的WaitSet集合中（线程状态进入waiting）
-- notify()方法唤醒WaitSet集合中所有的线程，并放入EntryList集合中等待锁（线程状态进入blocking）
+- notify()方法唤醒WaitSet集合中的头结点，并放入EntryList集合中等待锁（线程状态进入blocking）
 
 ![image-20220304130315078](images/image-20220304130315078.png)
 
-当调用**Condition.await**的时候，将**当前线程封装到Node中，放到条件队列（单向链表）**，并且**线程状态进入Waiting状态**。通过signal唤醒的时候，就将**条件队列中的一个头部节点转到CLH等待队列中**
+当调用**Condition.await**的时候，将**当前线程封装到Node中，放到条件队列（单向链表）**，并且**线程状态进入Condition（条件阻塞）状态**。通过signal唤醒的时候，就将**条件队列中的first结点转移到CLH同步队列（同步队列）队尾**
 
 我们可以创建多个Condition，按照不同的Condition将不同条件的线程进行阻塞和唤醒。
 

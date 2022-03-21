@@ -1,14 +1,26 @@
 ## ThreadLocal
 
-#### 简介
-> ThreadLocal用途，是保存线程上下文，使多线程之间资源隔离。其无法解决共享资源的读写更新。
+- 简介
 
-#### 应用：
-> Spring的事务管理，使用ThreadLocal存储Connection，保证各dao操作都能获取同一个Connection，从而进行事务提交、回滚..
+  ThreadLocal 一般定义为成员变量，可以用来存储线程本地内存独有的数据，线程在整个调用链中都可以通过ThreadLocal 访问到这个数据。
+
+- 应用：
+
+  Spring的事务管理，使用ThreadLocal存储Connection，保证各dao操作都能获取同一个Connection，从而进行事务提交、回滚..
+
+- 原理：
+
+  每个**Thread对象**中都**绑定一个ThreadLocalMap对象**，而 **ThreadLocal**对象就是**当前线程的ThreadLocalMap的操作封装**
+
+  Thread在C++的实现为`JavaThread`，又通过`ThreadLocalStorage`对象，将自己保存到了实际操作系统线程的线程变量中。
+
+- 回收策略
+
+  ThreadLocalMap的Entry Key使用当前ThreadLocal实例并为其添加一个弱引用，而Value为需要存储的拥有强引用的对象。为什么要将ThreadLocal添加一个弱引用呢？就是为了当ThreadLocal的强引用消失时，其实例对象可以被gc回收。而value强引用对象则需要手动remove释放，或者set
 
 
-#### 原理：
-**ThreadLocal**底层使用**Thread**类的属性**ThreadLocalMap**来实现屏蔽共享资源的。
+
+
 
 ThreadLocal-set方法具体实现：
 
@@ -40,8 +52,6 @@ public T get() {
     return setInitialValue();
 }
 ```
-
-
 
 **ThreadLocalMap**底层结构使用Entry存储、获取、释放
 
