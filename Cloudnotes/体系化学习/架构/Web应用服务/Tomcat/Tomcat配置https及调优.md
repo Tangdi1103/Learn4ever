@@ -67,12 +67,14 @@ Tomcat优化从以下两个方面进行，**调整后不断压测找到最佳性
 
 JVM 调优主要是 内存分配 和 垃圾回收策略 的优化
 
+[JVM调优详情](../../../java/JVM/4.JVM性能调优及排故)
+
 #####  4.1 Tomcat中设置JVM参数
 
 ###### **在启动脚本bin/catalina.sh中 , 追加如下配置 :**
 
 ```sh
-JAVA_OPTS="-server -Xms2048m -Xmx2048m -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=512m -XX:+UseConcMarkSweepGC"
+JAVA_OPTS="-server -Xms2048m -Xmx2048m -XX:MetaspaceSize=1024m -XX:MaxMetaspaceSize=512m -XX:+UseConcMarkSweepGC"
 ```
 
 
