@@ -28,16 +28,28 @@ EXPLAIN SELECT COUNT(id)   FROM temp_orders force index (PRIMARY)；
 ##### 使用存储过程插入数据
 
 ```sql
-DELIMITER ;;
-CREATE PROCEDURE insert_student()
-    BEGIN
-	    DECLARE id INTEGER DEFAULT 112;
-	    WHILE id<=10000000 DO
-	    INSERT INTO student VALUES(id, CONCAT('name',id), RAND(100), RAND(1),date_sub(NOW(), interval id second));
-	    SET id=id+1;
-	    END WHILE;
-    END ;;
-DELIMITER ;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `update_demo`(IN count INTEGER)
+BEGIN
+    declare var int;
+    set var=0;  
+    while var<count do  
+        UPDATE demo set value=value+1 where id=1;
+        set var=var+1;  
+    end while;  
+END
+
+
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `insert_demo`(IN count INTEGER)
+BEGIN
+    declare var int;
+    set var=0;  
+    while var<count do  
+				INSERT INTO demo(value) VALUES(RAND(1));
+        set var=var+1;  
+    end while;  
+END
+
 
 //执行存储过程
 CALL insert_student();
