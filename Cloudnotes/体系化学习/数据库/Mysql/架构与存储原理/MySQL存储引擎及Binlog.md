@@ -718,115 +718,123 @@ Binlog文件中Log event结构如下图所示：
 
 - 根据记录模式和操作触发event事件生成log event（事件触发执行机制）
 
-- 将事务执行过程中产生log event写入缓冲区，每个事务线程都有一个缓冲区
+- 将事务执行过程中产生log event写入缓冲区，每个事务线程都有一个缓冲区。
 
-  Log Event保存在一个binlog_cache_mngr数据结构中，在**==该结构中有两个缓冲区==**
+  Log Event保存在一个binlog_cache_mngr数据结构中，在**==该结构中有两个缓冲区==**一个是**==stmt_cache==**，用于存放不支持事务的信息；另一个是**==trx_cache==**，用于存放支持事务的信息。
 
-  一个是**==stmt_cache==**，用于存放不支持事务的信息；
+- 事务在**提交阶段**会将产生的log event**写入到外部binlog**文件中
 
-  另一个是**==trx_cache==**，用于存放支持事务的信息。
-
-- 事务在提交阶段会将产生的log event写入到外部binlog文件中
-
-  不同事务以串行方式将log event写入binlog文件中，所以**==一个事务包含的log event信息在binlog文件中是连续的==**，中间不会插入其他事务的log event
+  不同事务以串行方式将log event写入binlog文件中，所以**==一个事务包含的log event信息在binlog文件中是连续的==**，中间不会插入其他事务的log event。
+  
+  binlog是引擎的上层功能，事务提交首先会生成binlog，然后再写redolog、undolog和刷新脏页
 
 
 
 
 
-### 5. Binlog 参数查看及相关操作
+### 5. Binlog 操作
 
-#### 5.1 参数查看
+##### 5.1 开启Binlog
 
-**`show variables like '%log_bin%'; // 查看binlog日志状态`**
+- **查看是否开启binlog功能**
 
-**`show variables like '%binlog%'; // 相关参数查看`**
+  `show variables like '%log_bin%';`
 
-**`show binary logs;//查看日志文件大小`**
+  ![image-20220327223607370](images/image-20220327223607370.png)
 
+- **开启Binlog功能**
 
+  修改my.cnf或my.ini配置文件，在[mysqld]下面增加 `log_bin=mysql_bin_log`，重启MySQL服务。
 
+  ```sh
+  #log-bin=ON
+  #log-bin-basename=mysqlbinlog
+  # 记录模式
+  binlog-format=MIXED
+  # 指定binlog名称
+  log-bin=mysqlbinlog
+  ```
 
+- **binlog相关参数查看**
 
-#### 5.2 开启及参数配置
-
-修改my.cnf或my.ini配置文件，在[mysqld]下面增加 `log_bin=mysql_bin_log`，重启MySQL服务。
-
-```
-#log-bin=ON
-#log-bin-basename=mysqlbinlog
-# 记录模式
-binlog-format=MIXED
-# 指定binlog名称
-log-bin=mysqlbinlog
-```
-
-
-
-
-
-#### 5.3 利用binlog恢复版本
-
-**使用show binlog events命令**
-
-```
-show binary logs; //等价于show master logs; 
-show master status; 
-show binlog events; 
-show binlog events in 'mysqlbinlog.000001';
-```
+  `show variables like '%binlog%';`
+  
+  ![image-20220327223818337](images/image-20220327223818337.png)
 
 
 
-**若需要将日志导出为其他格式，可使用mysqlbinlog 命令**
+##### 5.2 查看binlog文件
 
-```
-mysqlbinlog "文件名" 
-mysqlbinlog "文件名" > "test.sql"
-```
-
-
-
-**使用 binlog 恢复数据**
-
-mysqldump：定期全部备份数据库数据。
+进入mysql执行以下指令
 
 ```sh
-mysqldump -uroot -p --all-databases>all.sql #导出所有数据库，默认保存在bin文件夹下面
-mysqldump -uroot -p --databases db1 db2>dbs.sql #导出db1和db2两个数据库，默认保存在bin文件夹下面
-mysqldump -uroot -p --no-data --databases db1>s1.sql #导出db1数据库所有的表结构，默认保存在bin文件夹下面
-mysqldump -uroot -p --databases test --tables t1 t2>two.sql #导多个表
-mysqldump -h127.0.0.1 -P3306 -uroot -p  -d --databases db1 --tables users>d:/user.sql #只导表结构
-mysqldump -h127.0.0.1 -P3306 -uroot -p  -t --databases db1 --tables users>d:/user.sql #只导表数据
+show binary logs; #查看binlog文件大小 
+show master logs; #查看binlog文件大小 
+show master status; #当前正在使用哪个binlog
+show binlog events in 'mysqlbinlog.000001'; #查看binlog0001的所有log事件
 ```
 
 
 
-mysqlbinlog：可以做增量备份和恢复操作。
+##### 5.3 利用binlog恢复版本
 
-```
-//按指定时间恢复 
-mysqlbinlog --start-datetime="2020-04-25 18:00:00" --stop- datetime="2020-04-26 00:00:00" mysqlbinlog.000002 | mysql -uroot -p1234
+- 通过上述指令查看binlog文件**简洁版**
 
-//按事件位置号恢复 
-mysqlbinlog --start-position=154 --stop-position=957 mysqlbinlog.000002 | mysql -uroot -p1234
-```
+- 也可以通过**mysqlbinlog** 命令（**mysql/bin目录下的指令**）查看binlog文件**详情版**
 
+  ![image-20220327221136503](images/image-20220327221136503.png)
 
+  ```sh
+  mysqlbinlog "文件名" 
+  mysqlbinlog "文件名" > "test.sql"
+  ```
 
+- 模拟误删数据
 
+- 恢复数据
 
-#### 5.4 清理Binlog文件
+  - mysqldump：定期全部备份数据库数据。
 
-自动清理binlog，可通过以下参数设置
+    ```sh
+    mysqldump -uroot -p --all-databases>all.sql #导出所有数据库，默认保存在bin文件夹下面
+    mysqldump -uroot -p --databases db1 db2>dbs.sql #导出db1和db2两个数据库，默认保存在bin文件夹下面
+    mysqldump -uroot -p --no-data --databases db1>s1.sql #导出db1数据库所有的表结构，默认保存在bin文件夹下面
+    mysqldump -uroot -p --databases test --tables t1 t2>two.sql #导多个表
+    mysqldump -h127.0.0.1 -P3306 -uroot -p  -d --databases db1 --tables users>d:/user.sql #只导表结构
+    mysqldump -h127.0.0.1 -P3306 -uroot -p  -t --databases db1 --tables users>d:/user.sql #只导表数据
+    ```
 
-**`expire_logs_days //默认值为0表示没启用。设置为1表示超出1天binlog文件会自动删除掉`**
+  - mysqlbinlog：可以做增量备份和恢复操作。
 
-```
-purge binary logs to 'mysqlbinlog.000001'; //删除指定文件
-purge binary logs before '2020-04-28 00:00:00'; //删除指定时间之前的文件
-reset master; //清除所有文件
-```
+    通过查看Binlog文件的事件，寻找事件的起始点和终点来恢复数据，指令如下
+
+    ```sh
+    //按指定时间恢复 
+    mysqlbinlog --start-datetime="2020-04-25 18:00:00" --stop- datetime="2020-04-26 00:00:00" mysqlbinlog.000002 | mysql -uroot -p
+    
+    //按事件位置号恢复 
+    mysqlbinlog --start-position=154 --stop-position=957 mysqlbinlog.000002 | mysql -uroot -p
+    ```
+
+    
+
+  
+
+##### 5.4 清理Binlog文件
+
+- 自动清理binlog，可通过以下参数设置
+
+  **`expire_logs_days`**   默认值为0表示没启用，设置为1表示超出1天binlog文件会自动删除掉
+
+- 手动清理binlog
+
+  ```sh
+  purge binary logs to 'mysqlbinlog.000001'; //删除指定文件
+  purge binary logs before '2020-04-28 00:00:00'; //删除指定时间之前的文件
+  reset master; //清除所有文件
+  ```
+
+  
 
 
 
@@ -837,7 +845,7 @@ reset master; //清除所有文件
 - **==Redo Log 是属于InnoDB引擎功能==**，Binlog是属于**==MySQL Server自带功能，以二进制文件记录==**
 - **==Redo Log 属于物理日志==**，记录该数据页更新状态内容，**==Binlog是逻辑日志，记录更新过程==**
 - **==Redo Log== **日志是循环写，**==日志空间大小是固定==**，Binlog是追加写入，写完一个写下一个，不会覆盖使用。
-- **==Redo Log==** 作为**==服务器异常宕机后事务数据自动恢复使用==**，**Binlog** 可以作为**==主从复制和数据恢复使用==**。**==Binlog没有自动crash-safe能力。==**
+- **==Redo Log==** 作为**==crash-safe，服务器异常宕机后事务数据自动恢复使用==**，**Binlog** 可以作为**==主从复制和数据恢复使用==**。**==Binlog没有自动crash-safe能力。==**
 
 
 

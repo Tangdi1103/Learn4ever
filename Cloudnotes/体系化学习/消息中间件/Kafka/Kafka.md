@@ -16,7 +16,7 @@
 
 - 支持**分区**和**高可用**，**多个Broker体现高可用**，**每个主题多个分区体现横向扩展**
 
-  - 每个 **Topic** 主题可分为多个**Partition** 分区，横向扩展提高系统吞吐量与性能
+  - 每个 **Topic** 主题可分为多个**Partition** 分区，横向扩展提高系统吞吐量与并行处理性能
   - 每个 **Partition** 分区，又拥有多个 **Replicas** 副本，体现了高可用
 
 - **单机吞吐量达几十万的TPS**
@@ -42,7 +42,7 @@
 
 - 横向扩展
 
-  topic主题可创建多个分区，提供kafka的处理性能
+  topic主题可创建多个分区，提供kafka的**并行处理性能**
 
 - 高可用
 
@@ -484,7 +484,15 @@ public class UserDeserializer implements Deserializer<User> {
 
 ###### 分区分配
 
-- 定义需要重新分配的Topic，创建 `topics-to-move.json`
+向已经部署好的Kafka集群⾥⾯添加机器，我们需要从已经部署好的Kafka节点中复制相应的配置⽂件，然后把⾥⾯的broker id修改成全局唯⼀的，最后启动这个节点即可将它加⼊到现有Kafka集群中。
+
+需要手动将部分分区移到新添加的Kafka节点上，Kafka内部提供了相关的工具来重新分布某个topic的分区。
+
+- 在重新分布topic分区之前，我们先来看看现在topic的各个分区的分布位置：
+
+  ![image-20220327195014443](images/image-20220327195014443.png)
+
+- 假如现在有一个需要重新分区的Topic，创建 `topics-to-move.json`
 
   ```json
   {
@@ -507,7 +515,7 @@ public class UserDeserializer implements Deserializer<User> {
 
 - 将计划分配策略保存为 `topics-to-execute.json`，可按需修改策略
 
-  ![image-20220214001056180](images/image-20220214001056180.png)
+  ![image-20220327194803776](images/image-20220327194803776.png)
 
 - 执行计划
 
@@ -520,6 +528,8 @@ public class UserDeserializer implements Deserializer<User> {
   ```sh
   kafka-reassign-partitions.sh --zookeeper node1:2181/myKafka --reassignment-json-file topics-to-execute.json --verify
   ```
+
+  ![image-20220327195922986](images/image-20220327195922986.png)
 
 - 查看主题的细节
 
@@ -705,12 +715,14 @@ zkServer.sh start
 kafka-topics.sh --zookeeper localhost:2181/myKafka --list
 # 创建主题，该主题包含⼀个分区，该分区为Leader分区，它没有Follower分区副本。
 kafka-topics.sh --zookeeper localhost:2181/myKafka --create --topic topic_1 --partitions 1 --replication-factor 1
-# 创建主题，指定分区及副本的分布，逗号分隔分区，冒号左边为该分区的首领副本
+# 创建主题，指定分区及副本的分布，逗号分隔分区，冒号左边为该分区的首领副本所在brokerId（分区0（Leader在brokerId0）、分区1（Leader在brokerId1）、分区2（Leader在brokerId0））
 kafka-topics.sh --zookeeper node1:2181/myKafka --create --topic tp_demo_03 --replica-assignment "0:1,1:0,0:1"
 # 查看指定主题的详细信息
 kafka-topics.sh --zookeeper localhost:2181/myKafka --describe --topic topic_1
 # 删除指定主题
 kafka-topics.sh --zookeeper localhost:2181/myKafka --delete --topic topic_1
+# 增加分区
+kafka-topics.sh --zookeeper localhost/myKafka --alter --topic topic_1 --partitions 2
 ```
 
 ##### 1.2 kafka-console-producer.sh 生产消息
