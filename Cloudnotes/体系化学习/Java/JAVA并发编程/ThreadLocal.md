@@ -16,11 +16,9 @@
 
 - 回收策略
 
-  ThreadLocalMap的Entry Key使用当前ThreadLocal实例并为其添加一个弱引用，而Value为需要存储的拥有强引用的对象。为什么要将ThreadLocal添加一个弱引用呢？就是为了当ThreadLocal的强引用消失时，其实例对象可以被gc回收。而value强引用对象则需要手动remove释放，或者set
+  - **ThreadLocalMap的Entry Key使用当前ThreadLocal实例并为其添加一个弱引用**，而Value为需要存储的拥有强引用的对象。为什么要将ThreadLocal添加一个弱引用呢？就是为了**当ThreadLocal的强引用消失时**，其**ThreadLocal实例对象可以被gc回收**。而value强引用对象则需要手动remove释放，或者set
 
-
-
-
+那么为什么不将value设置为弱引用呢？原因很简单，我们**存储的对象**除了ThreadLocalMap的Value就没有其他的引用了，value一但是对象的弱引用，GC的时候被回收，对象就无法访问了，这显然不是我们想要的。
 
 ThreadLocal-set方法具体实现：
 
