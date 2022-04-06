@@ -157,7 +157,7 @@ InnoDB 的内存结构组成：**Buffer Pool**、**Change Buffer**、**Log Buffe
 Buffer Pool的底层采用 **三种链表管理Page页**，分别是以下三种：
 
 - **==free list==** ：表示空闲缓冲区，**管理free page**
-- **==flush list==**：表示需要刷新到磁盘的缓冲区，**管理dirty page**，内部 page按修改时间排序。脏页即存在于flush链表，也在LRU链表中，但是两种互不影响，LRU链表负责管理page的可用性和释放，而**flush链表负责管理脏页的刷盘操作**。
+- **==flush list==**：表示需要刷新到磁盘的缓冲区，**管理dirty page**，内部 page按修改时间排序。**脏页即存在于flush链表，也在LRU链表中**，但是两种互不影响，LRU链表负责管理page的可用性和释放，而**flush链表负责管理脏页的刷盘操作**。
 - **==lru list==**：表示正在使用的缓冲区，**管理clean page和dirty page**，缓冲区**以midpoint为基点**，前面链表称为**new列表区**，**存放经常访问的数据**，占**63%**；后面的链表称为**old列表区**，**存放使用较少数据**，占**37%**。
 
 ##### 1.4 lru list采用的改进型LRU淘汰算法
@@ -176,7 +176,7 @@ Buffer Pool的底层采用 **三种链表管理Page页**，分别是以下三种
 
 **建议：将innodb_buffer_pool_size设置为总内存大小的60%-80%，**
 
-innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争夺。
+**==`innodb_buffer_pool_instances`==**可以设置为多个，这样可以避免缓存争夺。
 
 
 
@@ -222,9 +222,9 @@ innodb_buffer_pool_instances可以设置为多个，这样可以避免缓存争�
 
 **`innodb_flush_log_at_trx_commit // 参数控制日志刷新行为，默认为1`**
 
-- 0： 每秒提交 Redo buffffer ->OS cache -> flflush cache to disk，可能丢失一秒内的事务数据。由后台Master线程每隔 1秒执行一次操作。
-- 1：每次事务提交执行 Redo Buffffer -> OS cache -> flflush cache to disk，最安全，性能最差的方式。
-- 2：每次事务提交执行 Redo Buffffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flflush cache to disk 的操作。
+- 0： 每秒提交 Redo buffer ->OS cache -> flush cache to disk，**可能丢失 1S 的事务数据**。由**后台Master -》 log thread线程每隔 1秒**执行一次操作。
+- 1：每次事务提交执行 Redo Buffer -> OS cache -> flush cache to disk，最安全，性能最差的方式。
+- 2：每次事务提交执行 Redo Buffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flush cache to disk 的操作。
 
 一般建议选择取值2，因为 MySQL 挂了数据没有损失，整个服务器挂了才会损失1秒的事务提交数据
 
@@ -511,7 +511,48 @@ IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==*
 
 
 
-## 四、Undo Log
+## 四、MTR（日志管理机制）
+
+### 1. MTR
+
+**MTR（mini-transaction）：最小原子操作**，一个**事务**可以有**多个 MTR 组成**，每个**MTR**都会**生成一个或多个log**。
+
+不管更新多少行，一个事务都会有多个mtr。因为mysql的更新要有undo，undo与数据记录不在同一个段中。undo也会有对应的redo和mtr
+
+### 2. 作用
+
+#### 2.1 WAL（Write Ahead Log，预写日志）
+
+- 保证事务**原子性**、持久性、**crash-safe**，即将脏页数据刷盘之前，需要先将log buffer的数据刷入盘。
+
+  - **保证原子性**
+
+    在事务执行时，undo log
+
+  - **保证持久性/crash-safe**
+
+    在事务提交时，redo log先于脏页刷盘
+
+- 为什么采用后台线程异步刷盘脏页到磁盘，而不是提交的时候刷入？(**减少磁盘I/O**)
+
+
+  首先，如果所有事务都是在**提交的时候才进行刷盘，对于内存空间来说压力很大**，其次提交时**大量的随机IO也大大影响性能**。所以InnoDB采用**后台线程异步刷盘**，然后通过WAL机制的**undo log来保证数据可以正常被回滚**或者当**事务提交但脏页未来得及刷盘而宕机时通过redo log恢复数据**。
+
+  
+
+#### 2.2 force-log-at-commit
+
+例如执行一个单行写操作，至少会产生两个MTR：一个是保证crash-safe的[redo log](#六、Redo Log)，这里是一个MTR。另一个时保证MVCC和事务回滚的[undo log](#五、Undo Log)，undo log写入undo page，这需要一个MTR
+
+
+
+
+
+
+
+
+
+## 五、Undo Log
 
 ### 1. Undo Log 回顾
 
@@ -567,7 +608,7 @@ Undo Log 在 InnoDB 存储引擎中用来==实现多版本并发控制==。事�
 
 
 
-## 五、Redo Log
+## 六、Redo Log
 
 ### 1. Redo Log 回顾
 
@@ -646,7 +687,7 @@ Redo Log 文件内容是以顺序循环的方式写入文件，写满时则回�
 
 
 
-## 六、Binary Log
+## 七、Binary Log
 
 ### 1. Binlog 简介
 
@@ -840,7 +881,7 @@ show binlog events in 'mysqlbinlog.000001'; #查看binlog0001的所有log事件
 
 
 
-## 七、Redo Log 和 Binary Log区别
+## 八、Redo Log 和 Binary Log区别
 
 - **==Redo Log 是属于InnoDB引擎功能==**，Binlog是属于**==MySQL Server自带功能，以二进制文件记录==**
 - **==Redo Log 属于物理日志==**，记录该数据页更新状态内容，**==Binlog是逻辑日志，记录更新过程==**
