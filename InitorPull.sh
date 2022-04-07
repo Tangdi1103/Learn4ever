@@ -1,8 +1,9 @@
 # 报错则退出
 set -o errexit
 
-githuburl=https://github.com/Tangdi1103/Learn4ever.git
+githuburl=git@github.com:Tangdi1103/Learn4ever.git
 giteeurl=https://gitee.com/Tangdi1103/Learn4ever.git
+
 
 # 操作类型，init和pull区别在于，脚本执行init时不能在脚本当前目录创建云笔记版本库
 read -p "请输入操作类型(init/pull)：" operation
