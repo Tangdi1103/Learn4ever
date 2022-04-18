@@ -93,7 +93,7 @@
 #### Hot key 处理
 
 - 使用**多级缓存（本地缓存** -> 分布式缓存 -> 数据库，数据不要求强一致性）
-- 使用**Redis集群架构（分片）**
+- **对Hot Key分割**，并使用**Redis集群分片架构**
 - 客户端对热点数据访问的**限流熔断保护措施**，每个服务实例每秒最多请求缓存集群读操作不超过 400 次，一旦超过则熔断降级（根据业务是否可以降级使用）
 
 **总结：**自研热点key发现服务，同时做一个热点key请求**限流熔断保护措施** ，热点**迁移到本地缓存后**，**放开限流**
@@ -134,9 +134,9 @@
 
 任意时刻，只能有一个客户端获取锁，不能同时有两个客户端获取到锁。
 
-##### 锁超时
+##### 锁过期
 
-当锁占有的客户端宕机，锁可以超时释放，防止死锁
+当锁占有的客户端宕机，锁可以过期释放，防止死锁
 
 ##### 同一性
 
@@ -148,7 +148,11 @@
 
 ##### 支持自旋等待锁
 
-需要支持等待所的场景
+需要支持等待锁的场景
+
+##### 自动续约
+
+当业务处理还没结束，锁过期释放了，则会造成其他线程获取锁。所以需要自动续约
 
 
 
@@ -264,7 +268,7 @@ public boolean getLock(String lockKey,String requestId,int expireTime) {
 
 #### 3.2 释放锁
 
-**推荐使用lua脚本实现**，切勿先get然后del，要保证该操作的原子性，防止误删（由于并发get和del的不是同一个key）
+**推荐使用lua脚本实现**，切勿先get然后del，要保证该操作的原子性，防止误删（比如客户端A加锁，然后A在执 del 之前，锁突然过期了，此时客户端B尝试加锁成功，然后客户端A再执行del()方法，则将客 户端B的锁给解除了）
 
 ```java
 public static boolean releaseLock(String lockKey, String requestId) {
@@ -418,15 +422,13 @@ public class RedisDistributedLock {
 
 
 
-### 4. Red lock
+### 4. RedLock
 
-为了解决数据一致性问题，Redis作者提出了红锁方案：搭建RedisCluster，在所有Redis Master节点申请锁，当有超过半数成功的，则表示加锁成功。
+为了解决分布式锁一致性问题，Redis作者提出了红锁方案：搭建RedisCluster，在所有Redis Master节点申请锁，当有超过半数成功的，则表示加锁成功。
 
-![image-20220117233331483](images/image-20220117233331483.png)
+**[Redisson中](#6. Redisson（强烈推荐）)有关于RedLock的实现**
 
-
-
-
+![image-20220418180320799](images/image-20220418180320799.png)
 
 ### 5. Lua脚本
 
@@ -443,6 +445,8 @@ result = 1
 end 
 return result
 ```
+
+
 
 
 
@@ -514,6 +518,10 @@ Redisson在**基于NIO的Netty框架上，生产环境使用分布式锁**
           RLock mylock = redisson.getLock(key); 
           //加锁，并且设置锁过期时间3秒，防止死锁的产生 uuid+threadId 
           mylock.lock(2,3,TimeUtil.SECOND); 
+          // 阻塞获取锁 
+          // mylock.lock();
+          // 非阻塞获取锁
+          // mylock.tryLock();
           //加锁成功 
           return true;
       }
@@ -594,6 +602,7 @@ Redisson的原理图
 - 阻塞等待锁
 - 自动续期
 - 同一性
+- 可重入
 
 
 
@@ -601,9 +610,9 @@ Redisson的原理图
 
 ### 7. 与ZK分布式锁的对比
 
-Redis是AP模型，Redis主节点返回客户端响应后，可能才进行命令传播到从节点。所以如果要保证分布式锁的一致性，那么Redis其实很难满足。**不过Redis有个RedLock的概念，搭建RedisCluster，在所有Redis Master节点申请锁，当有超过半数成功的，则表示加锁成功。**
+**Redis是AP模型**，Redis Master执行命令后直接返回结果给客户端，之后才同步给Slaver（增量同步/命令传播到Slaver），Redis集群无法保证分布式锁的一致性。**不过Redis有个RedLock的概念，搭建RedisCluster，在所有Redis Master节点申请锁，当有超过半数成功的，则表示加锁成功。**
 
-ZK是CP模型，当ZK集群进行Leader选举时，无法对外服务。或者ZK集群有一半以上节点挂了，整个ZK集群都停止对外服务。
+**ZK是CP模型**，当ZK集群接收到指令后，由Leader统一发号施令，当一半以上的Fllower执行并提交事务后，Leader才返回响应给客户端。极大的保证了分布式锁的一致性，但无法保证可用性。
 
 ![image-20220118003625116](images/image-20220118003625116.png)
 
