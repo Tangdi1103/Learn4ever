@@ -49,9 +49,9 @@
   每个主题的每个分区，都可有多个副本，分别在不同的broker上
 
 - broker接收生产者的消息，为消息设置偏移量，并将消息持久化到磁盘，做出了如下优化
-  - 零拷贝
-  - 顺序读写
-  - Linux 页缓存
+  - 零拷贝：transfer.to()
+  - 顺序读写：使用文件系统存储数据，**创建文件直接占用固定的磁盘空间**（**保证连续的磁盘空间**），提高了数据写入性能
+  - 页缓存：mmp(Memory map)
   
 - 消费者定义一个消费组，消费组保证每个分区只会被一个消费者消费，并且消费时会移动偏移量，保证消息不被重复消费
 
@@ -404,11 +404,13 @@ public class UserDeserializer implements Deserializer<User> {
 
 ###### 偏移量管理
 
-- **自动提交**
+- **自动提交（默认）**
 
-  默认为自动提交，间隔为5S。当提交Offset后的3S发生再均衡，Offset还未提交，则该3S的数据会被重复消费
+  默认配置 enable.auto.commit = true，间隔为5S自动提交
 
-- **手动异步+同步提交（推荐）**
+  ⾃动提交**不会出现消息丢失，但可能会会 重复消费**，例如：当提交Offset后的3S发生再均衡，Offset还未提交，则该3S的数据会被重复消费。所以在使用offset自动提交时，最好要**保证消费的幂等性**
+
+- **手动异步+同步提交**
 
   ```java
   try {
@@ -440,7 +442,7 @@ public class UserDeserializer implements Deserializer<User> {
 
 
 
-##### 4.3 Partition-分区、Replicas-副本
+##### 4.3 Partition-分区、Replicas-副本（一致性的保障）
 
 ###### 副本机制
 
