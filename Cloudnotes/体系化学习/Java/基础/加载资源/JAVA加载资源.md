@@ -9,9 +9,9 @@
 ```java
 InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("application.xml");
 
-URL url = Thread.currentThread().getContextClassLoader().getResources("com/tangdi");
+URL url = Thread.currentThread().getContextClassLoader().getResource("com/tangdi");
 
-Enumeration<URL> urls = Thread.currentThread().getContextClassLoader().getResource("com/tangdi");
+List<URL> urls = Collections.list(Thread.currentThread().getContextClassLoader().getResources("com/tangdi"));
 ```
 
 线程上下文类加载器默认使用的是AppClassloader，而AppClassloader只加载classpath路径下的资源，所以该方式默认加载的路径就在classpath下
