@@ -13,7 +13,94 @@
 
 
 
-#### 2. Service 代码
+#### 2. Boot类
+
+```java
+package com.tangdi.storage;
+
+import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+@SpringBootApplication
+@EnableDiscoveryClient
+@MapperScan(basePackages = {"com.lagou.storage.mapper"}) // mybatis包扫描
+public class StorageApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(StorageApplication.class, args);
+    }
+
+}
+```
+
+
+
+
+
+
+
+#### 3. Entity
+
+```java
+package com.tandi.storage.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+@Data
+@TableName("t_storage")
+public class Storage {
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;//库存ID
+    @TableField
+    private String goodsId;//商品ID
+    @TableField
+    private Integer storage;//库存量
+
+    @TableField
+    private Integer frozenStorage;//冻结库存
+
+}
+```
+
+
+
+
+
+
+
+
+
+#### 4. Mapper
+
+```java
+package com.tangdi.storage.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.tangdi.storage.entity.Storage;
+import org.apache.ibatis.annotations.Mapper;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface StorageMapper extends BaseMapper<Storage> {
+    
+    public void updateXxxx();
+}
+```
+
+
+
+
+
+#### 5. Service 代码
+
+##### 5.1 interface
 
 接口继承 `com.baomidou.mybatisplus.extension.service.IService`
 
@@ -103,6 +190,8 @@ public interface OrderService extends IService<Order> {
 ```
 
 
+
+##### 5.2 实现类
 
 实现类继承 `com.baomidou.mybatisplus.extension.service.impl.ServiceImpl`
 

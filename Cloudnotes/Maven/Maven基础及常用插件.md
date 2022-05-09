@@ -14,7 +14,35 @@ maven默认的生命周期包括以下阶段（有关生命周期阶段的完整
 
 默认的生命周期按顺序执行以上所有阶段。首先验证项目，然后编译源代码，测试运行这些源代码，打包二进制文件（例如 jar），针对该项目运行集成测试包，验证集成测试，将经过验证的包安装到本地存储库，然后将安装的包部署到远程仓库。
 
-## 二、Maven插件
+
+
+## 二、包路径
+
+**使用IDEA工具进行本地编译时**
+
+`classpath`的路径取决于项目的构建工具，是`gradle`还是`maven`。
+
+`gradle`得到的classpath路径为`/build/classes`
+`maven`得到的classpath路径为`/target/classes`
+
+**当项目集成为一个文件包时，如JAR、WAR文件**
+
+`classpath`的路径取决于打包的插件
+
+`maven-shade-plugin`得到的classpath即为JAR包里的根路径，可通过classLoader.getResource进行验证
+
+![image-20210710173331024](images/image-20210710173331024.png)
+
+`spring-boot-maven-plugin`得到的classpath在JAR包的BOOT-INF/classes中，可通过classLoader.getResource进行验证
+
+![image-20210710173509028](images/image-20210710173509028.png)
+
+
+
+
+
+
+## 三、Maven插件
 
 [详情查看官网文档](https://maven.apache.org/plugins/index.html#)
 
