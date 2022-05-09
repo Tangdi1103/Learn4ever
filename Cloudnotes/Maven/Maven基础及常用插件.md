@@ -16,6 +16,29 @@ maven默认的生命周期包括以下阶段（有关生命周期阶段的完整
 
 
 
+### scope
+
+- **compile：**compile是scope默认的值，需要参与项目编译阶段、单元测试、运行阶段。打包时**被导入lib。**
+
+- **provided：**仅参与项目编译和单元测试，打包时**不会被导入lib。**
+- **test：**仅参与测试，打包时**不会被导入lib。**
+
+- **system：**与provided相同，区别在于system不会从远程私库拉取，而是到本地指定仓库获取，需要指定**systemPath**属性
+
+- **runntime：**仅参与运行阶段，打包时**被导入lib。**
+
+
+
+### optional
+
+- **true：**其他项目依赖此项目也不会进行传递，只能本项目使用。
+
+  项目A --> 项目B --> 项目C，当B引入C使用 `<optional>true</optional>`，则A不会引入C
+
+- **false：**默认为false
+
+
+
 ## 二、包路径
 
 **使用IDEA工具进行本地编译时**
