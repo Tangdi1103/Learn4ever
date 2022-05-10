@@ -62,6 +62,20 @@ Redis4.0在2017年7月发布，主要内容：新增缓存剔除算法：LFU（L
 
 
 
+### 3. 优势
+
+##### 3.1 读写峰值
+
+Redis采用的是**基于内存**的采用的是**单进程单线程模型的 KV 数据库**，由**C语言**编写，官方提供的数据是可以达到**110000+的QPS**，**80000的写**
+
+##### 3.2 key数量
+
+官方说Redis**单例能处理key：2.5亿个**，一个key或是**value大小最大是512M**
+
+##### 3.3 淘汰策略
+
+设置**缓存最大值 `maxmemory` **及缓存**淘汰策略 `maxmemory-policy`**
+
 
 
 
@@ -433,100 +447,7 @@ redisTemplate.opsForValue().set(key,value,20, TimeUnit.SECONDS);
 
 
 
-## 四、Redis 主要性能监控指标
-
-通过**`info`** 查看状态
-
-```sh
-connected_clients:68 #连接的客户端数量 
-used_memory:433264648 # 已使用的内存大小
-used_memory_rss_human:847.62M #系统给redis分配的内存 
-used_memory_peak_human:794.42M #内存使用的峰值大小 
-total_connections_received:619104 #服务器已接受的连接请求数量 
-instantaneous_ops_per_sec:1159 #服务器每秒钟执行的命令数量 
-qps instantaneous_input_kbps:55.85 #redis网络入口kps 
-instantaneous_output_kbps:3553.89 #redis网络出口kps 
-rejected_connections:0 #因为最大客户端数量限制而被拒绝的连接请求数量 
-keyspace_hits:1000 #缓存命中 
-keyspace_misses:20 #缓存未命中 
-expired_keys:0 #因为过期而被自动删除的数据库键数量 
-evicted_keys:0 #因为最大内存容量限制而被驱逐（evict）的键数量 
-keyspace_hits:0 #查找数据库键成功的次数 
-keyspace_misses:0 #查找数据库键失败的次数
-```
-
-
-
-
-
-## 五、Redis 使用手册
-
-### 1. 键值设计
-
-key：使用业务名或者数据库名作为前缀，使用冒号分隔，切勿使用空格、斜线等转义字符。正例：order:16424869562100001
-
-value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过5000个
-
-### 2. 命令规范
-
-- hgetall、lrange、smembers、zrange、sinter这些命令，可使用**hscan、sscan、zscan**代替
-- **禁止线上使用keys、flushall、flushdb等**
-- 使用批量操作提高效率，如原生命令的hmset，pipeline的管道查询
-- 事务，Redis集群对于事务的使用，要求所有的key必须在同个 **slot** 上（可以使用hashtag功能解决）
-
-### 3. 客户端使用
-
-- 避免多个应用使用一个Redis实例，对庞大的业务拆分成多个服务
-
-- 使用连接池
-
-  ![image-20220303194702889](images/image-20220303194702889.png)
-
-- 熔断功能
-
-- 合理的加密，可以使用SSL加密访问（阿里云Redis支持）
-
-- 淘汰策略
-
-
-
-### 4. 相关工具
-
-- 1、数据同步
-
-  redis间数据同步可以使用：redis-port
-
-- 2、big key搜索
-
-  redis大key搜索工具
-
-- 3、热点key寻找
-
-  内部实现使用monitor，所以建议短时间使用facebook的redis-faina阿里云Redis已经在内核层面解决热点key问题
-
-### 5. 删除bigkey
-
-redis 4.0已经支持key的异步删除
-
-- Hash删除: hscan + hdel
-
-  ![image-20220118143413809](images/image-20220118143413809.png)
-
-- List删除: ltrim
-
-  ![image-20220118143424208](images/image-20220118143424208.png)
-
-- Set删除: sscan + srem
-
-  ![image-20220118143435169](images/image-20220118143435169.png)
-
-- SortedSet删除: zscan + zrem
-
-  ![image-20220118143448657](images/image-20220118143448657.png)
-
-
-
-## 六、Redis 数据类型
+## 四、Redis 数据类型
 
 ### 1. Redis Key-Value 简述
 

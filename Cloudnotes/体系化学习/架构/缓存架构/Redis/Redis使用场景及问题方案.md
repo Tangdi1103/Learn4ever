@@ -102,23 +102,57 @@
 
 ### 6. Big key（value非常大的key）
 
+#### 常见场景
+
+- 热门话题下的讨论
+
+- 大V的粉丝列表
+
+- 序列化后的图片
+
+- 没有及时处理的垃圾数据
+
 #### Big key 影响
 
-- 占用内存大
-- 影响Redis性能，主从复制久
-- big key删除时会导致主进程长时间阻塞（惰性删除或者主动删除）
+- **占用内存大**
+- 影响Redis性能，**主从复制久**
+- big key**删除时**会导致主进程**长时间阻塞**（惰性删除或者主动删除）
 
 #### Big key 发现
 
-- 通过`redis-cli --bigkeys`命令
-
-- 通过rdbtools分析rdb生成csv文件，再导入MySQL或其他数据库中进行分析统计，根据size_in_bytes统计bigkey
+- **（性能较慢）**通过**`redis-cli --bigkeys`**命令，当前Redis实例的5种数据类型(String、hash、list、set、zset)的最大key。
+- 通过rdbtools分析rdb生成csv文件，再导入MySQL或其他数据库中进行分析统计，**根据size_in_bytes统计bigkey**
 
 #### Big key 处理
 
-- 拆分成多个key存储
-- 实在无法拆分，则使用MongoDB存储，或者缓存到边缘缓存CDN
-- 删除big key使用 **`unlink`**命令，这是一个异步的删除命令（redis 4.0已经支持key的异步删除）
+- 禁止使用del删除（同步阻塞）big key。推荐使用异步删除 **`UNLINK命令`**（redis 4.0已经支持的异步删除）
+
+  ```sh
+  redis> SET key1 "Hello" 
+  "OK" 
+  redis> SET key2 "World" 
+  "OK" 
+  redis> UNLINK key1 key2 key3 
+  (integer) 2
+  ```
+
+  
+
+- hash、set、zset、list的big key，可将这些元素分拆。（string类型也同理）。
+
+  ```
+  以hash类型举例来说，对于field过多的场景，可以根据field进行hash取模，生成一个新的key，例如：
+  hash_key:{filed1:value, filed2:value, filed3:value ...}
+  
+  可以hash取模后形成如下key:value形式：
+  hash_key:1:{filed1:value}
+  hash_key:2:{filed2:value}
+  hash_key:3:{filed3:value} 
+  ... 
+  取模后，将原先单个key分成多个key，每个key filed个数为原先的1/N
+  ```
+
+- 实在无法拆分，则使用MongoDB存储，或者缓存到边缘缓存CDN。
 
 
 

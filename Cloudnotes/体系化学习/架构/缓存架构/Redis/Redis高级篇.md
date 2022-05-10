@@ -441,3 +441,115 @@ grafana、prometheus以及redis_exporter
 - **Prometheus** 是一个开源的服务监控系统，它通过HTTP协议从远程的机器收集数据并存储在本地的时序数据库上
 - **redis_exporter** 为Prometheus提供了redis指标的导出，配合Prometheus以及grafana进行可视化及监控
 
+
+
+
+
+## 七、Redis 主要性能监控指标
+
+通过**`info`** 查看状态
+
+```sh
+connected_clients:68 #连接的客户端数量 
+used_memory:433264648 # 已使用的内存大小
+used_memory_rss_human:847.62M #系统给redis分配的内存 
+used_memory_peak_human:794.42M #内存使用的峰值大小 
+total_connections_received:619104 #服务器已接受的连接请求数量 
+instantaneous_ops_per_sec:1159 #服务器每秒钟执行的命令数量 
+qps instantaneous_input_kbps:55.85 #redis网络入口kps 
+instantaneous_output_kbps:3553.89 #redis网络出口kps 
+rejected_connections:0 #因为最大客户端数量限制而被拒绝的连接请求数量 
+keyspace_hits:1000 #缓存命中 
+keyspace_misses:20 #缓存未命中 
+expired_keys:0 #因为过期而被自动删除的数据库键数量 
+evicted_keys:0 #因为最大内存容量限制而被驱逐（evict）的键数量 
+keyspace_hits:0 #查找数据库键成功的次数 
+keyspace_misses:0 #查找数据库键失败的次数
+```
+
+
+
+
+
+## 八、Redis 使用手册
+
+### 1. 键值设计
+
+key：使用业务名或者数据库名作为前缀，使用冒号分隔，切勿使用空格、斜线等转义字符。正例：order:16424869562100001
+
+value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过5000个
+
+### 2. 命令规范
+
+##### 2.1 禁止使用
+
+- 尽量**不使用 `hgetall` 、`lrange`、`smembers`、`zrange`、`sinter`** 这些命令，可使用**`hscan`、`sscan`、`zscan`**代替
+- **禁止线上使用keys、flushall、flushdb等**
+
+##### 2.2 不推荐使用
+
+- Redis事务功能较弱，有的Case无法回滚，且Redis集群对事务操作的key要求在同一个slot槽上（可以使用hashtag功能解决）
+
+##### 2.3 推荐使用
+
+- 使用**`hscan`、`sscan`、`zscan`**代替hgetall、lrange。。。
+
+- 使用批量操作提高效率，如原生命令的 **`hmset`**、**`hmget`**、pipeline的管道查询
+
+##### 2.4 集群使用Lua注意事项
+
+- 所有**key都应该由 KEYS 数组来传递**，redis.call/pcall 里面调用的redis命令，key的位置，必须是**KEYS array**, 否则直接返回error，"-ERR bad lua script for redis cluster, all the keys that the scriptuses should be passed using the KEYS arrayrn" 
+- 所有key，必须在1个slot上
+- 必要情况下使用monitor命令时，要注意不要长时间使用。
+
+
+
+### 3. 客户端使用
+
+- 避免多个应用使用一个Redis实例，对庞大的业务拆分成多个服务
+
+- 使用连接池
+
+  ![image-20220303194702889](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220303194702889.png)
+
+- 熔断功能
+
+- 合理的加密，可以使用SSL加密访问（阿里云Redis支持）
+
+- 淘汰策略
+
+
+
+### 4. 相关工具
+
+- 1、数据同步
+
+  redis间数据同步可以使用：redis-port
+
+- 2、big key搜索
+
+  redis大key搜索工具
+
+- 3、热点key寻找
+
+  内部实现使用monitor，所以建议短时间使用facebook的redis-faina阿里云Redis已经在内核层面解决热点key问题
+
+### 5. 删除bigkey
+
+- 使用redis 4.0 的异步删除命令`UNLINK key1 key2..`
+
+- Hash删除: hscan + hdel
+
+  ![image-20220118143413809](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220118143413809.png)
+
+- List删除: ltrim
+
+  ![image-20220118143424208](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220118143424208.png)
+
+- Set删除: sscan + srem
+
+  ![image-20220118143435169](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220118143435169.png)
+
+- SortedSet删除: zscan + zrem
+
+  ![image-20220118143448657](images/image-20220118143448657.png)
