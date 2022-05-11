@@ -101,27 +101,69 @@ MySQL官方对索引定义：是存储引擎 用于**==快速查找记录的一�
 
 ![image-20210914113607692](images/image-20210914113607692.png)
 
-- 全文索引必须在字符串、文本字段上建立。
+- 全文索引必须在char、varchar、text字段上建立。
 
 - ft_boolean_syntax
 
-  全文索引字段值按 空格、加、减等syntax符号进行切词处理，然后对切词后的内容匹配
+  全文索引字段值**按 空格、加、减**等**syntax符号**进行**切词**处理，然后对切词后的内容匹配。例如b+aaa，切分成b和aaa
 
   ```sql
   select * from user where match(name) against('aaa');
   ```
 
-- 字段对应的值在最小字符和最大字符之间才有效。（innodb：3-84，myisam：4-84）
+- **innodb_ft_min_token_size**
 
-- 全文索引匹配查询，==默认使用的是等值匹配==，例如a匹配a，不会匹配ab,ac。如果想==模糊匹配可以在布尔模式下搜索a*==
+  全文索引字段对应的值最小字符数，默认3
+
+- **innodb_ft_max_token_size**
+
+  全文索引字段对应的值最大字符数，默认84
+
+- **ft_min_word_len**
+
+  最小搜索长度，默认为4
+
+- ft_max_word_len
+
+  最大搜索长度，默认为84
+
+- **ngram_token_size，默认2~10**
+
+  ngram解析器令牌长度，即against()中字符串切分的最小字符长度
+
+- **ngram解析器**
+
+  5.6之后MySQL自带**ngram**解析器，可解析中日韩三国文字，如果不使用ngram解析器，则MySQL默认使用空格与符号作为分隔符。**默认不开启，需手动指定**
+
+  ![image-20220511163412795](images/image-20220511163412795.png)
+
+
+
+#### 5.2 查询模式
+
+- **等值模式（IN NATURAL LANGUAGE MODE，默认模式）**
 
   ```sql
-  select * from user where match(name) against('a*' in boolean mode);
+  SELECT * FROM user WHERE MATCH(userName) AGAINST ('张三');
+  #如果最小搜索长度为1的话，则查找包含‘张’、‘三’、‘张三’的记录；与布尔搜索模式中的‘+张三’结果相同
   ```
 
+- **布尔搜索模式（IN BOOLEAN MODE）**
 
+  - **`+`**：必须包含此字符串。
+  - **`-`**：必须不包含此字符串。
+  - **`“美丽”`**：双引号内作为整体不能拆词（前提是字段值有分词符）
+  - **`>`**：提高该词的相关性，查询的结果靠前。
+  - **`<`**：降低该词的相关性，查询的结果靠后。
+  - **`*`**：通配符，只能接在词后面。（字段值无需分词符）
 
-
+  ```sql
+  SELECT * FROM user WHERE MATCH(userName) AGAINST('a*' IN BOOLEAN MODE);#查询a开头的记录
+  SELECT * FROM user WHERE MATCH(userName) AGAINST ('+“美丽” & +“精神”' IN BOOLEAN MODE);#查询有‘美丽’又有‘精神’的记录
+  SELECT * FROM user WHERE MATCH(userName) AGAINST ('+国家* & +企业*' IN BOOLEAN MODE);#查询有国家和企业的记录
+  ```
+  
+  
 
 
 
