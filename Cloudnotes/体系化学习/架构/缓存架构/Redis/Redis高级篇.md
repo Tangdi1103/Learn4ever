@@ -510,7 +510,7 @@ value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过
 
 - 使用连接池
 
-  ![image-20220303194702889](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220303194702889.png)
+  ![image-20220303194702889](images/image-20220303194702889.png)
 
 - 熔断功能
 
@@ -540,15 +540,15 @@ value：String类型的大小不超过10KB，l、h、s、zs这些元素不超过
 
 - Hash删除: hscan + hdel
 
-  ![image-20220118143413809](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220118143413809.png)
+  ![image-20220118143413809](images/image-20220118143413809.png)
 
 - List删除: ltrim
 
-  ![image-20220118143424208](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220118143424208.png)
+  ![image-20220118143424208](images/image-20220118143424208.png)
 
 - Set删除: sscan + srem
 
-  ![image-20220118143435169](D:\Wanfeng\Learn4ever\Cloudnotes\体系化学习\架构\缓存架构\Redis\images\image-20220118143435169.png)
+  ![image-20220118143435169](images/image-20220118143435169.png)
 
 - SortedSet删除: zscan + zrem
 
