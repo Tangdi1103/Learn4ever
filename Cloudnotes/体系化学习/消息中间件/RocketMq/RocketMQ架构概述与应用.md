@@ -26,23 +26,38 @@
 
  
 
-### 部署架构
+### 角色及部署架构
 
+#### 1. 角色
 
+- **Producer**：消息的发送者，比喻为发信者
+- **Consumer**：消息的接收者，比喻为收信者
+- **Broker**：存储及传输者，比喻为邮局
+- **NameServer**：Broker、Producer、Consumer的注册及管理中心，记录每个broker状态、有哪些topic、有哪些messagequeue、ip、port。比喻为各邮局的管理机构
+- **Topic**：消息主题，区分消息的类型。一个发送者可以发消息给一个或多个Topic；一个接收者可以订阅一个或多个Topic。
+- **Message Queue**：Topic分区，用于并行发送、接收消息。**等同于Kafka的 Partition分区**。
 
-### 核心概念
+#### 2. 部署架构
 
-#### 1. nameserver
+![image-20220512234842182](images/image-20220512234842182.png)
 
-类似注册中心，记录每个broker状态，broker上有哪些topic、有哪些messagequeue、ip、port
+##### 各节点职责
 
-#### 2. topic
+- NameServer是一个几乎无状态节点，可集群部署，节点之间无任何信息同步。
 
-#### 3. messagequeue
+- Broker部署相对复杂，Broker分为Master与Slave。Master与Slave 的对应**关系通过指定相同的BrokerName，不同的BrokerId来定义**，BrokerId为**0表示Master**，非0表示Slave，**一组BrokerName的Master和Slaver构成一个Broker组**，每个Broker组只有一个Master，一个或多个Slaver。**每个Broker与NameServer集群中的所有节点建立长连接**，定时**注册Topic信息到所有NameServer**。 注意：当前RocketMQ版本在部署架构上支持一Master多Slave，但**只有BrokerId=1的从服务器才会参与消息的读负载**。
 
-#### 4. producer
+- Producer**与NameServer**集群中的其中一个节点（随机选择）**建立长连接**，**定期从NameServer获取Topic路由信息**，并向提供Topic 服务的**Master Broker建立长连接**，且**定时向Master Broker发送心跳**。Producer完全无状态，可集群部署。
 
-#### 5. consumer
+- Consumer**与NameServer**集群中的其中一个节点（随机选择）**建立长连接**，**定期从NameServer获取Topic路由信息**，并向提供Topic服务的**Master、Slave建立长连接**，且定时向Master、Slave发送心跳。**Consumer既可以从Master订阅消息，也可以从Slave订阅消息**，消费者在向Master拉取消息时，Master服务器会根据拉取偏移量与最大偏移量的距离（判断是否读老消息，产生读I/O），以及从服务器是否可读等因素建议下一次是从Master还 是Slave拉取。
+
+##### 执行流程
+
+1. 启动NameServer，**NameServer起来后监听端口**，等待Broker、Producer、Consumer连上来，相当于一个路由控制中心。
+2. **Broker启动，跟所有的NameServer保持长连接**，定时发送心跳包。**心跳包中包含当前Broker信息(IP+端口等)以及存储所有Topic信息**。注册成功后，NameServer集群中就**有Topic跟Broker的映射关系**。
+3. 收发消息前，先创建Topic，创建Topic时需要指定该Topic要存储在哪些Broker上，也可以在**发送消息时自动创建Topic**。 
+4. **Producer发送消息**，启动时先**跟NameServer集群中的其中一台建立长连接**，并从NameServer中获取当前发送的**Topic存在哪些Broker上**，**轮询从队列列表中选择一个队列**，然后**与队列所在的Broker建立长连接从而向Broker发消息**。
+5. Consumer跟Producer类似，跟其中一台NameServer建立长连接，获取当前**订阅Topic存在哪些Broker上**，然后直接跟Broker建立连接通道，开始消费消息
 
 
 
