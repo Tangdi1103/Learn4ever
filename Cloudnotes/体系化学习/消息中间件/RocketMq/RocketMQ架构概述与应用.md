@@ -39,7 +39,7 @@
 
 #### 2. 部署架构
 
-![image-20220512234842182](images/image-20220512234842182.png)
+![image-20220517000814645](images/image-20220517000814645.png)
 
 ##### 各节点职责
 
@@ -51,13 +51,84 @@
 
 - Consumer**与NameServer**集群中的其中一个节点（随机选择）**建立长连接**，**定期从NameServer获取Topic路由信息**，并向提供Topic服务的**Master、Slave建立长连接**，且定时向Master、Slave发送心跳。**Consumer既可以从Master订阅消息，也可以从Slave订阅消息**，消费者在向Master拉取消息时，Master服务器会根据拉取偏移量与最大偏移量的距离（判断是否读老消息，产生读I/O），以及从服务器是否可读等因素建议下一次是从Master还 是Slave拉取。
 
-##### 执行流程
 
-1. 启动NameServer，**NameServer起来后监听端口**，等待Broker、Producer、Consumer连上来，相当于一个路由控制中心。
-2. **Broker启动，跟所有的NameServer保持长连接**，定时发送心跳包。**心跳包中包含当前Broker信息(IP+端口等)以及存储所有Topic信息**。注册成功后，NameServer集群中就**有Topic跟Broker的映射关系**。
-3. 收发消息前，先创建Topic，创建Topic时需要指定该Topic要存储在哪些Broker上，也可以在**发送消息时自动创建Topic**。 
-4. **Producer发送消息**，启动时先**跟NameServer集群中的其中一台建立长连接**，并从NameServer中获取当前发送的**Topic存在哪些Broker上**，**轮询从队列列表中选择一个队列**，然后**与队列所在的Broker建立长连接从而向Broker发消息**。
-5. Consumer跟Producer类似，跟其中一台NameServer建立长连接，获取当前**订阅Topic存在哪些Broker上**，然后直接跟Broker建立连接通道，开始消费消息
+
+### 了解特性
+
+#### 1. 发布与订阅
+
+- 发布：某个生产者向某个Topic发送消息，可打上Tag；
+- 订阅：某个消费者订阅了某个Topic中带有某些Tag的消息；
+
+#### 2. 消息顺序
+
+- 全局顺序：只用一个队列（分区），并开发重试有序的设置；
+- 局部顺序：通过某个具有全局唯一的业务标识，将消息发到同个队列，保证这部分业务顺序，并开启重试有序设置。如某个订单创建、付款、库存，保证发往同一个队列即可。
+
+#### 3. 消息过滤
+
+- 消费者可以根据Tag来进行消息过滤消费。支持自定义属性过滤。消息过滤在Broker端实现，减少了对Consumer无用消息的网络传输，但增加了Broker的负担。
+
+#### 4. 消息可靠性
+
+
+
+#### 5. 至少一次
+
+At least Once，每个消息必须投递一次。Consumer先Pull到本地，消费完成后再返回服务器ACK，如果没有消费则不会ACK。
+
+#### 6. 回溯消息
+
+Broker在向Consumer投递成功消息后，消息仍然需要保留。并且重新消费一般是按照时间维度，例如由于Consumer系统故障，恢复后需要重新消费1小时前的数据，那么Broker要提供一种机制，可以按照时间维度来回退消费进度。RocketMQ支持按照时间回溯消费，时间维度精确到毫秒
+
+#### 7. 事务消息
+
+Transactional Message事务消息**将本地数据库事务**和**发送消息的操作**绑定到**一个全局事务中**。
+
+#### 8. 定时消息（延时队列）
+
+Broker有配置项 **`messageDelayLevel`**，默认值为“1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h”，**18个level**。
+
+定时消息被暂存再名为  **`SCHEDULE_TOPIC_XXXX`**  的topic中，**每个Level都对应一个Message Queue，队列中存放相同延迟消息，保证顺序消费**
+
+使用：**`msg.setDelayLevel(level)`**，level有以下三种情况：
+
+- level = 0，立即发送消息
+- 1<= level <= maxLevel，指定延时时间
+- level > maxLevel，则level = maxLevel，例如level = 20，则还是2h
+
+#### 9. 消息重投
+
+可能重发消息的场景：
+
+- 同步消息到从Slaver失败
+- 异步消息有重试
+- Oneway没有任何保证
+
+重投可设置的策略：
+
+- **`retryTimesWhenSendFailed`**：**同步发送消息失败重投**，默认次数为**2次**，超过则抛异常**。注意：为了保证消息不丢失，由业务端创建消息表，并在后续补偿重投**。
+- **`retryTimesWhenSendAsyncFailed`**：异步发送消息失败重投，默认为2次。
+- **`retryAnotherBrokerWhenNotStoreOK`**：消息刷盘并同步到Slaver
+
+#### 10. 消息重试
+
+#### 11. 流量控制
+
+- 生产者流控：
+  - commitLog文件被锁时间超过osPageCacheBusyTimeOutMills时，参数默认为1000ms，发生流控
+  - 如果开启transientStorePoolEnable = true，且broker为异步刷盘的主机，且transientStorePool中资源不足，拒绝当前send请求，发生流控。
+  - broker每隔10ms检查send请求队列头部请求的等待时间，如果超过waitTimeMillsInSendQueue，默认200ms，拒绝当前send请求，发生流控。
+  - broker通过拒绝send 请求方式实现流量控制。
+- 消费者流控：
+  - 消费者本地缓存消息数超过pullThresholdForQueue时，默认1000。
+  - 消费者本地缓存消息大小超过pullThresholdSizeForQueue时，默认100MB。
+  - 消费者本地缓存消息跨度超过consumeConcurrentlyMaxSpan时，默认2000。
+  - 消费者流控的结果是降低拉取频率。
+
+#### 12. 死信队列
+
+当消费者消息重试达到最大次数后，消息队列会将该消息发到一个特殊队列中-死信队列。
 
 
 
