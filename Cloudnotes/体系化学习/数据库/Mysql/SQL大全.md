@@ -111,7 +111,7 @@ EXPLAIN SELECT COUNT(id)   FROM temp_orders force index (PRIMARY)；
 #### 4. 存储过程
 
 ```sql
-CREATE DEFINER=`root`@`localhost` PROCEDURE `update_demo`(IN count INTEGER)
+CREATE DEFINER=`root`@`%` PROCEDURE `update_demo`(IN count INTEGER)
 BEGIN
     declare var int;
     set var=0;  
@@ -123,7 +123,7 @@ END
 
 
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `insert_student`(in count INTEGER)
+CREATE DEFINER=`root`@`%` PROCEDURE `insert_student`(in count INTEGER)
 BEGIN
 	DECLARE id INTEGER DEFAULT 1;
 	WHILE id<=count DO
@@ -171,6 +171,9 @@ ALTER TABLE table_name DROP INDEX index_name;
 
 -- 删除字段
 ALTER TABLE table_name DROP COLUMN index_name;
+
+-- id自增重新从276开始
+ALTER TABLE kd_device auto_increment = 276;
 ```
 
 #### 7. 通过表注释来查找表名
