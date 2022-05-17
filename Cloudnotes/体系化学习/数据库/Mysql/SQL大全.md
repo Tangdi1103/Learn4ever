@@ -164,7 +164,7 @@ ALTER TABLE table_name CHANGE COLUMN test test1 VARCHAR(32) NOT NULL DEFAULT '12
 ALTER TABLE table_name ADD INDEX index_name (COLUMN);
 
 -- 新增唯一索引
-ALTER TABLE table_name ADD UNIQUE (column);
+ALTER TABLE tablename ADD UNIQUE INDEX index_name (COLUMN);
 
 -- 删除索引
 ALTER TABLE table_name DROP INDEX index_name;
