@@ -323,7 +323,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@RocketMQMessageListener(topic = "tp_springboot_01", consumerGroup = "consumer_grp_03")
+@RocketMQMessageListener(topic = "tp_springboot_01",selectorExpression = "*", consumerGroup = "consumer_grp_03")
 public class MyRocketListener implements RocketMQListener<String> {
     @Override
     public void onMessage(String message) {
@@ -1096,153 +1096,349 @@ public class GlobalOrderConsumer {
 
 
 
-### 11. 啊
+### 11. 事务消息
 
 ```java
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.producer.LocalTransactionState;
+import org.apache.rocketmq.client.producer.TransactionListener;
+import org.apache.rocketmq.client.producer.TransactionMQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.common.message.MessageExt;
+
+public class TxProducer {
+    public static void main(String[] args) throws MQClientException {
+        TransactionListener listener = new TransactionListener() {
+            @Override
+            public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+                // 当发送事务消息prepare(half)成功后，调用该方法执行本地事务
+                System.out.println("执行本地事务，参数为：" + arg);
+
+                try {
+                    Thread.sleep(100000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                return LocalTransactionState.ROLLBACK_MESSAGE;
+//                return LocalTransactionState.COMMIT_MESSAGE;
+            }
+
+            @Override
+            public LocalTransactionState checkLocalTransaction(MessageExt msg) {
+                // 如果没有收到生产者发送的Half Message的响应，broker发送请求到生产者回查生产者本地事务的状态
+                // 该方法用于获取本地事务执行的状态。
+                System.out.println("检查本地事务的状态：" + msg);
+                return LocalTransactionState.COMMIT_MESSAGE;
+//                return LocalTransactionState.ROLLBACK_MESSAGE;
+            }
+        };
+
+        TransactionMQProducer producer = new TransactionMQProducer("tx_producer_grp_12");
+        // 设置事务的监听器
+        producer.setTransactionListener(listener);
+        producer.setNamesrvAddr("node1:9876");
+
+        producer.start();
+
+        Message message = null;
+
+        message = new Message("tp_demo_12", "hello lagou - tx - 02".getBytes());
+        // 发送事务消息
+        producer.sendMessageInTransaction(message, "{\"name\":\"zhangsan\"}");
+
+    }
+}
 ```
 
 
 
 ```java
+import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
+import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyContext;
+import org.apache.rocketmq.client.consumer.listener.ConsumeConcurrentlyStatus;
+import org.apache.rocketmq.client.consumer.listener.MessageListenerConcurrently;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.common.message.MessageExt;
+
+import java.util.List;
+
+public class TxConsumer {
+    public static void main(String[] args) throws MQClientException {
+        DefaultMQPushConsumer consumer = new DefaultMQPushConsumer("txconsumer_grp_12_01");
+
+        consumer.setNamesrvAddr("node1:9876");
+        consumer.subscribe("tp_demo_12", "*");
+
+        consumer.setMessageListener(new MessageListenerConcurrently() {
+            @Override
+            public ConsumeConcurrentlyStatus consumeMessage(List<MessageExt> msgs, ConsumeConcurrentlyContext context) {
+                for (MessageExt msg : msgs) {
+                    System.out.println(new String(msg.getBody()));
+                }
+
+                return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;
+            }
+        });
+
+        consumer.start();
+    }
+}
+```
+
+
+
+### 12. 流控
+
+```java
+import org.apache.rocketmq.client.exception.MQBrokerException;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.remoting.exception.RemotingException;
+
+public class MyProducer {
+    public static void main(String[] args) throws MQClientException, RemotingException, InterruptedException, MQBrokerException {
+        DefaultMQProducer producer = new DefaultMQProducer("producer_grp_13_01");
+        producer.setNamesrvAddr("node1:9876");
+        producer.start();
+
+        Message message = null;
+
+        for (int i = 0; i < 1000; i++) {
+            message = new Message("tp_demo_13", ("hello lagou - " + i).getBytes());
+            producer.send(message);
+        }
+        producer.shutdown();
+    }
+}
 ```
 
 
 
 ```java
+import com.alibaba.csp.sentinel.Constants;
+import com.alibaba.csp.sentinel.Entry;
+import com.alibaba.csp.sentinel.EntryType;
+import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.context.ContextUtil;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.RuleConstant;
+import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
+import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
+import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
+import org.apache.rocketmq.client.consumer.PullResult;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.message.MessageQueue;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
+
+public class MyConsumer {
+
+    // 消费组名称
+    private static final String GROUP_NAME = "consumer_grp_13_01";
+    // 主题名称
+    private static final String TOPIC_NAME = "tp_demo_13";
+    // consumer_grp_13_01:tp_demo_13
+    private static final String KEY = String.format("%s:%s", GROUP_NAME, TOPIC_NAME);
+    // 使用map存放主题每个MQ的偏移量
+    private static final Map<MessageQueue, Long> OFFSET_TABLE = new HashMap<MessageQueue, Long>();
+
+    @SuppressWarnings("PMD.ThreadPoolCreationRule")
+    // 具有固定大小的线程池
+    private static final ExecutorService pool = Executors.newFixedThreadPool(32);
+
+    private static final AtomicLong SUCCESS_COUNT = new AtomicLong(0);
+    private static final AtomicLong FAIL_COUNT = new AtomicLong(0);
+
+    public static void main(String[] args) throws MQClientException {
+        // 初始化哨兵的流控
+        initFlowControlRule();
+
+        DefaultMQPullConsumer consumer = new DefaultMQPullConsumer(GROUP_NAME);
+        consumer.setNamesrvAddr("node1:9876");
+        consumer.start();
+
+        Set<MessageQueue> mqs = consumer.fetchSubscribeMessageQueues(TOPIC_NAME);
+        for (MessageQueue mq : mqs) {
+            System.out.printf("Consuming messages from the queue: %s%n", mq);
+
+            SINGLE_MQ:
+            while (true) {
+                try {
+                    PullResult pullResult =
+                            consumer.pullBlockIfNotFound(mq, null, getMessageQueueOffset(mq), 32);
+                    if (pullResult.getMsgFoundList() != null) {
+                        for (MessageExt msg : pullResult.getMsgFoundList()) {
+                            doSomething(msg);
+                        }
+                    }
+
+                    long nextOffset = pullResult.getNextBeginOffset();
+                    // 将每个mq对应的偏移量记录在本地HashMap中
+                    putMessageQueueOffset(mq, nextOffset);
+                    consumer.updateConsumeOffset(mq, nextOffset);
+                    switch (pullResult.getPullStatus()) {
+                        case NO_NEW_MSG:
+                            break SINGLE_MQ;
+                        case FOUND:
+                        case NO_MATCHED_MSG:
+                        case OFFSET_ILLEGAL:
+                        default:
+                            break;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        consumer.shutdown();
+    }
+
+    /**
+     * 对每个收到的消息使用一个线程提交任务
+     * @param message
+     */
+    private static void doSomething(MessageExt message) {
+        pool.submit(() -> {
+            Entry entry = null;
+            try {
+                // 应用流控规则
+                ContextUtil.enter(KEY);
+                entry = SphU.entry(KEY, EntryType.OUT);
+
+                // 在这里处理业务逻辑，此处只是打印
+                System.out.printf("[%d][%s][Success: %d] Receive New Messages: %s %n", System.currentTimeMillis(),
+                        Thread.currentThread().getName(), SUCCESS_COUNT.addAndGet(1), new String(message.getBody()));
+            } catch (BlockException ex) {
+                // Blocked.
+                System.out.println("Blocked: " + FAIL_COUNT.addAndGet(1));
+            } finally {
+                if (entry != null) {
+                    entry.exit();
+                }
+                ContextUtil.exit();
+            }
+        });
+    }
+
+    private static void initFlowControlRule() {
+        FlowRule rule = new FlowRule();
+        // 消费组名称:主题名称   字符串
+        rule.setResource(KEY);
+        // 根据QPS进行流控
+        rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
+        // 1表示QPS为1，请求间隔1000ms。
+        // 如果是5，则表示每秒5个消息，请求间隔200ms
+        rule.setCount(1);
+        rule.setLimitApp("default");
+
+        // 调用使用固定间隔。如果qps为1，则请求之间间隔为1s
+        rule.setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER);
+        // 如果请求太多，就将这些请求放到等待队列中
+        // 该队列有超时时间。如果等待队列中请求超时，则丢弃
+        // 此处设置超时时间为5s
+        rule.setMaxQueueingTimeMs(5 * 1000);
+        // 使用流控管理器加载流控规则
+        FlowRuleManager.loadRules(Collections.singletonList(rule));
+    }
+
+    // 获取指定MQ的偏移量
+    private static long getMessageQueueOffset(MessageQueue mq) {
+        Long offset = OFFSET_TABLE.get(mq);
+        if (offset != null) {
+            return offset;
+        }
+
+        return 0;
+    }
+
+    // 在本地HashMap中记录偏移量
+    private static void putMessageQueueOffset(MessageQueue mq, long offset) {
+        OFFSET_TABLE.put(mq, offset);
+    }
+}
+```
+
+
+
+### 13. 生产者总结
+
+```java
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.SendCallback;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.remoting.exception.RemotingException;
+
+public class MyProducer {
+    public static void main(String[] args) throws MQClientException, RemotingException, InterruptedException {
+        DefaultMQProducer producer = new DefaultMQProducer("producer_grp_14_01");
+
+        producer.setNamesrvAddr("node1:9876");
+
+        producer.start();
+
+        Message message = new Message("tp_demo_14", "hello lagou".getBytes());
+        // tag用于标记一类消息
+        message.setTags("tag1");
+
+        // keys用于建立索引的时候，hash取模将消息的索引放到SlotTable的一个Slot链表中
+        message.setKeys("oid_2020-12-30_567890765");
+
+        producer.send(message, new SendCallback() {
+            @Override
+            public void onSuccess(SendResult sendResult) {
+
+            }
+
+            @Override
+            public void onException(Throwable e) {
+
+            }
+        });
+
+        producer.shutdown();
+    }
+}
 ```
 
 
 
 ```java
-```
+import org.apache.rocketmq.client.exception.MQBrokerException;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.remoting.exception.RemotingException;
 
+public class MyProducer {
+    public static void main(String[] args) throws MQClientException, RemotingException, InterruptedException, MQBrokerException {
+        DefaultMQProducer producer = new DefaultMQProducer("producer_grp_15_01");
 
+//        producer.setNamesrvAddr("node1:9876");
 
-```java
-```
+        producer.start();
 
-### 12. 啊
+        Message message = new Message("tp_demo_15", "hello lagou".getBytes());
 
-```java
-```
+        final SendResult result = producer.send(message);
 
+        System.out.println(result.getSendStatus());
+        System.out.println(result.getMsgId());
+        System.out.println(result.getOffsetMsgId());
 
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-### 13. 啊
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-### 14. 啊
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-### 15. 啊
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-### 16. 啊
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
-```
-
-
-
-```java
+        producer.shutdown();
+    }
+}
 ```
 

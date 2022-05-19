@@ -1,6 +1,6 @@
 [toc]
 
-## 一、RocketMQ架构与应用
+## 一、RocketMQ概述
 
 ### 应用场景
 
@@ -58,7 +58,7 @@
 #### 1. 发布与订阅
 
 - 发布：某个生产者向某个Topic发送消息，可打上Tag；
-- 订阅：某个消费者订阅了某个Topic中带有某些Tag的消息；
+- 订阅：某个消费者订阅了某个Topic中带有某些Tag的消息；**RocketMQ使用长轮询Pull机制来模拟Push效果**。
 
 #### 2. 消息顺序
 
@@ -132,9 +132,83 @@ Broker有配置项 **`messageDelayLevel`**，默认值为“1s 5s 10s 30s 1m 2m 
 
 
 
-### 快速入手
+## 二、环境搭建
 
-#### 1. Rocket API
+### 1. 下载RocketMQ:4.5.1
+
+[官网下载地址](https://www.apache.org/dyn/closer.cgi?path=rocketmq/4.5.1/rocketmq-all-4.5.1-bin-release.zip)
+
+```sh
+#下载
+wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-release.zip
+```
+
+
+
+### 2. 安装及环境配置
+
+- 修改脚本(**JDK8可忽略**，若JDK为11则需要修改一些JVM配置)
+
+  ```
+  bin/runserver.sh
+  bin/runbroker.sh
+  bin/tools.sh
+  ```
+
+- 启动NameServer
+
+  ```sh
+  # 1.启动NameServer 
+  mqnamesrv 
+  # 2.查看启动日志 
+  tail -f ~/logs/rocketmqlogs/namesrv.log
+  ```
+
+- 启动Broker
+
+  ```sh
+  # 1.启动Broker 
+  mqbroker -n localhost:9876 
+  # 2.查看启动日志
+  tail -f ~/logs/rocketmqlogs/broker.log
+  ```
+
+### 3. 环境测试
+
+- 发送消息
+
+  ```sh
+  # 1.设置环境变量 
+  export NAMESRV_ADDR=localhost:9876 
+  # 2.使用安装包的Demo发送消息 
+  sh bin/tools.sh org.apache.rocketmq.example.quickstart.Producer
+  ```
+
+- 接收消息
+
+  ```sh
+  # 1.设置环境变量 
+  export NAMESRV_ADDR=localhost:9876 
+  # 2.接收消息 
+  sh bin/tools.sh org.apache.rocketmq.example.quickstart.Consumer
+  ```
+
+- 关闭RocketMQ
+
+  ```sh
+  # 1.关闭NameServer 
+  mqshutdown namesrv 
+  # 2.关闭Broker 
+  mqshutdown broker
+  ```
+
+  
+
+
+
+## 三、快速入手
+
+### 1. Rocket API
 
 ##### 1.1 配置maven pom
 
@@ -333,7 +407,7 @@ public class MyPushConsumer {
 
 
 
-#### 2. 整合SpringBoot
+### 2. 整合SpringBoot
 
 ##### 配置maven pom
 
@@ -437,7 +511,7 @@ rocketmq.name-server=node1:9876
 ```java
 @Slf4j
 @Component
-@RocketMQMessageListener(topic = "tp_springboot_01", consumerGroup = "consumer_grp_03")
+@RocketMQMessageListener(topic = "tp_springboot_01",selectorExpression = "*", consumerGroup = "consumer_grp_03")
 public class MyRocketListener implements RocketMQListener<String> {
     @Override
     public void onMessage(String message) {
@@ -446,8 +520,6 @@ public class MyRocketListener implements RocketMQListener<String> {
     }
 }
 ```
-
-
 
 
 
