@@ -210,7 +210,7 @@ wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-relea
 
 ### 1. Rocket API
 
-##### 1.1 配置maven pom
+#### 1.1 配置maven pom
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -234,7 +234,7 @@ wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-relea
 </project>
 ```
 
-##### 1.2 同步发送-生产者
+#### 1.2 同步发送-生产者
 
 ```java
 public class MyProducer {
@@ -264,7 +264,7 @@ public class MyProducer {
 }
 ```
 
-##### 1.3 异步发送-生产者
+#### 1.3 异步发送-生产者
 
 ```java
 public class MyAsyncProducer {
@@ -309,7 +309,7 @@ public class MyAsyncProducer {
 }
 ```
 
-##### 拉取-消费者
+#### 1.4 拉取-消费者
 
 ```java
 /**
@@ -353,7 +353,7 @@ public class MyPullConsumer {
 }
 ```
 
-##### 订阅-消费者
+#### 1.5 订阅-消费者
 
 ```java
 /**
@@ -409,7 +409,7 @@ public class MyPushConsumer {
 
 ### 2. 整合SpringBoot
 
-##### 配置maven pom
+#### 配置maven pom
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -453,7 +453,7 @@ public class MyPushConsumer {
 </project>
 ```
 
-##### 生产者
+#### 生产者
 
 ```properties
 spring.application.name=springboot_rocketmq_producer
@@ -498,7 +498,7 @@ public class MyRocketProducerApplicationTest {
 }
 ```
 
-##### 消费者
+#### 消费者
 
 springboot整合rocketmq的消费者，消费方式为推送（订阅）
 
