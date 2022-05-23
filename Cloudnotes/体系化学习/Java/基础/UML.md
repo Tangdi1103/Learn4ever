@@ -1,6 +1,6 @@
 ### 关系：
 
-![image-20220511113629822](E:\Learning\Learn4ever\Cloudnotes\体系化学习\Java\基础\images\image-20220511113629822.png)
+![image-20220511113629822](./images/image-20220511113629822.png)
 
 - 泛化（继承）：泛化就是**面向对象**中提到的继承，Java通过 **extense** 关键字
 - 实现：类和接口之间的关系，Java通过 **implements** 关键字。

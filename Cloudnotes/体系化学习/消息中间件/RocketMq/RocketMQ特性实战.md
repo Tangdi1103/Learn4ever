@@ -14,11 +14,9 @@
 </dependencies>
 ```
 
-
-
 ### 1. 发送与订阅
 
-#### 生产者-同步发送
+#### 1.1 生产者-同步发送
 
 ```java
 import org.apache.rocketmq.client.exception.MQBrokerException;
@@ -58,7 +56,7 @@ public class MyProducer {
 }
 ```
 
-#### 生产者-异步发送
+#### 1.2 生产者-异步发送
 
 ```java
 import org.apache.rocketmq.client.exception.MQClientException;
@@ -112,7 +110,7 @@ public class MyAsyncProducer {
 }
 ```
 
-#### 消费者-Pull
+#### 1.3 消费者-Pull
 
 ```java
 import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
@@ -168,7 +166,7 @@ public class MyPullConsumer {
 }
 ```
 
-#### 消费者-Push
+#### 1.4 消费者-Push
 
 ```java
 import org.apache.rocketmq.client.consumer.DefaultMQPushConsumer;
@@ -235,18 +233,62 @@ public class MyPushConsumer {
 
 ### 2. Spring Boot API
 
-```properties
-spring.application.name=springboot_rocketmq_producer
+#### 2.1 maven配置
 
-# rocketmq的nameserver地址
-rocketmq.name-server=node1:9876
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
 
-# 指定生产组名称
-rocketmq.producer.group=producer_grp_02
+    <groupId>com.tangdi</groupId>
+    <artifactId>springboot-rocketmq-demo</artifactId>
+    <version>1.0-SNAPSHOT</version>
 
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.0.1.RELEASE</version>
+    </parent>
+
+    <properties>
+        <rocketmq-spring-boot-starter-version>2.0.3</rocketmq-spring-boot-starter-version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-spring-boot-starter</artifactId>
+            <version>${rocketmq-spring-boot-starter-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+</project>
 ```
 
 
+
+#### 2.2 生产端
+
+```properties
+spring.application.name=springboot_rocketmq_producer
+
+# nameserver地址
+rocketmq.name-server=node1:9876;node2:9876
+# 生产组
+rocketmq.producer.group=producer_grp_02
+```
 
 ```java
 import org.springframework.boot.SpringApplication;
@@ -260,8 +302,6 @@ public class MyRocketProducerApplication {
 }
 
 ```
-
-
 
 ```java
 import com.tangdi.rocket.demo.MyRocketProducerApplication;
@@ -305,15 +345,15 @@ public class MyRocketProducerApplicationTest {
 }
 ```
 
+#### 2.3 消费端
 
+springboot整合rocketmq的消费者，消费方式为推送（订阅）
 
 ```properties
 spring.application.name=springboot_rocketmq_consumer
-# 指定rocketmq的nameserver地址
-rocketmq.name-server=node1:9876
+# nameserver地址
+rocketmq.name-server=node1:9876;node2:9876
 ```
-
-
 
 ```java
 import lombok.extern.slf4j.Slf4j;
@@ -332,6 +372,8 @@ public class MyRocketListener implements RocketMQListener<String> {
     }
 }
 ```
+
+
 
 ### 3. 生产者
 
