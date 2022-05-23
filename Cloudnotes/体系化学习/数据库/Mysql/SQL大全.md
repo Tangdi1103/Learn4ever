@@ -227,3 +227,40 @@ SELECTTABLE_NAME 表名,COLUMN_NAME 列名,COLUMN_COMMENT 注释,COLUMN_TYPE 数
 ```
 2)回收权限 revokeREVOKE <权限> ON <数据对象>  FROM <数据库用户名>
 ```
+
+#### 13. 查询/删除重复数据
+
+```sql
+-- 查询重复数据
+SELECT
+	T1.COUNT,
+	T2.* 
+FROM
+	( SELECT COUNT( device_id ) AS COUNT, device_id FROM kd_device_test GROUP BY device_id HAVING COUNT > 1 ) AS T1,
+	kd_device_test AS T2 
+WHERE
+	T1.device_id = T2.device_id;
+
+
+-- 使用DELETE JOIN删除重复行
+DELETE 
+	t1 
+FROM
+	kd_device_test t1
+INNER JOIN 
+	kd_device_test t2 
+WHERE
+	t1.id < t2.id 
+	AND t1.device_id = t2.device_id;
+
+
+-- 使用ROW_NUMBER()删除重复行
+WITH dups AS (SELECT 
+    id,
+    device_id,
+    ROW_NUMBER() OVER (PARTITION BY device_id ORDER BY id) AS row_num
+FROM kd_device_test)
+DELETE kd_device_test FROM kd_device_test INNER JOIN dups ON kd_device_test.id = dups.id
+WHERE dups.row_num <> 1; 
+```
+
