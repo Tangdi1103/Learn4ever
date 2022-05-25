@@ -242,7 +242,7 @@ WHERE
 	T1.device_id = T2.device_id;
 
 
--- 使用DELETE JOIN删除重复行
+-- 使用DELETE JOIN删除重复行（不推荐、效率极其低下。曾经在30万数据得表中根据无索引字段删除耗时半小时以上）
 DELETE 
 	t1 
 FROM
