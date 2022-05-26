@@ -5,7 +5,7 @@
 
 
 ##### 加密
-```
+```java
  /**
      * 加密参数
      * 注意:UPP以往的支付接口，是用编码后的报文做签名，收银台这个由于是不同人开发的，要改成用加密后的报文去签名
@@ -51,7 +51,7 @@
 
 ##### 解密验签
 
-```
+```java
 private String decryptAndVerifyAES(String returnEncodeMsg, String returnSignMsg) {
         String sourceText;
         SecurityAES sAES = new SecurityAES();
