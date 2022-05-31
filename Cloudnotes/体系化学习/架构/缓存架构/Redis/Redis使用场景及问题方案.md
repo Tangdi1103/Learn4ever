@@ -178,7 +178,7 @@
 
 ##### 可重入性
 
-持有某个锁的客户端可继续对该锁加锁，实现锁的续租
+持有某个锁的客户端可继续对该锁加锁，实现锁的续租。
 
 ##### 支持自旋等待锁
 
@@ -604,15 +604,23 @@ Redisson的原理图
   lua脚本保证复杂逻辑的原子性操作，并且逻辑提供了互斥和可重入锁的实现
 
   ```lua
-  "if (redis.call('exists',KEYS[1])==0) then "+		--查看锁是否被获取，0表示不存在
-  	"redis.call('hset',KEYS[1],ARGV[2],1); "+		--加锁的客户端ID (UUID.randomUUID()） + “:” + threadId)
-  	"redis.call('pexpire',KEYS[1],ARGV[1]); "+ 		--设置TTL过期时间，默认30s
-  	"return nil; end ;" + 
-  "if (redis.call('hexists',KEYS[1],ARGV[2]) ==1 ) then "+		--查看锁以及客户端ID是否对应
-  		"redis.call('hincrby',KEYS[1],ARGV[2],1); "+			--重入锁，value加1
-  		"redis.call('pexpire',KEYS[1],ARGV[1]) ; "+
-  	"return nil; end ;" + 
-  "return redis.call('pttl',KEYS[1]) ;" 				--其他等待的客户端获取锁ttl（剩余时间）
+  --查看锁是否被获取，0表示不存在
+  if (redis.call('exists', KEYS[1]) == 0)  then 
+      --加锁的客户端ID (UUID.randomUUID()） + “:” + threadId)
+  	redis.call('hset', KEYS[1], ARGV[2], 1); 
+      --设置TTL过期时间，默认30s
+  	redis.call('pexpire', KEYS[1], ARGV[1]); 
+  	return nil; 
+  end; 
+  --查看锁以及客户端ID是否对应
+  if (redis.call('hexists', KEYS[1], ARGV[2]) == 1) then 
+      --重入锁，value加1
+  	redis.call('hincrby', KEYS[1], ARGV[2], 1); 
+  	redis.call('pexpire', KEYS[1], ARGV[1]); 
+  	return nil; 
+  end; 
+  --其他等待的客户端获取锁ttl（剩余时间）
+  return redis.call('pttl', KEYS[1]);
   ```
 
   - 互斥锁：第一个判断为锁是否被获取，体现互斥性
@@ -629,6 +637,27 @@ Redisson的原理图
 
 - **基于lua脚本的释放锁：**
 
+  ```lua
+  if (redis.call('hexists', KEYS[1], ARGV[3]) == 0) then 
+      return nil;
+  end; 
+  
+  local counter = redis.call('hincrby', KEYS[1], ARGV[3], -1); 
+  
+  if (counter > 0) then 
+      redis.call('pexpire', KEYS[1], ARGV[2]); 
+      return 0; 
+  else 
+      redis.call('del', KEYS[1]); 
+      redis.call('publish', KEYS[2], ARGV[1]); 
+      return 1; 
+  end; 
+  
+  return nil;
+  ```
+  
+  
+  
   脚本略。。每次执行lock.unlock()，都将对重入锁的加锁次数 -1，**直到 0 为止才会调用`del key`**，并发布 **`publish` 一条解锁的消息**
 
 #### 6.3 Redisson 优势
