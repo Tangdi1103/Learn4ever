@@ -10,8 +10,6 @@
 
 生产者发送消息的形式有：**同步发送、异步发送、Oneway发送、延迟发送、发送事务消息**等，一般根据具体的业务场景来决定发送的策略。
 
-
-
 默认使用 **`DefaultMQProducer `类 **来发送消息，发送消息有以下五个步骤：
 
 1. 设置Producer的**GroupName**。 
@@ -20,25 +18,18 @@
 4. 设置**NameServer地址**
 5. **组装消息并发送**
 
-
-
 消息的发生结果有以下四种：
 
-1. **FLUSH_DISK_TIMEOUT：**Broker刷盘超时，当Broker的**刷盘策略为SYNC_FLUSH**时，才会报这个错误。
-2. **FLUSH_SLAVE_TIMEOUT：**Broker主从同步超时，Broker**同步策略为SYNC_MASTER**时，才会报这个错
-3. **SLAVE_NOT_AVAILABLE：**Master Broker没找到它的Slaver，Broker**同步策略为SYNC_MASTER**时，才会报这个错
+1. **FLUSH_DISK_TIMEOUT：**Broker刷盘超时，当Broker的刷盘策略为SYNC_FLUSH时，才会报这个错误。
+2. **FLUSH_SLAVE_TIMEOUT：**Broker主从同步超时，Broker同步策略为SYNC_MASTER时，才会报这个错
+3. **SLAVE_NOT_AVAILABLE：**Master Broker没找到它的Slaver，Broker同步策略为SYNC_MASTER时，才会报这个错
 4. **SEND_OK：**表示消息发生成功。
 
+##### 1.1 提升写入Broker效率
 
-
-##### 提升写入Broker效率
-
-- **采用 Oneway发送**，该模式下，生产者将数据**写入客户端的Socket缓冲区就返回**，不等待对方返回结果，发送消息的耗时可以缩短到微秒级。**注意该模式保证速度不保证消息可靠性，适合日志采集等场景**
+- **采用 Oneway发送**，该模式下，生产者将数据写入客户端的Socket缓冲区就返回，不等待对方返回结果，发送消息的耗时可以缩短到微秒级。**注意该模式保证速度不保证消息可靠性，适合日志采集等场景**
 
 - 使用多个Producer同时发送，增加Producer的并发量。（RocketMQ支持高并发写入）
-- 
-
-
 
 
 
@@ -52,7 +43,16 @@
 
   优点是消费者量力而行，不会出现消息积压。缺点就是如何控制Pull的频率。定时间隔太久担心影响时效性，间隔太短担心做太多“无用功”浪费资源。比较折中的办法就是长轮询。
 
-##### 防止消息积压/提升消费效率
+##### 2.1 防止消息积压/提升消费效率
+
+- 优化消费者本身代码逻辑
+- **并行消费提高消费者吞吐量**
+  - 增加消费者实例数量，通过扩展机器数。
+  - 单个消费者使用**多线程并行消费**，通过 `consumeThreadMin` 和 `consumeThreadMax` 配置。
+
+- 使用批量消费
+
+  通过 `consumeMessageBatchMaxSize` 配置，默认值为1，若设置为N，则消费者每次收到的是个长度为N的**消息链表**。
 
 
 

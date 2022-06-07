@@ -113,19 +113,19 @@ MySQL官方对索引定义：是存储引擎 用于**==快速查找记录的一�
 
 - **innodb_ft_min_token_size**
 
-  全文索引字段对应的值最小字符数，默认3
+  INNODB  搜索的单词的最小长度，默认3
 
 - **innodb_ft_max_token_size**
 
-  全文索引字段对应的值最大字符数，默认84
+  INNODB 搜索的单词的最大长度，默认84
 
 - **ft_min_word_len**
 
-  最小搜索长度，默认为4
+  MyISAM 最小搜索长度，默认为4
 
 - ft_max_word_len
 
-  最大搜索长度，默认为84
+  MyISAM 最大搜索长度，默认为84
 
 - **ngram_token_size，默认2~10**
 
