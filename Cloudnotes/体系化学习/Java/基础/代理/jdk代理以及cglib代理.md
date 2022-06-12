@@ -372,10 +372,10 @@ Mybatis的sqlSession获得DAO接口代理对象方法如下：
 
 ```java
 @Override
-    public Object getMapper(Class<?> mapperClass) {
-        MapperProxyHandler mapperProxyHandler = new MapperProxyHandler(configuration,executor);
-        return Proxy.newProxyInstance(DfaultSqlSession.class.getClassLoader(),new Class[]{mapperClass},mapperProxyHandler);
-    }
+public Object getMapper(Class<?> mapperClass) {
+    MapperProxyHandler mapperProxyHandler = new MapperProxyHandler(configuration,executor);
+    return Proxy.newProxyInstance(DfaultSqlSession.class.getClassLoader(),new Class[]{mapperClass},mapperProxyHandler);
+}
 ```
 
 Mybatis中通过getMapper得到代理对象，具体代理实现逻辑如下：

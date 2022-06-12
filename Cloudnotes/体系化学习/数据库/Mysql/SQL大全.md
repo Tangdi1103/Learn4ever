@@ -264,3 +264,8 @@ DELETE kd_device_test FROM kd_device_test INNER JOIN dups ON kd_device_test.id =
 WHERE dups.row_num <> 1; 
 ```
 
+#### 14. Mysql8.0 窗口函数
+
+row_number、rank、dense_rank的区别
+
+![image-20220609004002422](images/image-20220609004002422.png)
