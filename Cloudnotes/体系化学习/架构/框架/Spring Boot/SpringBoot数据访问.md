@@ -143,7 +143,7 @@ spring:
   datasource:
     username: root
     password: root
-    url: jdbc:mysql:///springboot_h?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=UTC
+    url: jdbc:mysql:///localhost:3306/wfi77?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT
     driverClassName: com.mysql.cj.jdbc.Driver
     initialization-mode: always
     # 使用druid数据源
@@ -251,10 +251,24 @@ spring:
   datasource:
     username: root
     password: root
-    url: jdbc:mysql:///springboot_h?useUnicode=true&characterEncoding=utf-8&useSSL=true&serverTimezone=UTC
-    driver-class-name: com.mysql.jdbc.Driver
-    # 使用druid数据源
-    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql:///localhost:3306/wfi77?useUnicode=false&characterEncoding=utf-8&useSSL=true&serverTimezone=GMT
+    driverClassName: com.mysql.jdbc.Driver
+    hikari:
+      ## 空闲连接存活最大时间，默认600000（10分钟）
+      idle-timeout: 60000
+      ## 最小空闲连接数量
+      minimum-idle: 1
+      ## 连接池最大连接数，默认是10
+      maximum-pool-size: 20
+      connection-test-query: SELECT 1
+      ## 数据库连接超时时间,默认30秒，即30000;超过这个时长还没可用的连接则发生SQLException
+      connection-timeout: 60000
+      ## 此属性控制池中连接的最长生命周期，值0表示无限生命周期，默认1800000即30分钟
+      max-lifetime: 1800000
+      ## 此属性控制从池返回的连接的默认自动提交行为,默认值：true
+      auto-commit: true
+      ## 生效超时
+      validation-timeout: 3000
     
 # mybatis开启驼峰命名
 mybatis:
