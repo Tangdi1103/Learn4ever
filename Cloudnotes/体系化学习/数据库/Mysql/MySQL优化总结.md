@@ -79,15 +79,19 @@ ORDER BY
 - **利用覆盖索引来进行查询操作，避免回表**
 
 - **In和 not in可使用join 关联索引字段优化**
-  
+
   - not in优化前：`select colname … from A表 where a.id not in (select b.id from B表) `
   - join优化后：`select colname … from A表 Left join B表 on where a.id = b.id where b.id is null`
   - in 优化前：`select count(id) num , address from tbiguser where address in (select distinct address from tuser1) or address in (select distinct address from tuser2) group by address order by address; `
   - join优化后：`select count(x.id),x.address from (select distinct b.* from tuser1 a,tbiguser b where a.address=b.address union all select distinct b.* from tuser2 a,tbiguser b where a.address=b.address) x group by x.address;`
-  
+
 - **IN包含的值不应过多，若太多可使用join优化**
 
   MySQL对于IN做了相应的优化，即将IN中的常量全部存储在一个数组里面，而且这个数组是排好序的。但是如果数值较多，产生的消耗也是比较大的。
+
+- **join联表查询时，尽量使用inner join，并满足小表驱动大表**
+
+  因为此相对于left join只会返回完全匹配的数据行。若使用left join，要保证满足小表驱动大表（即小表在左边，过滤掉右边大表不匹配的数据行）
 
 - **超过三个表禁止 join，且多表关联查询时，保证被关联的字段需要有索引**
 
@@ -142,6 +146,17 @@ ORDER BY
   **注意：**索引如果存在范围查询，那么索引有序性无法利用，如：WHERE a>10 ORDER BY b; 索引 a_b 无法排序
 
 - **禁止使用存储过程，存储过程难以调试和扩展，更没有移植性**
+
+- **where条件中，不要在索引字段上使用函数库，比如**
+
+  ```sql
+  -反例：
+  Date_ADD(loginTime,Interval 7DAY) >= now();
+  -正例：
+  loginTime >= Date_ADD(NOW(),Interval - 7DAY)
+  ```
+
+  
 
 
 
