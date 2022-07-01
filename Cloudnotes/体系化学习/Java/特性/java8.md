@@ -600,7 +600,7 @@ collect：
     new Employee(102, "L4", 20, 7777.77),
     new Employee(103, "W5", 35, 6666.66),
     new Employee(104, "Tom", 44, 1111.11),
-    new Employee(105, "Jerry", 60, 4444.44)
+    new Employee(105, "Jerry", 60, null)
 );
 
 @Test
@@ -622,6 +622,14 @@ public void test02(){
         .map(Employee::getName)
         .collect(Collectors.toCollection(LinkedHashSet::new));
     linkedHashSet.forEach(System.out::println);
+    
+    // 放入HashMap
+    Map<Long, String> coverMap = emps
+                .stream()
+                .collect(Collectors.toMap(
+                    e -> e.getName(),
+                    e -> Optional.ofNullable(e.getScourse()).orElse(0),
+                    (v1,v2) -> v1));
 }
 
 @Test
@@ -802,30 +810,30 @@ public class TestForkJoin {
         ForkJoinPool pool = new ForkJoinPool();
         long[] numbers = LongStream.rangeClosed(1, size).toArray();
         ForkJoinCalculate task = new ForkJoinCalculate(numbers,0,size-1);
-
+    
         //ForkJoinTask<Long> task =  pool.submit(task);
         //System.out.println(task.get());
         
         Long sum = pool.invoke(task);
         System.out.println(sum);
-
+    
         Instant end = Instant.now();
         System.out.println(Duration.between(start, end).getNano());
         forkJoinPool.shutdown();//关闭forkJoinPool池
     }
-
+    
     /**
      * 普通 for循环
      */
     @Test
     public void test02(){
         Instant start = Instant.now();
-
+    
         Long sum = 0L;
         for (long i = 0; i < 100000000L; i++) {
             sum += i;
         }
-
+    
         Instant end = Instant.now();
         System.out.println(Duration.between(start, end).getNano());
     }
