@@ -728,6 +728,7 @@ public void test02(){
     System.out.println(result.get());
 ```
 ### 5.8 并行流
+
 * 并行流：就是把一个内容分成几个数据块，并用不同的线程分别处理每个数据块的流
 * Java 8 中将并行进行了优化，我们可以很容易的对数据进行操作；Stream API 可以声明性地通过 parallel() 与 sequential() 在并行流与串行流之间切换
 
@@ -739,40 +740,46 @@ Fork / Join 框架与传统线程池的区别：
 
   ![输入图片说明](images/20200518225613845.png "QQ截图20201229183512.png")
 
-
   Fork / Join 实现：
+
+- 两个子类任务，一个是RecoursiveTask，他的职责相当于callable，用来执行有返回值任务
+
+- 另一个是recursiveaction。他的职责相当于runnable,用来执行无返回值任务。
 
   ```java
   public class ForkJoinCalculate extends RecursiveTask<Long> {
 
     private static final long serialVersionUID = 1234567890L;
 
-    private long start;
-    private long end;
+    private long low;// 开始计算的下标
+    private long high;// 结束计算的下标
+    private long[] arr;// 计算的实际数组
 
     private static final long THRESHPLD = 10000;
 
-    public ForkJoinCalculate(long start, long end) {
-        this.start = start;
-        this.end = end;
+    public ForkJoinCalculate(long[] arr,long low, long high) {
+        this.low = low;
+        this.high= high;
+        this.arr = arr;
     }
 
     @Override
     protected Long compute() {
-        long length = end - start;
-
-        if (length <= THRESHPLD) {
+        // 当任务拆分到小于等于阀值时开始求和
+        if (high - low <= SEQUENTIAL_THRESHOLD) {
             long sum = 0;
-            for (long i = start; i <= end; i++) {
-                sum += i;
+            for (long i = low; i < high; i++) {
+                sum += array[i];
             }
-        } else {
-            long middle = (start + end) / 2;
+        } 
+        // 任务过大继续拆分
+        else {
+            long mid = low + (high - low) / 2;
 
-            ForkJoinCalculate left = new ForkJoinCalculate(start, end);
-            left.fork(); //拆分子任务 压入线程队列
-
-            ForkJoinCalculate right = new ForkJoinCalculate(middle + 1, end);
+            ForkJoinCalculate left = new ForkJoinCalculate(arr, low, mid-);
+            ForkJoinCalculate right = new ForkJoinCalculate(arr, mid, end);
+            //拆分子任务 压入线程队列
+            left.fork(); 
             right.fork();
 
             return left.join() + right.join();
@@ -789,16 +796,22 @@ public class TestForkJoin {
      */
     @Test
     public void test01(){
-        Instant start = Instant.now();
-
+        Instant start = Instant.now();// start
+        long size = 100000000L;
+        
         ForkJoinPool pool = new ForkJoinPool();
-        ForkJoinCalculate task = new ForkJoinCalculate(0, 100000000L);
+        long[] numbers = LongStream.rangeClosed(1, size).toArray();
+        ForkJoinCalculate task = new ForkJoinCalculate(numbers,0,size-1);
 
+        //ForkJoinTask<Long> task =  pool.submit(task);
+        //System.out.println(task.get());
+        
         Long sum = pool.invoke(task);
         System.out.println(sum);
 
         Instant end = Instant.now();
         System.out.println(Duration.between(start, end).getNano());
+        forkJoinPool.shutdown();//关闭forkJoinPool池
     }
 
     /**
