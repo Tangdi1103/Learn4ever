@@ -268,4 +268,17 @@ WHERE dups.row_num <> 1;
 
 row_number、rank、dense_rank的区别
 
+![image-20220705170005900](images/image-20220705170005900.png)
+
+```sql
+select name,course,score
+,row_number() over( partition by course order by score desc) `row_number排名`
+,rank() over ( partition by course  order by score desc) `rank排名`
+,dense_rank() over ( partition by course order by score desc) `dense_rank排名`
+from test.test_zw
+order by course, score desc 
+```
+
+![image-20220705165942890](images/image-20220705165942890.png)
+
 ![image-20220609004002422](images/image-20220609004002422.png)
