@@ -183,12 +183,15 @@ Arthas目前支持Web Console，用户在attach成功之后，可以直接访问
 
 ### <font style=color:#e0861a>4. 常用命令</font>
 
-- [dashboard](#)
+- [dashboard](#1. dashboard)
 
-- [thread](#)
-- [jad](#)
+- [thread](#2. thread)
 
-- [watch](#)
+- [ognl](#8. ognl)
+
+- [jad](#3. jad)、[mc](#4. mc (Memory Compiler))、[redefine](#5. redefine)
+
+- [tt](#5. tt)、[watch](#2. watch)、[trace](#3. trace)
 
 - [quit](#quit)或者exit
 
@@ -458,6 +461,9 @@ vmoption
 vmoption PrintGCDetails
 # 更新指定的选项
 vmoption PrintGCDetails true
+# 设置内存溢出时打印日志
+vmoption HeapDumpOnOutOfMemoryError true
+vmoption HeapDumpPath ./log/log_hprof/oom.hprof
 ```
 
 ![image-20220703192801537](images/image-20220703192801537.png)
@@ -668,7 +674,7 @@ jad demo.MathGame main
 
 ### <font style=color:#e0861a>**4. mc (Memory Compiler)</font> 
 
-/内存编译器，**编译.java文件生成.class**
+内存编译器，**编译.java文件生成.class**
 
 ##### 举例
 
@@ -751,7 +757,7 @@ redefine /root/com/lxl/jvm/DeadLockTest.class
 
 ### <font style=color:#e0861a>6. dump</font>
 
-将已加载类的字节码文件保存到特定目录：logs/arthas/classdump/
+**将**已加载类的**字节码文件保存到特定目录**：logs/arthas/classdump/
 
 ##### 参数
 
@@ -777,27 +783,23 @@ dump demo.*
 
 ![image-20220705081633523](images/image-20220705081633523.png)
 
-##### 小结
-
-dump作用：将正在JVM中运行的程序的字节码文件提取出来，保存在logs相应的目录下不同的类加载器放在不同的目录下
-
 
 
 ### <font style=color:#e0861a>7. classloader</font>
 
-* classloader 命令将 JVM 中所有的classloader的信息统计出来，并可以展示继承树，urls等。
-* 可以让指定的classloader去getResources，打印出所有查找到的resources的url。对于ResourceNotFoundException异常比较有用。
+* classloader 命令将 JVM 中**所有的classloader的信息统计出来**，并可以展示继承树，urls等。
+* 可以让指定的classloader去getResources，打印出所有查找到的resources的url。**对于ResourceNotFoundException异常比较有用**。
 
 ##### 参数说明
 
-| 参数名称   |                参数说明                 |
-| ---------- | :-------------------------------------: |
-| [l]        |          按类加载实例进行统计           |
-| [t]        |       打印所有ClassLoader的继承树       |
-| [a]        | 列出所有ClassLoader加载的类，请谨慎使用 |
-| [c:]       |          ClassLoader的hashcode          |
-| [c: r:]    |       用ClassLoader去查找resource       |
-| [c: load:] |       用ClassLoader去加载指定的类       |
+| 参数名称   |                  参数说明                   |
+| ---------- | :-----------------------------------------: |
+| [l]        |            按类加载实例进行统计             |
+| [t]        |         打印所有ClassLoader的继承树         |
+| [a]        |   列出所有ClassLoader加载的类，请谨慎使用   |
+| [c:]       |            ClassLoader的hashcode            |
+| [c: r:]    | 用ClassLoader去查找resource（查找所在路径） |
+| [c: load:] |         用ClassLoader去加载指定的类         |
 
 ##### 举例
 
@@ -844,31 +846,22 @@ classloader -c 680f2737 -r java/lang/String.class
 
 ![image-20220705081942882](images/image-20220705081942882.png)
 
-```
-使用ClassLoader去加载类
+```sh
+# 使用ClassLoader去加载String
 classloader -c 70dea4e --load java.lang.String
 ```
 
 ![image-20220705081956502](images/image-20220705081956502.png)
 
-##### 小结
-
-classloader命令主要作用有哪些？
-
-* 显示所有类加载器的信息
-* 获取某个类加载器所在的jar包
-* 获取某个资源在哪个jar包中
-* 加载某个类
 
 
 
 
-
-## 七、monitor/watch/trace相关
+## 七、方法相关
 
 ### <font style=color:#e0861a>1. monitor</font>
 
-* 监视一个时间段中指定方法的执行次数，成功次数，失败次数，耗时等这些信息
+* 监视**一个时间段中**指定**方法的执行次数**，成功次数，失败次数，耗时**等信息**
 * monitor 命令是一个非实时返回命令，实时返回命令是输入之后立即返回，而非实时返回的命令，则是不断的等待目标 Java 进程返回信息，直到用户输入 Ctrl+C 为止。
 
 ##### 参数说明
@@ -906,7 +899,7 @@ monitor -c 5 demo.MathGame primeFactors
 
 
 
-### <font style=color:#e0861a>**2. watch</font>
+### <font style=color:#e0861a>2. watch</font>
 
 方法执行数据观测，让你能方便的观察到指定方法的调用情况。
 
@@ -920,6 +913,7 @@ monitor -c 5 demo.MathGame primeFactors
 | method-pattern    |               方法名表达式匹配               |
 | express           |                  观察表达式                  |
 | condition-express |                  条件表达式                  |
+| [n:]              |   命令捕捉次数（针对目标方法的多次被调用）   |
 | [b]               |           在 **方法调用之前** 观察           |
 | [e]               |           在 **方法异常之后** 观察           |
 | [s]               |           在 **方法返回之后** 观察           |
@@ -932,7 +926,7 @@ monitor -c 5 demo.MathGame primeFactors
 ##### 特别说明
 
 * watch 命令定义了4个观察事件点，即 -b 方法调用前，-e 方法异常后，-s 方法返回后，-f 方法结束后
-* 4个观察事件点 -b、-e、-s 默认关闭，-f 默认打开，当指定观察点被打开后，在相应事件点会对观察表达式进行求值并输出
+* 4个观察事件点 -b、-e、-s 默认关闭，**-f 默认打开**，当指定观察点被打开后，在相应事件点会对观察表达式进行求值并输出
 * 这里要注意方法入参和方法出参的区别，有可能在中间被修改导致前后不一致，除了 -b 事件点params 代表方法入参外，其余事件都代表方法出参
 * 当使用 -b 时，由于观察事件点是在方法调用前，此时返回值或异常均不存在
 
@@ -976,8 +970,8 @@ watch demo.MathGame primeFactors 'target.illegalArgumentCount'
 ![image-20220705083255114](images/image-20220705083255114.png)
 
 ```shell
-# 条件表达式的例子，输出第 1 参数小于的情况
-watch demo.MathGame primeFactors "{params[0],target}" "params[0]<0"
+# 条件表达式的例子，输出第 1 参数小于0的情况，耗时大于10ms
+watch demo.MathGame primeFactors "{params[0],target}" "params[0]<0" '#cost>10'
 ```
 
 ![image-20220705083306459](images/image-20220705083306459.png)
@@ -986,22 +980,26 @@ watch demo.MathGame primeFactors "{params[0],target}" "params[0]<0"
 
 ### <font style=color:#e0861a>**3. trace</font>
 
-方法内部调用路径，并输出方法路径上的每个节点上耗时<br>
-trace 命令能主动搜索 class-pattern／method-pattern 对应的方法调用路径，渲染和统计整个调用链路上的所有性能开销和追踪调用链路。<br>
-观察表达式的构成主要由ognl 表达式组成，所以你可以这样写"{params,returnObj}"，只要是一个合法的 ognl 表达式，都能被正常支持。<br>
-很多时候我们只想看到某个方法的rt大于某个时间之后的trace结果，现在Arthas可以按照方法执行的耗时来进行过滤了，例如trace *StringUtils isBlank '#cost>100'表示当执行时间超过100ms的时候，才会输出trace的结果。<br>
-watch/stack/trace这个三个命令都支持#cost<br>
+**方法内部调用链路**，并输出方法路径上的**每个节点上耗时**
+
+trace 命令能主动搜索 class-pattern／method-pattern 对应的方法调用路径，渲染和统计整个调用链路上的所有性能开销和追踪调用链路。
+
+观察表达式的构成主要由ognl 表达式组成，所以你可以这样写"{params,returnObj}"，只要是一个合法的 ognl 表达式，都能被正常支持。
+
+很多时候我们只想看到**某个方法的rt大于某个时间之后的trace结果**，现在Arthas可以按照方法执行的耗时来进行过滤了，例如  **`trace *StringUtils isBlank '#cost>100'`**  表示当**执行时间超过100ms**的时候，才会输出trace的结果
+
+watch/stack/trace这个三个命令都支持#cost
 
 ##### 参数说明
 
-| 参数名称          |               参数说明               |
-| ----------------- | :----------------------------------: |
-| class-pattern     |            类名表达式匹配            |
-| method-pattern    |           方法名表达式匹配           |
-| condition-express |              条件表达式              |
-| [E]               | 开启正则表达式匹配，默认为通配符匹配 |
-| [n:]              |             命令执行次数             |
-| #cost             |             方法执行耗时             |
+| 参数名称          |                 参数说明                 |
+| ----------------- | :--------------------------------------: |
+| class-pattern     |              类名表达式匹配              |
+| method-pattern    |             方法名表达式匹配             |
+| condition-express |                条件表达式                |
+| [E]               |   开启正则表达式匹配，默认为通配符匹配   |
+| [n:]              | 命令捕捉次数（针对目标方法的多次被调用） |
+| #cost             |               方法执行耗时               |
 
 ##### 举例
 
@@ -1043,18 +1041,19 @@ trace -E com.test.ClassA|org.test.ClassB method1|method2|method3
 
 ### <font style=color:#e0861a>4. stack</font>
 
->输出当前方法被调用的调用路径<br>
->很多时候我们都知道一个方法被执行，但这个方法被执行的路径非常多，或者你根本就不知道这个方法是从那里被执行了，此时你需要的是 stack 命令。
+**输出当前方法被调用的调用链路**
+
+很多时候我们都知道一个方法被执行，但这个方法被执行的路径非常多，或者你根本就不知道这个方法是从那里被执行了，此时你需要的是 stack 命令。
 
 ##### 参数说明
 
-| 参数名称          |               参数说明               |
-| ----------------- | :----------------------------------: |
-| class-pattern     |            类名表达式匹配            |
-| method-pattern    |           方法名表达式匹配           |
-| condition-express |              条件表达式              |
-| [E]               | 开启正则表达式匹配，默认为通配符匹配 |
-| [n:]              |             执行次数限制             |
+| 参数名称          |                 参数说明                 |
+| ----------------- | :--------------------------------------: |
+| class-pattern     |              类名表达式匹配              |
+| method-pattern    |             方法名表达式匹配             |
+| condition-express |                条件表达式                |
+| [E]               |   开启正则表达式匹配，默认为通配符匹配   |
+| [n:]              | 命令捕捉次数（针对目标方法的多次被调用） |
 
 ##### 举例
 
@@ -1085,40 +1084,32 @@ stack demo.MathGame primeFactors '#cost>5'
 
 
 
-### <font style=color:#e0861a>5. tt</font>
+### <font style=color:#e0861a>**5. tt</font>
 
-time-tunnel 时间隧道,记录下指定方法每次调用的入参和返回信息，并能对这些不同时间下调用的信息进行观测
+**time-tunnel 时间隧道**,记录下指定**方法每次调用的入参和返回信息**，并能对这些不同时间下调用的信息进行观测
 
 * watch 虽然很方便和灵活，但需要提前想清楚观察表达式的拼写，这对排查问题而言要求太高，因为很多时候我们并不清楚问题出自于何方，只能靠蛛丝马迹进行猜测。
 * 这个时候如果能记录下当时方法调用的所有入参和返回值、抛出的异常会对整个问题的思考与判断非常有帮助。
 * 于是乎，TimeTunnel 命令就诞生了。
 
-##### 参数解析
+##### 参数说明
 
-| tt的参数 |                说明                 |
-| -------- | :---------------------------------: |
-| -t       |  记录某个方法在一个时间段中的调用   |
-| -l       |       显示所有已经记录的列表        |
-| -n       |          次数 只记录多少次          |
-| -s       |          表达式 搜索表达式          |
-| -i       | 索引号 查看指定索引号的详细调用信息 |
-| -p       |    重新调用指定的索引号时间碎片     |
-
-* t
-  * tt 命令有很多个主参数，-t 就是其中之一。这个参数表明希望记录下类 *Test 的 print 方法的每次执行情况。
-* n 3
-  * 当你执行一个调用量不高的方法时可能你还能有足够的时间用 CTRL+C 中断 tt 命令记录的过程，但如果遇到调用量非常大的方法，瞬间就能将你的 JVM 内存撑爆。此时你可以通过 -n 参数指定你需要记录的次数，当达到记录次数时 Arthas 会主动中断tt命令的记录过程，避免人工操作无法停止的情况。
-
-
-```
-条件表达式来过滤，第 0 个参数的值小于 0 ，-n表示获取 2 次
-stack demo.MathGame primeFactors 'params[0]<0' -n 2
-```
+| 参数 |                             说明                             |
+| ---- | :----------------------------------------------------------: |
+| -t   |               记录某个方法在一个时间段中的调用               |
+| -l   |                    显示所有已经记录的列表                    |
+| -n   | 次数 只记录多少次（防止大量请求该方法导致命令无法使用 CTRL + C中断） |
+| -s   |                      表达式 搜索表达式                       |
+| -i   |             索引号 查看指定索引号的详细调用信息              |
+| -p   |              重新调用指定方法（通过方法索引号）              |
 
 ##### 使用案例
 
 ```shell
-# 最基本的使用来说，就是记录下当前方法的每次调用环境现场。
+# 条件表达式来过滤，第 0 个参数的值小于 0 ，-n表示获取 2 次sh
+stack demo.MathGame primeFactors 'params[0]<0' -n 2
+
+# 记录下当前方法在一段时间内的调用环境现场。
 tt -t demo.MathGame primeFactors
 ```
 
@@ -1134,7 +1125,7 @@ tt -t demo.MathGame primeFactors
 | COST(ms)  |                        方法执行的耗时                        |
 | IS-RET    |                 方法是否以正常返回的形式结束                 |
 | IS-EXP    |                  方法是否以抛异常的形式结束                  |
-| OBJECT    | 执行对象的hashCode()，注意，曾经有人误认为是对象在JVM中的内存地址，但很遗憾他不是。但他能帮助你简单的标记当前执行方法的类实体 |
+| OBJECT    | 执行对象的hashCode()，曾经有人误认为是对象在JVM中的内存地址，但很遗憾他不是。但他能帮助你简单的标记当前执行方法的类实体 |
 | CLASS     |                          执行的类名                          |
 | METHOD    |                         执行的方法名                         |
 
@@ -1145,25 +1136,25 @@ tt -t demo.MathGame primeFactors
 * Arthas 似乎很难区分出重载的方法
 * 我只需要观察特定参数，但是 tt 却全部都给我记录了下来
 
-条件表达式也是用 OGNL 来编写，核心的判断对象依然是 Advice 对象。除了 tt 命令之外，watch、trace、stack 命令也都支持条件表达式。
+​	条件表达式也是用 OGNL 来编写，核心的判断对象依然是 Advice 对象。除了 tt 命令之外，watch、trace、stack 命令也都支持条件表达式。
 
 * 解决方法重载
 
-```shell
-tt -t *Test print params.length==1
-```
+  ```sh
+  tt -t *Test print params.length==1
+  ```
 
 * 通过制定参数个数的形式解决不同的方法签名，如果参数个数一样，你还可以这样写
 
-```
-tt -t *Test print 'params[1] instanceof Integer'
-```
+  ```sh
+  tt -t *Test print 'params[1] instanceof Integer'
+  ```
 
 * 解决指定参数
 
-```
-tt -t *Test print params[0].mobile=="13989838402"
-```
+  ```sh
+  tt -t *Test print params[0].mobile=="13989838402"
+  ```
 
 ##### 检索调用记录
 
@@ -1175,7 +1166,7 @@ tt -l
 
 ![image-20220705083532213](images/image-20220705083532213.png)
 
-##### 需要筛选出 primeFactors 方法的调用信息
+##### 筛选方法
 
 ```
 tt -s 'method.name=="primeFactors"'
@@ -1183,7 +1174,7 @@ tt -s 'method.name=="primeFactors"'
 
 ![image-20220705083543897](images/image-20220705083543897.png)
 
-##### 查看调用信息
+##### 查看调用详情
 
 对于具体一个时间片的信息而言，你可以通过 -i 参数后边跟着对应的 INDEX 编号查看到他的详细信息。
 
@@ -1193,11 +1184,11 @@ tt -i 1002
 
 ![image-20220705083556532](images/image-20220705083556532.png)
 
-##### 重做一次调用
+##### 重试指定方法
 
 当你稍稍做了一些调整之后，你可能需要前端系统重新触发一次你的调用，此时得求爷爷告奶奶的需要前端配合联调的同学再次发起一次调用。而有些场景下，这个调用不是这么好触发的。
 
-tt 命令由于保存了当时调用的所有现场信息，所以我们可以自己主动对一个 INDEX 编号的时间片自主发起一次调用，从而解放你的沟通成本。此时你需要 -p 参数。通过 --replay-times 指定 调用次数，通过 --replay-interval 指定多次调用间隔(单位ms, 默认1000ms)
+tt 命令由于保存了当时调用的所有现场信息，所以我们可以自己主动对一个 INDEX 编号的时间片自主发起一次调用，从而解放你的沟通成本。此时你需要 **`-p`** 参数。通过 **`--replay-times`** 指定 调用次数，通过 **`--replay-interval`** 指定多次调用间隔(单位ms, 默认1000ms)
 
 ```shell
 tt -i 1002 -p
@@ -1211,21 +1202,19 @@ tt -i 1002 -p
 
 ### <font style=color:#e0861a>6. options</font>
 
-全局开关
+查看或设置**arthas全局环境变量**
 
-| 名称                | 默认值 |                                                         描述 |
-| ------------------- | :----: | -----------------------------------------------------------: |
-| 内容                |  内容  |                                                         内容 |
-| 内容                |  内容  |                                                         内容 |
+| 名称                | 默认值 |                             描述                             |
+| ------------------- | :----: | :----------------------------------------------------------: |
 | unsafe              | false  | 是否支持对系统级别的类进行增强，打开该开关可能导致把JVM搞挂，请慎重选择！ |
 | dump                | false  | 是否支持被增强了的类dump到外部文件中，如果打开开关，class文件会被dump到/${application dir}/arthas-class-dump/目录下，具体位置详见控制台输出 |
-| batch-re-transform  |  true  |                  是否支持批量对匹配到的类执行retransform操作 |
-| json-format         | false  |                                         是否支持json化的输出 |
+| batch-re-transform  |  true  |         是否支持批量对匹配到的类执行retransform操作          |
+| json-format         | false  |                     是否支持json化的输出                     |
 | disable-sub-class   | false  | 是否禁用子类匹配，默认在匹配目标类的时候会默认匹配到其子类，如果想精确匹配，可以关闭此开关 |
-| debug-for-asm       | false  |                                        打印ASM相关的调试信息 |
+| debug-for-asm       | false  |                    打印ASM相关的调试信息                     |
 | save-result         | false  | 是否打开执行结果存日志功能，打开之后所有命令的运行结果都将保存到~/logs/arthas-cache/result.log中 |
 | job-timeout         |   1d   | 异步后台任务的默认超时时间，超过这个时间，任务自动停止；比如设置1d, 2h, 3m, 25s，分别代表天、小时、分、秒 |
-| print-parent-fields |  true  |                              是否打印在parent class里的filed |
+| print-parent-fields |  true  |               是否打印在parent class里的filed                |
 
 ##### 案例
 
@@ -1250,27 +1239,23 @@ options save-result true
 
 ![image-20220705083710841](images/image-20220705083710841.png)
 
-##### 小结
-
-options的作用是：查看或设置arthas全局环境变量
-
 
 
 ### <font style=color:#e0861a>7. profiler</font>
 
-火焰图火焰图
+火焰图
 
 * profiler 命令支持生成应用热点的火焰图。本质上是通过不断的采样，然后把收集到的采样结果生成火焰图。
 * 命令基本运行结构是 profiler 命令 [命令参数]
 
-##### 案例
+案例
 
 ```shell
 # 启动 profiler
 profiler start
 ```
 
-##### 默认情况下，生成的是cpu的火焰图，即event为cpu。可以用--event参数来指定。
+默认情况下，生成的是cpu的火焰图，即event为cpu。可以用--event参数来指定。
 
 ```shell
 # 显示支持的事件
@@ -1287,7 +1272,7 @@ profiler getSamples
 profiler status
 ```
 
-##### 可以查看当前profiler在采样哪种event和采样时间。
+可以查看当前profiler在采样哪种event和采样时间。
 
 ```shell
 # 停止 profiler 生成 svg 格式结果
@@ -1299,14 +1284,12 @@ profiler stop
 profiler stop --file /tmp/output.svg
 ```
 
-##### 生成 html 格式结果
+生成 html 格式结果
 
 ```shell
 # 默认情况下，结果文件是svg格式，如果想生成html格式，可以用--format参数指定：或者在--file参数里用文件名指名格式。比如--file /tmp/result.html 
 profiler stop --format html
 ```
-
-##### 通过浏览器查看 arthas-output 下面的 profiler 结果
 
 默认情况下，arthas使用3658端口，则可以打开： http://localhost:3658/arthas-output/ 查看到arthas-output目录下面的profiler结果：
 
@@ -1338,67 +1321,51 @@ profiler stop --format html
 
 
 
-## 八、Arthas实践：哪个Controller处理了请求
+## 八、Arthas实践
 
->我们可以快速定位一个请求是被哪些Filter拦截的，或者请求最终是由哪些Servlet处理的。但有时，我们想知道一个请求是被哪个Spring MVC Controller处理的。如果翻代码的话，会比较难找，并且不一定准确。通过Arthas可以精确定位是哪个Controller处理请求。
+我们可以快速定位一个请求是被哪些Filter拦截的，或者请求最终是由哪些Servlet处理的。但有时，我们想知道一个请求是被哪个Spring MVC Controller处理的。如果翻代码的话，会比较难找，并且不一定准确。通过Arthas可以精确定位是哪个Controller处理请求。
 
-### 准备场景
+### 1. 线上debug
 
-##### 将ssm_student.war项目部署到Linux的tomcat服务器下，可以正常访问。
+* trace定位DispatcherServlet
 
-##### 启动之后，访问：http://192.168.254.199:8080/ssm_student ，会返回如下页面。
+  ```sh
+  # 前端请求到web
+  trace *.DispatcherServlet *
+  ```
 
-##### 那么这个请求是被哪个Controller处理的呢？
+  ![image-20220705083818378](images/image-20220705083818378.png)
 
-![image-20220705083759088](images/image-20220705083759088.png)
+  ```sh
+  # 可以分步trace，请求最终是被DispatcherServlet#doDispatch()处理了
+  trace *.FrameworkServlet doService
+  ```
 
-### 步骤
+  ![image-20220705083843438](images/image-20220705083843438.png)
 
-* 1. trace定位DispatcherServlet
-* 2. jad反编译DispatcherServlet
-* 3. watch定位handler
+* jad反编译DispatcherServlet
 
-### 实现步骤
+  ```sh
+  # trace结果里把调用的行号打印出来了，我们可以直接在IDE里查看代码（也可以用jad命令反编译）
+  jad --source-only *.DispatcherServlet doDispatch
+  ```
 
-* 第1步：
+  ![image-20220705083856038](images/image-20220705083856038.png)
 
-```shell
-# 在浏览器上进行登录操作，检查最耗时的方法
-trace *.DispatcherServlet *
-```
+* watch定位handler
 
-![image-20220705083818378](images/image-20220705083818378.png)
+  ```sh
+  # 查看返回的结果，得到使用到了 2 个控制器的方法
+  watch *.DispatcherServlet getHandler 'returnObj'
+  ```
 
-```shell
-# 可以分步trace，请求最终是被DispatcherServlet#doDispatch()处理了
-trace *.FrameworkServlet doService
-```
+  ![image-20220705083917193](images/image-20220705083917193.png)
 
-![image-20220705083843438](images/image-20220705083843438.png)
+- 最后得到这个操作由2个控制器来处理，分别是：
 
-* 第2步：
+  ```java
+  com.itheima.controller.UserController.login()
+  com.itheima.controller.StudentController.findAll()
+  ```
 
-```shell
-# trace结果里把调用的行号打印出来了，我们可以直接在IDE里查看代码（也可以用jad命令反编译）
-jad --source-only *.DispatcherServlet doDispatch
-```
-
-![image-20220705083856038](images/image-20220705083856038.png)
-
-* 第3步：
-
-```shell 
-# 查看返回的结果，得到使用到了 2 个控制器的方法
-watch *.DispatcherServlet getHandler 'returnObj'
-```
-
-![image-20220705083917193](images/image-20220705083917193.png)
-
-### 结论
-
-通过trace, jad, watch最后得到这个操作由2个控制器来处理，分别是：
-
-```java
-com.itheima.controller.UserController.login()
-com.itheima.controller.StudentController.findAll()
-```
+  
