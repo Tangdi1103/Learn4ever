@@ -10,9 +10,13 @@
 
 - 原理：
 
-  每个**Thread对象**中都**绑定一个ThreadLocalMap对象**，而 **ThreadLocal**对象就是**当前线程的ThreadLocalMap的操作封装**
+  每个**Thread对象**中都**绑定一个ThreadLocalMap对象**，而 **ThreadLocal**对象就是**当前线程的ThreadLocalMap的操作封装**。
 
   Thread在C++的实现为`JavaThread`，又通过`ThreadLocalStorage`对象，将自己保存到了实际操作系统线程的线程变量中。
+
+- 关于ThreadLocalMap
+
+  在java线程被创建时，就会分配一个ThreadLocalMap内存，它跟线程是同生命周期的。当有Hash冲突时，ThreadLocalMap采用的是线性探测法
 
 - 回收策略
 
