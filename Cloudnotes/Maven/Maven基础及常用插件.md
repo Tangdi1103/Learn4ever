@@ -18,14 +18,30 @@ maven默认的生命周期包括以下阶段（有关生命周期阶段的完整
 
 ### scope
 
-- **compile：**compile是scope默认的值，需要参与项目编译阶段、单元测试、运行阶段。打包时**被导入lib。**
+- **compile：**compile是scope默认的值，需要参与项目编译、测试、运行阶段。打包时**被导入lib。**
 
-- **provided：**仅参与项目编译和单元测试，打包时**不会被导入lib。**
+- **provided：**参与编译和测试，打包时**不会被导入lib。**
+
 - **test：**仅参与测试，打包时**不会被导入lib。**
 
-- **system：**与provided相同，区别在于system不会从远程私库拉取，而是到本地指定仓库获取，需要指定**systemPath**属性
+- **system：**与provided相同，区别在于system不会从远程私库拉取，而是到本地指定仓库获取，需要指定**systemPath**属性，此属性不常用
 
-- **runntime：**仅参与运行阶段，打包时**被导入lib。**
+- **runntime：**参与测试和运行阶段，打包时**被导入lib。**
+
+- **import：**只能用在 `<dependencyManagement>`且 `type` 为 pom的 `dependency` 。作用是引入 target pom下的的所有`<dependencyManagement>`内容。若不使用 `import`则只管理该target pom的版本
+
+  > Maven是单继承机制，也就是parent标签只能有一个。而POM文件的parent标签一般是继承spring-boot-starter-parent。
+  >
+  > 如果想继承其他的父类（比如：spring-cloud-dependencies）怎么办？
+  >
+  > import这个scope可以解决这个单继承的问题。
+
+  项目中使用如下：
+
+  - 指定 `parent` 为 `spring-boot-starter-parent`
+  - 在`dependencyManagement`中指定Spring Cloud依赖，scope设置为import
+
+  ![image-20220708104108247](images/image-20220708104108247.png)
 
 
 
