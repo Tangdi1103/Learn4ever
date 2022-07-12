@@ -234,45 +234,92 @@ public class MyIntercepter01 implements HandlerInterceptor{
 }
 ```
 
-**XML配置拦截器**
-
-```xml
-<mvc:interceptors>
-    <mvc:interceptor>
-        <!--配置当前拦截器的url拦截规则，**代表当前⽬录下及其⼦⽬录下的所有url-->
-        <!--拦截所有handler-->
-        <mvc:mapping path="/**"/>
-        <!--exclude-mapping可以在mapping的基础上排除⼀些url拦截-->
-        <!--<mvc:exclude-mapping path="/demo/**"/>-->
-        <bean class="com.lagou.edu.interceptor.MyIntercepter01"/>
-    </mvc:interceptor>
-</mvc:interceptors>
-```
-
 **Javaconfig配置拦截器**
 
 ```java
-import com.tangdi.itoken.web.admin.interceptor.WebAdminInterceptor;
-import org.springframework.context.annotation.Bean;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.alibaba.fastjson.support.config.FastJsonConfig;
+import com.alibaba.fastjson.support.spring.FastJsonHttpMessageConverter;
+import com.tangdi.interceptor.MyIntercepter01;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
-public class WebAdminInterceptorConfig implements WebMvcConfigurer {
-
-    @Bean
-    MyIntercepter01 myIntercepter01() {
-        return new MyIntercepter01();
-    }
+public class WebMvcConfig extends WebMvcConfigurationSupport {
+    @Autowired
+    private MyIntercepter01 myIntercepter01;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(myIntercepter01())
-                .addPathPatterns("/**")
-                .excludePathPatterns("/static");
+        registry.addInterceptor(myIntercepter01);
     }
-}
+
+    @Override
+    public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
+        for (int i = converters.size() - 1; i >= 0; i--) {
+            if (converters.get(i) instanceof MappingJackson2HttpMessageConverter) {
+                converters.remove(i);
+            }
+        }
+
+        // 初始化转换器
+        FastJsonHttpMessageConverter fastConvert = new FastJsonHttpMessageConverter();
+        // 初始化一个转换器配置
+        FastJsonConfig fastJsonConfig = new FastJsonConfig();
+        fastJsonConfig.setDateFormat("yyyy-MM-dd HH:mm:ss");
+        fastJsonConfig.setCharset(StandardCharsets.UTF_8);
+        fastJsonConfig.setSerializerFeatures(
+            // 是否输出值为null的字段,默认为false,我们将它打开
+            SerializerFeature.WriteMapNullValue,
+            // 将Collection类型字段的字段空值输出为[]
+            SerializerFeature.WriteNullListAsEmpty,
+            // 将字符串类型字段的空值输出为空字符串
+            SerializerFeature.WriteNullStringAsEmpty,
+            // 将数值类型字段的空值输出为0
+            SerializerFeature.WriteNullNumberAsZero,
+            SerializerFeature.WriteDateUseDateFormat,
+            // 禁用循环引用
+            SerializerFeature.DisableCircularReferenceDetect
+        );
+        fastConvert.setFastJsonConfig(fastJsonConfig);
+        List<MediaType> fastMediaTypes = new ArrayList<>();
+        fastMediaTypes.add(MediaType.APPLICATION_JSON_UTF8);
+        fastMediaTypes.add(MediaType.APPLICATION_JSON);
+        fastConvert.setSupportedMediaTypes(fastMediaTypes);
+        converters.add(fastConvert);
+
+        StringHttpMessageConverter stringConverter = new StringHttpMessageConverter();
+        List<MediaType> stringMediaTypes = new ArrayList<>();
+        stringMediaTypes.add(MediaType.TEXT_PLAIN);
+        stringMediaTypes.add(MediaType.TEXT_XML);
+        stringConverter.setSupportedMediaTypes(stringMediaTypes);
+        converters.add(stringConverter);
+    }
+
+    /**
+     * 发现如果继承了WebMvcConfigurationSupport，则在yml中配置的相关内容会失效。 需要重新指定静态资源
+     *
+     * @param registry
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/**").addResourceLocations("classpath:/static/");
+        registry.addResourceHandler("swagger-ui.html").addResourceLocations("classpath:/META-INF/resources/");
+        registry.addResourceHandler("doc.html").addResourceLocations("classpath:/META-INF/resources/");
+        registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
+        super.addResourceHandlers(registry);
+    }
 ```
 
 
