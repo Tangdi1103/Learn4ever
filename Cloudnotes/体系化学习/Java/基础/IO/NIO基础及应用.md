@@ -537,3 +537,110 @@ public class NIOClient {
 }
 ```
 
+
+
+## 七、实践
+
+以下都是基于NIO的 FileChannel 进行的实践操作，SocketChannel 也是同理
+
+FileChannel是线程安全的，所以可以利用多线程来进行复制文件，比如将文件分成4块，然后起4个线程去操作，这样效率提升的更明显。
+
+### <font style=color:#e0861a>文件复制</font>
+
+#### <font style=color:#228fbd>1. 利用缓冲区</font>
+
+- 使用 input和output流获取 FileChannel
+
+  ```java
+  FileInputStream in = new FileInputStream("歌曲串烧.mp3");
+  FileOutputStream out = new FileOutputStream("歌曲串烧2.mp3");
+  FileChannel inch = in.getChannel();
+  FileChannel outch = out.getChannel();
+  ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+  while((inch.read(byteBuffer))!=-1){
+      //切换读取模式
+      byteBuffer.flip();
+      outch.write(byteBuffer);
+      byteBuffer.clear();
+  }
+  inch.close();
+  outch.close();
+  in.close();
+  out.close();
+  ```
+
+- 静态获取 FileChannel
+
+  ```java
+  FileChannel inch = FileChannel.open(Paths.get("歌曲串烧.mp3"), StandardOpenOption.READ);
+  FileChannel outch = FileChannel.open(Paths.get("歌曲串烧2.mp3"), StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+  ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+  while((inch.read(byteBuffer))!=-1){
+      //切换读取模式
+      byteBuffer.flip();
+      outch.write(byteBuffer);
+      byteBuffer.clear();
+  }
+  inch.close();
+  outch.close();
+  ```
+
+#### <font style=color:#228fbd>2. 使用零拷贝-sendfile</font>
+
+```java
+public static void test3(){
+    //输出7366ms
+    long start = System.currentTimeMillis();
+    System.out.println("writeBuffer-开始时间："+start);
+    FileChannel fci = null;
+    FileChannel fco = null;
+    try {
+        fci = new RandomAccessFile("D:\\Eclipse\\workspace\\sdutent\\file1.txt", "rw").getChannel();
+        fco = new RandomAccessFile("‪fileX.txt", "rw").getChannel();
+        fci.transferTo(0, fci.size(), fco);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }finally {
+        try {
+            if(fci!=null) {
+                fci.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            if(fco!=null) {
+                fco.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    long end = System.currentTimeMillis();
+    System.out.println("总消耗："+(end-start));
+}
+```
+
+#### <font style=color:#228fbd>3. MMap-内存映射</font>
+
+```java
+FileChannel inch = FileChannel.open(Paths.get("歌曲串烧.mp3"), StandardOpenOption.READ);
+FileChannel outch = FileChannel.open(Paths.get("歌曲串烧2.mp3"), StandardOpenOption.READ,StandardOpenOption.WRITE, StandardOpenOption.CREATE);
+MappedByteBuffer inmap = inch.map(FileChannel.MapMode.READ_ONLY, 0, inch.size());
+MappedByteBuffer outmap = outch.map(FileChannel.MapMode.READ_WRITE, 0, inch.size());
+byte[] bytes = new byte[inmap.limit()];
+inmap.get(bytes);
+outmap.put(bytes);
+inch.close();
+outch.close();
+```
+
+#### <font style=color:#228fbd>4. Copy</font>
+
+Files类是Java7之后推出来的，对文件的操作功能非常牛，建议多学习。
+
+```java
+Files.copy(Paths.get("歌曲串烧.mp3"),Paths.get("歌曲串烧2.mp3"), StandardCopyOption.REPLACE_EXISTING);
+```
+
