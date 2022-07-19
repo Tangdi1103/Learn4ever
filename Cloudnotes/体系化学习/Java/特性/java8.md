@@ -740,7 +740,7 @@ public void test02(){
 * 并行流：就是把一个内容分成几个数据块，并用不同的线程分别处理每个数据块的流
 * Java 8 中将并行进行了优化，我们可以很容易的对数据进行操作；Stream API 可以声明性地通过 parallel() 与 sequential() 在并行流与串行流之间切换
 
-Fork / Join 框架：
+##### Fork / Join 框架：
 
   ![输入图片说明](images/2020051822555569.png "QQ截图20201229183512.png")
 
@@ -748,7 +748,7 @@ Fork / Join 框架与传统线程池的区别：
 
   ![输入图片说明](images/20200518225613845.png "QQ截图20201229183512.png")
 
-  Fork / Join 实现：
+实现：
 
 - 两个子类任务，一个是RecoursiveTask，他的职责相当于callable，用来执行有返回值任务
 
@@ -756,21 +756,21 @@ Fork / Join 框架与传统线程池的区别：
 
   ```java
   public class ForkJoinCalculate extends RecursiveTask<Long> {
-
+  
     private static final long serialVersionUID = 1234567890L;
-
+  
     private long low;// 开始计算的下标
     private long high;// 结束计算的下标
     private long[] arr;// 计算的实际数组
-
+  
     private static final long THRESHPLD = 10000;
-
+  
     public ForkJoinCalculate(long[] arr,long low, long high) {
         this.low = low;
         this.high= high;
         this.arr = arr;
     }
-
+  
     @Override
     protected Long compute() {
         // 当任务拆分到小于等于阀值时开始求和
@@ -783,74 +783,74 @@ Fork / Join 框架与传统线程池的区别：
         // 任务过大继续拆分
         else {
             long mid = low + (high - low) / 2;
-
+  
             ForkJoinCalculate left = new ForkJoinCalculate(arr, low, mid-);
             ForkJoinCalculate right = new ForkJoinCalculate(arr, mid, end);
             //拆分子任务 压入线程队列
             left.fork(); 
             right.fork();
-
+  
             return left.join() + right.join();
         }
-
+  
         return null;
     }
-}
-
-public class TestForkJoin {
-
-    /**
-     * ForkJoin 框架
-     */
-    @Test
-    public void test01(){
-        Instant start = Instant.now();// start
-        long size = 100000000L;
-        
-        ForkJoinPool pool = new ForkJoinPool();
-        long[] numbers = LongStream.rangeClosed(1, size).toArray();
-        ForkJoinCalculate task = new ForkJoinCalculate(numbers,0,size-1);
-    
-        //ForkJoinTask<Long> task =  pool.submit(task);
-        //System.out.println(task.get());
-        
-        Long sum = pool.invoke(task);
-        System.out.println(sum);
-    
-        Instant end = Instant.now();
-        System.out.println(Duration.between(start, end).getNano());
-        forkJoinPool.shutdown();//关闭forkJoinPool池
-    }
-    
-    /**
-     * 普通 for循环
-     */
-    @Test
-    public void test02(){
-        Instant start = Instant.now();
-    
-        Long sum = 0L;
-        for (long i = 0; i < 100000000L; i++) {
-            sum += i;
-        }
-    
-        Instant end = Instant.now();
-        System.out.println(Duration.between(start, end).getNano());
-    }
-}
+  }
   ```
 
-  Java 8 并行流 / 串行流：
+  ```java
+  public class TestForkJoin {
+      /**
+   	* ForkJoin 框架
+   	*/
+      @Test
+      public void test01(){
+          Instant start = Instant.now();// start
+          long size = 100000000L;
+  
+          ForkJoinPool pool = new ForkJoinPool();
+          long[] numbers = LongStream.rangeClosed(1, size).toArray();
+          ForkJoinCalculate task = new ForkJoinCalculate(numbers,0,size-1);
+  
+          //ForkJoinTask<Long> task =  pool.submit(task);
+          //System.out.println(task.get());
+  
+          Long sum = pool.invoke(task);
+          System.out.println(sum);
+  
+          Instant end = Instant.now();
+          System.out.println(Duration.between(start, end).getNano());
+          forkJoinPool.shutdown();//关闭forkJoinPool池
+      }
+  
+      /**
+   	* 普通 for循环
+   	*/
+      @Test
+      public void test02(){
+          Instant start = Instant.now();
+  
+          Long sum = 0L;
+          for (long i = 0; i < 100000000L; i++) {
+              sum += i;
+          }
+  
+          Instant end = Instant.now();
+          System.out.println(Duration.between(start, end).getNano());
+      }
+  }
+  ```
+
+##### Java 8 并行流 / 串行流：
 
   ```java
-  @Test
+@Test
 public void test03(){
-    //串行流(单线程)：切换为并行流 parallel()
-    //并行流：切换为串行流 sequential()
+    //串行流(单线程)切换为并行流 parallel()
+    //并行流切换为串行流 sequential()
     LongStream.rangeClosed(0, 100000000L)
         .parallel() //底层：ForkJoin
         .reduce(0, Long::sum);
-
 }
   ```
 

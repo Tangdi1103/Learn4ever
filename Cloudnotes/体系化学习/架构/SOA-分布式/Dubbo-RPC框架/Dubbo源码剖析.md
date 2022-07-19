@@ -80,3 +80,57 @@ Zookeeper的目录结构如下：
 
 ![image-20210819014943865](images/image-20210819014943865.png)
 
+### RPC调用
+
+ TCP 协议本身就是异步的， RPC 调用**在 TCP 协议层面，发送完 RPC 请求后，线程是不会等待 RPC 的响应结果的**。可能你会觉得奇怪，平时工作中的 RPC 调用大多数都是同步的啊？这是怎么回事呢？
+
+一定是有人帮你做了异步转同步的事情。例如目前知名的 RPC 框架 Dubbo 就给我们做了异步转同步的事情，那它是怎么做的呢？下面我们就来分析一下 Dubbo 的相关源码。
+
+当调用RPC方法时，查看线程堆栈信息，就能发现线程是TIMED_WAITING状态，本来发送请求就是异步的，但是调用线程却阻塞了。说明Dubbo为我们做了异步转同步的事情，通过调用栈，你能看到线程是阻塞在 DefaultFuture.get() 方法上，所以可以推断：Dubbo 异步转同步的功能应该是通过 DefaultFuture 这个类实现的。
+
+DefaultFutrue大致代码如下：
+
+```java
+// 创建锁与条件变量
+private final Lock lock = new ReentrantLock();
+private final Condition done = lock.newCondition();
+
+// 调用方通过该方法等待结果
+Object get(int timeout){
+    long start = System.nanoTime();
+    lock.lock();
+    try {
+        while (!isDone()) {
+            done.await(timeout);
+            long cur=System.nanoTime();
+            if (isDone() || 
+                cur-start > timeout){
+                break;
+            }
+        }
+    } finally {
+        lock.unlock();
+    }
+    if (!isDone()) {
+        throw new TimeoutException();
+    }
+    return returnFromResponse();
+}
+// RPC 结果是否已经返回
+boolean isDone() {
+    return response != null;
+}
+// RPC 结果返回时调用该方法   
+private void doReceived(Response res) {
+    lock.lock();
+    try {
+        response = res;
+        if (done != null) {
+            done.signal();
+        }
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
