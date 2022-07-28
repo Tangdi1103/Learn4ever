@@ -937,7 +937,7 @@ public class MybatisPlusConfig {
   mybatis-plus.type-aliases-package = com.tangdi.common.entity
   ```
 
-- **mapUnderscoreToCamelCase**
+- **mapUnderscoreToCamelCase 和 log-impl**
 
   驼峰命名规则映射属性与字段，在mybatis中默认关闭，但在**mp中默认开启**。
 
@@ -948,6 +948,9 @@ public class MybatisPlusConfig {
   ```properties
   #关闭自动驼峰映射，该参数不能和mybatis-plus.config-location同时存在
   mybatis-plus.configuration.map-underscore-to-camel-case=false
+  
+  # 打印sql日志
+  mybatis-plus.configuration.log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   ```
 
 - **cacheEnabled**
