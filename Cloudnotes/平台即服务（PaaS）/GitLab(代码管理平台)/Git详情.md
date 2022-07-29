@@ -8,7 +8,7 @@
 
 安装路径为默认路径，不要修改。安装完成后在cmd里面测试是否设置了Path,是否安装成功. 在CMD中输入 git 或者 git –version 试试
 
-```
+```sh
 git version 2.14.3.windows.1
 ```
 

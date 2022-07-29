@@ -2,7 +2,7 @@
 
 # 一、生成多个SSH密钥
 
-```
+```sh
 ssh-keygen -t rsa -C "1112346@qq.com" -f ~/.ssh/gitlab_id-rsa
 ssh-keygen -t rsa -C "1112346@qq.com" -f ~/.ssh/github_id-rsa
 ```
@@ -31,7 +31,7 @@ Host github.com
 
 # 四、测试
 
-```
+```sh
 ssh -T git@github.com
 ssh -T git@192.168.0.28
 ```

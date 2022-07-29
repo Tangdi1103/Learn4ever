@@ -1,61 +1,57 @@
-使用 git clone 拷贝一个 Git 仓库到本地，让自己能够查看该项目，或者进行修改。
+##### 克隆
 
 
-```
+```SH
 git clone url
 ```
 
-==**标签**==
 
-==-a== 选项意为”创建一个带注解的标签”。 不用 ==-a== 选项也可以执行的，但它不会记录这标签是啥时候打的，谁打的，也不会让你添加个标签的注解。 我推荐一直创建带注解的标签。
 
-```
+##### 标签
+
+`-a` 选项意为”创建一个带注解的标签”。 不用 `-a` 选项也可以执行的，但它不会记录这标签是啥时候打的，谁打的，也不会让你添加个标签的注解。 我推荐一直创建带注解的标签。
+
+```sh
 git tag -a v1.0.0
 ```
 
-==**查看/修改用户名、邮箱**==
 
 
-```
-查看
+##### 查看/修改用户名、邮箱
+
+
+```sh
+#查看
 $ git config --global -l
-
 $ git config user.name
-
 $ git config user.email
 
-修改
-
+#修改
 $ git config --global user.name "username"
- 
 $ git config --global user.email "email"
 ```
 
-==**使用代理**==
-```
+
+
+##### 使用代理
+
+```sh
 git config --global http.proxy http://127.0.0.1:1080
 git config --global https.proxy http://127.0.0.1:8080
 ```
 
-==**取消代理**==
 
-```
+
+##### 取消代理
+
+```sh
 git config --global --unset http.proxy
 git config --global --unset https.proxy
 ```
 
-**==window自动化脚本==**
-```
-e:                                  这是我脚本放的盘，我放在E盘中
-cd markdown                         这是脚本的具体路径，E:\markdown
-下面这三个执行就好
-git add .                           
-git commit -m "shy auto save"       shy auto save是自定义的
-git push -u origin master 
 
-```
 
-**==查看/添加远程仓库==**
+##### 查看/添加远程仓库
 
 ```shell
 #查看当前项目远程仓库
@@ -92,3 +88,55 @@ git remote remove <remote>
 git remote remove gitee
 ```
 
+
+
+##### 将某分支的某commit代码合到另一个分支
+
+```sh
+git branch -a #查看本地和远程所有分支
+git checkout -b feature/test remotes/origin/feature/test #从远程分支创建并切换到新的本地分支
+
+git branch #查看本地分支
+git checkout feature/test #切换到本地分支feature/test
+
+#将另一个分支指定commit-id合并到本地分支，00940ac970b9ddab63bff928479668bbfa293aaf是另一个分支的commit-id，也可以用空格分离多个commit-id批量提交
+git cherry-pick 00940ac970b9ddab63bff928479668bbfa293aaf 
+
+git log #查看本地分支是否有添加的提交记录
+
+git pull #拉取最新代码
+
+git push -f #推送到远程仓库
+```
+
+
+
+##### 回滚本地commit版本
+
+```sh
+git reset --soft HEAD ~1 #回滚到上一次commit版本
+git reset --soft HEAD ~2 #回滚到前两次commit版本
+```
+
+
+
+##### 删除远程某commit代码
+
+需求：按最新时间顺序分别有commitA、commitB、commitC提交，现在要删除commitB
+
+```sh
+git log #获取commit信息 
+
+#00940ac970b9ddab63bff928479668bbfa293aaf 是要删除commitB版本的前一次commitC的commit号 
+git rebase -i  00940ac970b9ddab63bff928479668bbfa293aaf
+
+编辑文件，将前面的pick改为drop，然后按照提示保存退出
+
+git log #查看
+
+git push -f #推送到远程仓库
+```
+
+
+
+![image-20220729190857680](images/image-20220729190857680.png)
