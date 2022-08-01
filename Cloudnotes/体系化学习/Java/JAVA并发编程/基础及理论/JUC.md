@@ -73,9 +73,43 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 
 
+## 2. 并发容器
 
+Java 并发包有很大一部分内容都是关于**并发容器**的，在JAVA1.5之前提供的**同步容器**虽也能保证线程安全，但是性能很差，这些同步容器包括：**Vector**、**Stack**、**Hashtable**以及被**Collections包装**的ArrayList、HashSet 和 HashMap。
 
-## 2. 阻塞队列-BLQ
+在1.5之后出现的**并发容器**在性能方面做了很多优化，所包含的并发容器如下图所示：
+
+![image-20220801121301010](images/image-20220801121301010.png)
+
+### 1.1 Queue
+
+Queue分为阻塞和非阻塞（当队列已满时，入队操作阻塞；当队列已空时，出队操作阻塞），单端和双端（单端指的是只能队尾入队，队首出队；而双端指的是队首队尾皆可入队出队）。
+
+带 **Blocking** 关键字的是**阻塞队列**，带 **Deque** 的是**双端队列**。
+
+- 单端阻塞队列
+
+  ![image-20220801141935885](images/image-20220801141935885.png)
+
+  ArrayBlockingQueue（数组）、LinkedBlockingQueue（链表）、SynchronousQueue（无队列）、LinkedTransferQueue（融合LinkedBLQ和SyncQueue，优于LinkedBLQ）、PriorityBlockingQueue 和 DelayQueue（延迟队列）
+
+- 双端阻塞队列
+
+  ![image-20220801141940700](images/image-20220801141940700.png)
+
+  LinkedBlockingDeque
+
+- 单端非阻塞
+
+  ConcurrentLinkedQueue
+
+- 双端非阻塞
+
+  ConcurrentLinkedDeque
+
+**注意：**使用队列时，需要格外关注队列边界问题，其中只有ArrayBLQ和LinkedBLQ支持有界的，**其他都是无界队列，在使用时一定要充分考虑是否存在导致 OOM的隐患**
+
+#### 1.1.1 阻塞队列-BLQ
 
 常见实现类为**FIFO（ArrayBlockingQueue、LinkedBlockingQueue）** 和 **优先级出队PriorityBlockingQueue**
 
@@ -87,7 +121,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 - **take：若队列空，则阻塞直到队列有数据，然后取（取）**
 - pool：若队列空，则返回null（取）
 
-#### ArrayBlockingQueue
+##### ArrayBlockingQueue
 
 - 1个**数组**对象 + **1个reentrantLock锁** + **2个Condition条件**
   - **入队和出队使用同一把锁**，所以入队和出队无法被并发执行
@@ -105,7 +139,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 ![image-20220219230256002](images/image-20220219230256002.png)
 
-#### LinkedBlockingQueue 
+##### LinkedBlockingQueue 
 
 - **单向链表** + **2个ReentrantLock锁** + **2个Condition条件**
   - **提供了并发度，入队和出队各由1把锁控制**，所以可以并发进行入队和出队
@@ -123,24 +157,24 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 
 
-#### PriorityBlockingQueue
+##### PriorityBlockingQueue
 
 - 与ArrayBlockingQueue类似，区别在于使用数组**实现一个最小堆，堆顶优先出队**
 - 没有notfull条件，即**队列满不会阻塞，而是扩容**
 
 
 
-#### 自定义阻塞队列
+##### 自定义阻塞队列
 
 ![image-20220219223249081](images/image-20220219223249081.png)
 
-##### 1. 使用synchronized、wait、和notifyAll实现
+###### 1. 使用synchronized、wait、和notifyAll实现
 
 ![image-20220219223306529](images/image-20220219223306529.png)
 
 
 
-##### 2. 使用ReetrantLock（AQS-CLH同步队列）实现，这也是ArrayBlockingQueue的实现方式
+###### 2. 使用ReetrantLock（AQS-CLH同步队列）实现，这也是ArrayBlockingQueue的实现方式
 
 ![image-20220219223151744](images/image-20220219223151744.png)
 
@@ -150,11 +184,40 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 
 
+### 1.2 CopyOnWriteArrayList
+
+在了解了CopyOnWriteArrayList之后，不知道大家会不会有这样的疑问：他的add/remove等方法都已经加锁了，还要copy一份再修改干嘛？多此一举？同样是线程安全的集合，这玩意和Vector有啥区别呢？
+
+Copy-On-Write简称COW，是一种用于程序设计中的优化策略。其基本思路是，从一开始大家都在共享同一个内容，当某个人想要修改这个内容的时候，才会真正把内容Copy出去形成一个新的内容然后再改，这是一种延时懒惰策略。
+
+CopyOnWrite容器即写时复制的容器。通俗的理解是当我们往一个容器添加元素的时候，不直接往当前容器添加，而是先将当前容器进行Copy，复制出一个新的容器，然后新的容器里添加元素，添加完元素之后，再将原容器的引用指向新的容器。
+
+![image-20220801140728726](images/image-20220801140728726.png)
+
+**CopyOnWriteArrayList中add/remove等写方法是需要加锁的**，目的是为了避免Copy出N个副本出来，导致并发写。
+
+**CopyOnWriteArrayList中的读方法是没有加锁的。**
+
+```java
+public E get(int index) {
+    return get(getArray(), index);
+}
+```
+
+这样做的好处是我们可以对CopyOnWrite容器进行并发的读，当然，这里读到的数据可能不是最新的。因为写时复制的思想是通过延时更新的策略来实现数据的最终一致性的，并非强一致性。
+
+**所以CopyOnWrite容器是一种读写分离的思想，读和写不同的容器。**而Vector在读写的时候使用同一个容器，读写互斥，同时只能做一件事儿。
+
+#### 注意事项
+
+- CopyOnWriteArrayList 仅适用于写操作非常少的场景，而且能够容忍读写的短暂不一致。例如上面的例子中，写入的新元素并不能立刻被遍历到。
+- CopyOnWriteArrayList **迭代器是只读的，不支持增删改**。因为迭代器遍历的**仅仅是一个快照**，而对快照进行增删改是没有意义的。
 
 
 
+### 1.3 ConcurrentHashMap
 
-## 3. ConcurrentHashMap
+![image-20220801140901043](images/image-20220801140901043.png)
 
 ##### 实现原理
 

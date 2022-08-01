@@ -174,7 +174,7 @@ public ModelAndView handlePut(@PathVariable("id") Integer id,@PathVariable("name
 从图可以看出，当有多个拦截器同时⼯作时，它们的preHandle()⽅法会按照配置⽂件中拦截器的配置
 顺序执⾏，⽽它们的postHandle()⽅法和afterCompletion()⽅法则会按照配置顺序的反序执⾏。
 
-#### 1.3 示例代码
+#### 1.3 拦截器示例代码
 
 ```java
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -320,6 +320,119 @@ public class WebMvcConfig extends WebMvcConfigurationSupport {
         registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
         super.addResourceHandlers(registry);
     }
+```
+
+#### 1.4 过滤器示例
+
+```java
+package com.csair.order.web.filter;
+
+import java.io.IOException;
+import java.util.HashSet;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.annotation.WebFilter;
+import javax.servlet.http.HttpServletRequest;
+
+import com.csair.common.RediskeyConstants;
+import com.csair.order.config.cache.JedisClusterService;
+import org.apache.commons.lang.math.RandomUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
+
+import com.csair.common.LocalConstants;
+import com.csair.common.LocalServer;
+import com.csair.order.util.CookiesUtil;
+import com.csair.util.MDCUtils;
+import com.csair.util.StringUtils;
+
+@Order(2)
+@WebFilter(urlPatterns = "/*", filterName = "bookProcessFilter")
+public class BookProcessFilter implements Filter{
+
+    private static final Logger logger = LoggerFactory.getLogger(BookProcessFilter.class);	
+    @Autowired
+    private CookiesUtil cookiesUtil;
+    @Autowired
+    private JedisClusterService jedisClusterService;
+
+    @Override
+    public void init(FilterConfig arg0) throws ServletException {
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+        throws IOException, ServletException {		
+        try {
+            saveRequestParamToMDC(request);	
+            chain.doFilter(request, response);
+            MDCUtils.removeMDC();
+        } catch (Exception e) {
+            logger.error("处理请求发生异常",e);
+        }				
+    }
+
+    @Override
+    public void destroy() {
+    }
+
+
+
+
+
+    public final MDCUtils.RedisFetch redisFetchInst = new MDCUtils.RedisFetch(){
+        @Override
+        public String getRemoteIps(){
+            return (String)jedisClusterService.get(RediskeyConstants.CSMBP_CDN_IP_SET);
+        }
+    };
+
+    /**
+	 * 保存一些必要的信息到MDC中作为打印日志依据
+	 * @param request
+	 */
+    private void saveRequestParamToMDC(ServletRequest request){
+        try {
+            MDC.put(MDCUtils.REQUESTID,MDCUtils.getRequestId((HttpServletRequest) request));
+            MDC.put(MDCUtils.APPVERSION,request.getParameter("APPVERSION"));
+            MDC.put(MDCUtils.APPTYPE,request.getParameter("APPTYPE"));
+            MDC.put(MDCUtils.DEVICEID,request.getParameter("DEVICEID"));
+            MDC.put(MDCUtils.DEVICETYPE,request.getParameter("DEVICETYPE"));
+            //从redis中获取配置ip列表
+            HttpServletRequest req =(HttpServletRequest)request;
+            String ips=MDCUtils.getRemoteIp(req,redisFetchInst);
+            MDC.put(MDCUtils.REMOTEIP,ips);
+
+            //对时区以及系统版本进行拼接封装到REMARK字段，为空则不拼接
+            String timeZone=request.getParameter("timeZone");
+            String osversion=request.getParameter("osversion");
+            StringBuffer remark=new StringBuffer("");
+            if(StringUtils.isNotBlank(timeZone)){
+                remark.append("timeZone=").append(timeZone).append(";");
+            }
+            if(StringUtils.isNotBlank(osversion)){
+                remark.append("osversion=").append(osversion);
+            }
+            if (remark.length() > 0) {
+                MDC.put(MDCUtils.REMARK,remark.toString());
+            }
+            String userId=cookiesUtil.getUserIdByToken(request);
+            if(StringUtils.isNotBlank(userId)){
+                MDC.put(MDCUtils.USER_ID,userId);	
+            }	
+        } catch (Exception e) {
+            logger.error("保存元数据到MDC异常",e);
+        }
+    }
+}
 ```
 
 
