@@ -471,3 +471,174 @@ public class MyBeanPostProcessor implements BeanPostProcessor {
 }
 ```
 
+
+
+### 4. 事件机制
+
+##### 4.1 EventPublisher
+
+`ApplicationEventPublisherAware`
+
+```java
+@Component
+public class EventPublish implements ApplicationEventPublisherAware {
+
+    ApplicationEventPublisher applicationEventPublisher;
+
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    public void publishEvent(ApplicationEvent event) {
+        applicationEventPublisher.publishEvent(event);
+    }
+}
+```
+
+##### 4.2 Event
+
+`ApplicationEvent`
+
+```java
+public class ArticleChangeChannelEvent extends ApplicationEvent {
+
+    private ArticleEventInfo articleEventInfo;
+
+    public ArticleChangeChannelEvent(Object source, ArticleEventInfo articleEventInfo) {
+        super(source);
+        this.articleEventInfo = articleEventInfo;
+    }
+
+    public ArticleEventInfo getArticleEventInfo() {
+        return articleEventInfo;
+    }
+}
+```
+
+##### 4.3 Listener
+
+`SmartApplicationListener`
+
+```java
+@Slf4j
+@Component
+public class ArticleChangeChannelListener extends SmartApplicationListener {
+    @Autowired
+    private ChannelMappingBiz channelMappingBiz;
+    @Autowired
+    private ChannelDataBiz channelDataBiz;
+    @Autowired
+    private ChannelDataFlowService channelDataFlowService;
+    @Autowired
+    private ChannelDataAuditBiz channelDataAuditBiz;
+    @Autowired
+    private ChannelSettingBiz channelSettingBiz;
+    @Autowired
+    private ArticleDao articleDao;
+    @Autowired
+    private ChannelDataService channelDataService;
+
+    @Override
+    public boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
+        return ArticleChangeChannelEvent.class == eventType;
+    }
+
+    @Override
+    public boolean supportsSourceType(Class<?> sourceType) {
+        return true;
+    }
+
+    @Override
+    public int getOrder() {
+        return 0;
+    }
+
+    @Override
+    public void onApplicationEvent(ApplicationEvent applicationEvent) {
+        //禁用切换频道逻辑
+        if(true) { return; }
+        try {
+            log.info("ArticleChangeChannelListener start!");
+            ArticleChangeChannelEvent event = (ArticleChangeChannelEvent) applicationEvent;
+            ArticleEventInfo eventInfo = event.getArticleEventInfo();
+            if(ObjectUtil.isEmpty(eventInfo)) {
+                return;
+            }
+            log.info("ArticleChangeChannelListener event:{}!", JSONUtil.toJsonStr(event));
+            //处理逻辑
+            handleArticleChangeChannelEvent(eventInfo);
+            log.info("ArticleChangeChannelListener end!");
+        }catch (Exception e){
+            log.error("ArticleChangeChannelListener eventInfo:{}, error:{}", e);
+        }
+    }
+
+    private void handleArticleChangeChannelEvent(ArticleEventInfo eventInfo) {
+        List<Long> articleIds = eventInfo.getArticleIds();
+        Map<Long, List<Long>> contentChannelIdMap = channelMappingBiz.getContentChannelIdMapByArticleIds(articleIds);
+        Map<Long, List<ChannelDataEntity>> channelDataMap = channelDataBiz.getChannelDataMap(articleIds);
+
+        List<Long> contentChannelIdList = contentChannelIdMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
+        Map<Long, Integer> contentChannelIdAndSourceMap = channelSettingBiz.getContentChannelIdAndSourceMap(contentChannelIdList);
+
+        log.info("handleArticleChangeChannelEvent eventInfo:{}, contentChannelIdMap:{}, channelDataMap:{}",
+                 JSONUtil.toJsonStr(eventInfo),
+                 JSONUtil.toJsonStr(contentChannelIdMap),
+                 JSONUtil.toJsonStr(channelDataMap));
+
+        //处理
+        articleIds.forEach(articleId -> {
+            ArticleEntity articleEntity = articleDao.selectOne(new QueryWrapper<ArticleEntity>().lambda().eq(ArticleEntity::getId, articleId));
+            if(ObjectUtil.isEmpty(articleEntity)) {
+                log.info("handleArticleChangeChannelEvent articleEntity is empty! articleId:{}", articleId);
+                return;
+            }
+
+            //判断是否有匹配频道
+            List<Long> channelIdList = contentChannelIdMap.get(articleId);
+            if(CollectionUtil.isEmpty(channelIdList)) {
+                channelDataBiz.deleteChannelDataDao(articleId, null);
+                channelDataFlowService.deleteChannelData(articleId,null);
+                return;
+            }
+
+            //获取已存在文章集合
+            List<ChannelDataEntity> channelDataList = channelDataMap.get(articleId);
+            if(CollectionUtil.isNotEmpty(channelDataList)) {
+                List<Long> exitChannelIdList = channelDataList.stream().map(ChannelDataEntity::getChannelId).collect(Collectors.toList());
+                exitChannelIdList.forEach(channelId -> {
+                    if(!channelIdList.contains(channelId)) {
+                        channelDataBiz.deleteChannelDataDao(articleId, channelId);
+                        channelDataFlowService.deleteChannelData(articleId,channelId);
+                    }
+                });
+                channelIdList.forEach(channelId -> {
+                    Integer source = null;
+                    if(MapUtil.isNotEmpty(contentChannelIdAndSourceMap)) {
+                        source = contentChannelIdAndSourceMap.get(channelId);
+                    }
+                    if(!exitChannelIdList.contains(channelId)) {
+                        channelDataBiz.insertChannelData(articleId, channelId);
+                        channelDataFlowService.addChannelData(articleId,channelId);
+                        channelDataAuditBiz.insertOrUpdateChannelDataAudit(articleId, KD_PASS.getValue(), source, articleEntity.getCreateTime());
+                        channelDataService.changeChanelDataStatus(articleId,KD_PASS.getValue(), source);
+                    }
+                });
+            }else {
+                channelIdList.forEach(channelId -> {
+                    Integer source = null;
+                    if(MapUtil.isNotEmpty(contentChannelIdAndSourceMap)) {
+                        source = contentChannelIdAndSourceMap.get(channelId);
+                    }
+                    channelDataBiz.insertChannelData(articleId, channelId);
+                    channelDataFlowService.addChannelData(articleId,channelId);
+                    channelDataAuditBiz.insertOrUpdateChannelDataAudit(articleId, KD_PASS.getValue(), source, articleEntity.getCreateTime());
+                    channelDataService.changeChanelDataStatus(articleId,KD_PASS.getValue(), source);
+                });
+            }
+        });
+    }
+}
+```
+
