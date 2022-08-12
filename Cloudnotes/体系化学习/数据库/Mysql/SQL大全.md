@@ -150,6 +150,8 @@ delete from tableName where aaa="111";
 
 #### 6. 修改表结构
 
+![image-20220812184528024](images/image-20220812184528024.png)
+
 ```sql
 -- 新增字段
 ALTER TABLE table_name ADD COLUMN test VARCHAR(32) NOT NULL DEFAULT '123' COMMENT '测试';
