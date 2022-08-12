@@ -196,7 +196,7 @@ Consumer消费消息失败后，要提供一种重试机制，令消息再消费
 
 #### <font style=color:#228fbd>3.1 Broker配置</font>
 
-Broker服务器配置如下：
+$rocketMq_Home/conf/**broker.conf**配置如下：
 
 ![image-20220526083555274](images/image-20220526083555274.png)
 

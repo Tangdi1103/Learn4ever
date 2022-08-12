@@ -505,6 +505,7 @@ public class ArticleChangeChannelEvent extends ApplicationEvent {
 
     private ArticleEventInfo articleEventInfo;
 
+    // ArticleEventInfo 相当于事件的消息，用于监听端消费
     public ArticleChangeChannelEvent(Object source, ArticleEventInfo articleEventInfo) {
         super(source);
         this.articleEventInfo = articleEventInfo;

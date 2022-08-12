@@ -150,16 +150,16 @@ wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-relea
 - 修改脚本(**JDK8可忽略**，若JDK为11则需要修改一些JVM配置)
 
   ```
-  bin/runserver.sh
-  bin/runbroker.sh
-  bin/tools.sh
+  vim bin/runserver.sh
+  vim bin/runbroker.sh
+  vim bin/tools.sh
   ```
 
 - 启动NameServer
 
   ```sh
-  # 1.启动NameServer 
-  mqnamesrv 
+  # 1.不挂断式启动 NameServer 
+  nohup sh mqnamesrv &
   # 2.查看启动日志 
   tail -f ~/logs/rocketmqlogs/namesrv.log
   ```
@@ -167,10 +167,85 @@ wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-relea
 - 启动Broker
 
   ```sh
-  # 1.启动Broker 
-  mqbroker -n localhost:9876 
+  # 1.不挂断式启动 启动Broker
+  nohup sh mqbroker -n localhost:9876 &
+  # 或者指定配置文件启动
+  nohup sh mqbroker -c ../conf/broker.conf &
   # 2.查看启动日志
   tail -f ~/logs/rocketmqlogs/broker.log
+  ```
+
+- 启动brocker集群
+
+  ```sh
+  nohup sh mqbroker -c /home/rocketmq/conf/2m-2s-sync/broker-a.properties >master.log &
+  nohup sh mqbroker -c /home/rocketmq/conf/2m-2s-sync/broker-a-s.properties >slave.log &
+  ```
+
+- broker配置文件`broker.conf`
+
+  ```sh
+  # [rocketmq broker.conf参数解释]
+  #4.7.1版本
+   
+  #所属集群名字
+  brokerClusterName=rocketmq-cluster
+  #broker名字，名字可重复,为了管理,每个master起一个名字,他的slave同他,eg:Amaster叫broker-a,他的slave也叫broker-a
+  brokerName=broker-a
+  #0 表示 Master，>0 表示 Slave
+  brokerId=0
+  brokerIp=127.0.0.1
+  #nameServer地址，分号分割
+  namesrvAddr=127.0.0.1:9876
+   #在发送消息时，自动创建服务器不存在的topic，默认创建的队列数
+  defaultTopicQueueNums=8
+   #是否允许 Broker 自动创建Topic，建议线下开启，线上关闭
+  autoCreateTopicEnable=true
+  #是否允许 Broker 自动创建订阅组，建议线下开启，线上关闭
+  autoCreateSubscriptionGroup=true
+  #Broker 对外服务的监听端口,
+  listenPort=10911
+  #删除文件时间点，默认凌晨 4点
+  deleteWhen=04
+  #文件保留时间，默认 48 小时
+  fileReservedTime=48
+  #commitLog每个文件的大小默认1G
+  mapedFileSizeCommitLog=1073741824
+  #ConsumeQueue每个文件默认存30W条，根据业务情况调整
+  mapedFileSizeConsumeQueue=300000
+  destroyMapedFileIntervalForcibly=120000
+  
+  redeleteHangedFileInterval=120000
+  #检测物理文件磁盘空间
+  diskMaxUsedSpaceRatio=88
+  #存储路径
+  storePathRootDir=D:\\rocketMqTestData\\store
+  #commitLog 存储路径
+  storePathCommitLog=D:\\rocketMqTestData\\store\\commitlog
+  #消费队列存储路径存储路径
+  storePathConsumeQueue=D:\\rocketMqTestData\\store\\consumequeue
+  #消息索引存储路径
+  storePathIndex=D:\\rocketMqTestData\\store\\index
+  #checkpoint 文件存储路径
+  storeCheckpoint=D:\\rocketMqTestData\\store\\checkpoint
+  #abort 文件存储路径
+  abortFile=D:\\rocketMqTestData\\store\\abort
+  #限制的消息大小
+  maxMessageSize=65536
+  flushCommitLogLeastPages=4
+  flushConsumeQueueLeastPages=2
+  flushCommitLogThoroughInterval=10000
+  flushConsumeQueueThoroughInterval=60000
+  #Broker 的角色
+  brokerRole=ASYNC_MASTER
+  #刷盘方式
+  flushDiskType=ASYNC_FLUSH
+  
+  checkTransactionMessageEnable=false
+  #发消息线程池数量
+  sendMessageTreadPoolNums=128
+  #拉消息线程池数量
+  pullMessageTreadPoolNums=128
   ```
 
 ### 3. 环境测试
@@ -178,21 +253,17 @@ wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-relea
 - 发送消息
 
   ```sh
-  # 1.设置环境变量 
-  export NAMESRV_ADDR=localhost:9876 
-  # 2.使用安装包的Demo发送消息 
-  sh bin/tools.sh org.apache.rocketmq.example.quickstart.Producer
+  # 1.设置环境变量 2.使用安装包的Demo发送消息 
+  export NAMESRV_ADDR=localhost:9876 && sh bin/tools.sh org.apache.rocketmq.example.quickstart.Producer
   ```
-
+  
 - 接收消息
 
   ```sh
-  # 1.设置环境变量 
-  export NAMESRV_ADDR=localhost:9876 
-  # 2.接收消息 
-  sh bin/tools.sh org.apache.rocketmq.example.quickstart.Consumer
+  # 1.设置环境变量 2.接收消息 
+  export NAMESRV_ADDR=localhost:9876 && sh bin/tools.sh org.apache.rocketmq.example.quickstart.Consumer
   ```
-
+  
 - 关闭RocketMQ
 
   ```sh
@@ -201,4 +272,31 @@ wget https://archive.apache.org/dist/rocketmq/4.5.1/rocketmq-all-4.5.1-bin-relea
   # 2.关闭Broker 
   mqshutdown broker
   ```
+
+### 4. 常用命令
+
+```sh
+#1.查看帮助：在 mqadmin 下可以查看有哪些命令
+   1): 查看具体命令的使用 : sh mqadmin    
+   2): sh mqadmin help 命令名称  
+#2. 关闭nameserver和所有的broker: 
+   sh mqshutdown namesrv
+   sh mqshutdown broker
+#3. 查看所有消费组group:
+   sh mqadmin consumerProgress -n 192.168.1.23:9876
+   注：-n，即配置的namesrvAddr参数
+#4. 查看指定消费组下的所有topic数据堆积情况：
+   sh mqadmin consumerProgress -n 192.168.1.23:9876 -g warning-group
+#5. 查看所有topic :
+   sh mqadmin topicList -n 192.168.1.23:9876
+#6. 查看topic信息列表详情统计
+   sh mqadmin topicstatus -n 192.168.1.23:9876 -t topicWarning
+#7.  新增topic
+   sh mqadmin updateTopic –n 192.168.1.23:9876 –c DefaultCluster –t topicWarning
+   注：-c，即配置的brokerClusterName参数；-t，topic
+#8. 删除topic
+   sh mqadmin deleteTopic –n 192.168.1.23:9876 –c DefaultCluster –t topicWarning
+#9、查询集群消息
+   sh mqadmin  clusterList -n 192.168.1.23:9876
+```
 
