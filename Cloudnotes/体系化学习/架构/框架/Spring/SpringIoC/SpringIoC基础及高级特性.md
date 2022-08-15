@@ -480,20 +480,35 @@ public class MyBeanPostProcessor implements BeanPostProcessor {
 `ApplicationEventPublisherAware`
 
 ```java
-@Component
-public class EventPublish implements ApplicationEventPublisherAware {
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
+import org.springframework.stereotype.Component;
 
-    ApplicationEventPublisher applicationEventPublisher;
+/**
+ * @program: practice
+ * @description:
+ * @author: Wangwentao
+ * @date: 2022/08/15
+ **/
+@Component
+@Slf4j
+public class MyEventPublisher implements ApplicationEventPublisherAware {
+
+    private ApplicationEventPublisher publisher;
 
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
+        log.info("初始化------>{}",applicationEventPublisher);
+        this.publisher = applicationEventPublisher;
     }
 
-    public void publishEvent(ApplicationEvent event) {
-        applicationEventPublisher.publishEvent(event);
+    public void publish(ApplicationEvent event) {
+        publisher.publishEvent(event);
     }
 }
+
 ```
 
 ##### 4.2 Event
@@ -501,30 +516,111 @@ public class EventPublish implements ApplicationEventPublisherAware {
 `ApplicationEvent`
 
 ```java
-public class ArticleChangeChannelEvent extends ApplicationEvent {
+import org.springframework.context.ApplicationEvent;
 
-    private ArticleEventInfo articleEventInfo;
+/**
+ * @program: practice
+ * @description:
+ * @author: Wangwentao
+ * @date: 2022/08/15
+ **/
+public class MyEvent extends ApplicationEvent {
 
-    // ArticleEventInfo 相当于事件的消息，用于监听端消费
-    public ArticleChangeChannelEvent(Object source, ArticleEventInfo articleEventInfo) {
+    private Msg msg;
+
+    /**
+     * Create a new ApplicationEvent.
+     *
+     * @param source the object on which the event initially occurred (never {@code null})
+     */
+    public MyEvent(Object source, Msg msg) {
         super(source);
-        this.articleEventInfo = articleEventInfo;
+        this.msg = msg;
     }
 
-    public ArticleEventInfo getArticleEventInfo() {
-        return articleEventInfo;
+    public Msg getMsg() {
+        return msg;
+    }
+}
+
+```
+
+##### 4.3 事件推送
+
+```java
+import com.tangdi.event.MyEvent;
+import com.tangdi.event.MyEventPublisher;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * @program: practice
+ * @description:
+ * @author: Wangwentao
+ * @date: 2022/08/15
+ **/
+
+@RestController
+@RequestMapping(value = "/api/event")
+@Slf4j
+public class EventTestController {
+    @Autowired
+    MyEventPublisher publisher;
+
+    @GetMapping(value = "/t1")
+    public void t1() throws InterruptedException {
+        log.info("当前线程："+Thread.currentThread().getName());
+        publisher.publish(new MyEvent(this,"hello"));
+        log.info("发送并处理成功");
+    }
+}
+
+```
+
+##### 4.4 Listener
+
+`ApplicationListener`
+
+```java
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationListener;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
+
+/**
+ * @program: practice
+ * @description:
+ * @author: Wangwentao
+ * @date: 2022/08/15
+ **/
+@Component
+@Slf4j
+public class MyApplicationListener2 implements ApplicationListener<MyEvent> {
+
+    @Override
+    @Async("commonPool")
+    public void onApplicationEvent(MyEvent event) {
+        log.info("当前线程："+Thread.currentThread().getName());
+        System.out.println("MyApplicationListener2 接收到事件消息："+event.getMsg());
+        try {
+            Thread.sleep(7000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("MyApplicationListener2 处理完成");
     }
 }
 ```
-
-##### 4.3 Listener
 
 `SmartApplicationListener`
 
 ```java
 @Slf4j
 @Component
-public class ArticleChangeChannelListener extends SmartApplicationListener {
+public class ArticleChangeChannelListener implements SmartApplicationListener {
     @Autowired
     private ChannelMappingBiz channelMappingBiz;
     @Autowired
