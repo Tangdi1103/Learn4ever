@@ -14,7 +14,17 @@ Feign是由Netflix开发的**==轻量级RestFul风格的HTTP服务客户端==**�
 
 SpringCloud对Feign进⾏了增强，产生了**==OpenFeign==**，它**==⽀持SpringMVC的注解==**
 
+### 3. Feign组件
 
+| 接口 | 作用 | 默认值|
+| ---- | ---- | ---- |
+|Feign.Builder|Feign的入口|Feign.Builder|
+|Client|Feign底层用什么去请求|和Ribbon配合时：LoadBalancerFeignClient                            不和Ribbon配合时：Fgien.Client.Default|
+|Contract|契约，注解支持|SpringMVCContract|
+|Encoder|解码器，用于将独享转换成HTTP请求消息体|SpringEncoder|
+|Decoder|编码器，将相应消息体转成对象|ResponseEntityDecoder|
+|Logger|日志管理器|Slf4jLogger|
+|RequestInterceptor|用于为每个请求添加通用逻辑（拦截器，例子：比如想给每个请求都带上heared）|无|
 
 
 
@@ -256,6 +266,13 @@ feign:
 
 Feign是http请求客户端，类似于浏览器，它在请求和接收响应的时候，可以打印出⽐较详细的⼀些⽇志信息（响应头，状态码等等）
 
+| 日志级别     | 打印内容                                                     |
+| ------------ | ------------------------------------------------------------ |
+| NONE（默认） | 不记录任何日志（性能最好）                                   |
+| BASIC        | 仅记录请求方法，URL，响应状态代码以及执行时间（适合生产环境） |
+| HEADERS      | 记录BASIC级别的基础上，记录请求和响应的header                |
+| FULL         | 记录请求和响应header，body和元数据（适⽤于开发及测试环境定位问题） |
+
 ### 1. 默认情况下Feign的⽇志没有开启，需要手动配置
 
 ```java
@@ -263,17 +280,11 @@ import feign.Logger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
-// Feign的⽇志级别（Feign请求过程信息）
-// NONE：默认的，不显示任何⽇志----性能最好
-// BASIC：仅记录请求⽅法、URL、响应状态码以及执⾏时间----⽣产问题追踪
-// HEADERS：在BASIC级别的基础上，记录请求和响应的header
-// FULL：记录请求和响应的header、body和元数据----适⽤于开发及测试环境定位问题
 @Configuration
 public class FeignLog {
     @Bean
     Logger.Level feignLevel() {
-        return Logger.Level.FULL;
+        return Logger.Level.BASIC;
     }
 }
 ```
@@ -296,14 +307,338 @@ logging:
 
 
 
+## 七、Feign 完整配置
+
+### 1. Feign 配置项
+
+![image-20220817182431328](images/image-20220817182431328.png)
+
+| 配置项                           | 作用                                                         |
+| -------------------------------- | ------------------------------------------------------------ |
+| Logger.Level                     | 指定日志级别                                                 |
+| Retryer                          | 指定重试策略（默认Retryer.NEVER_RETRY，不重试，直接抛异常）                                                 Retryer.Default 重试5次 |
+| ErrorDecoder                     | 指定错误解码器                                               |
+| Request.Options                  | 超时时间                                                     |
+| `Collection<RequestInterceptor>` | 拦截器                                                       |
+| SetterFactory                    | 用于设置Hystrix的配置属性，Fgien整合Hystrix才会用            |
+
+##### 1.1 Feign 默认配置
+
+查看 `EnableFeignClients#defaultConfiguration` 和 `FeignClient#configuration` 属性文档注释
+
+feign默认的配置类为 `org.springframework.cloud.openfeign.FeignClientsConfiguration`
+
+```java
+@Configuration
+public class FeignClientsConfiguration {
+
+	@Autowired
+	private ObjectFactory<HttpMessageConverters> messageConverters;
+
+	@Autowired(required = false)
+	private List<AnnotatedParameterProcessor> parameterProcessors = new ArrayList<>();
+
+	@Autowired(required = false)
+	private List<FeignFormatterRegistrar> feignFormatterRegistrars = new ArrayList<>();
+
+	@Autowired(required = false)
+	private Logger logger;
+
+	@Bean
+	@ConditionalOnMissingBean
+	public Decoder feignDecoder() {
+		return new OptionalDecoder(
+				new ResponseEntityDecoder(new SpringDecoder(this.messageConverters)));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnMissingClass("org.springframework.data.domain.Pageable")
+	public Encoder feignEncoder() {
+		return new SpringEncoder(this.messageConverters);
+	}
+
+	@Bean
+	@ConditionalOnClass(name = "org.springframework.data.domain.Pageable")
+	@ConditionalOnMissingBean
+	public Encoder feignEncoderPageable() {
+		return new PageableSpringEncoder(new SpringEncoder(this.messageConverters));
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public Contract feignContract(ConversionService feignConversionService) {
+		return new SpringMvcContract(this.parameterProcessors, feignConversionService);
+	}
+
+	@Bean
+	public FormattingConversionService feignConversionService() {
+		FormattingConversionService conversionService = new DefaultFormattingConversionService();
+		for (FeignFormatterRegistrar feignFormatterRegistrar : this.feignFormatterRegistrars) {
+			feignFormatterRegistrar.registerFormatters(conversionService);
+		}
+		return conversionService;
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public Retryer feignRetryer() {
+		return Retryer.NEVER_RETRY;
+	}
+
+	@Bean
+	@Scope("prototype")
+	@ConditionalOnMissingBean
+	public Feign.Builder feignBuilder(Retryer retryer) {
+		return Feign.builder().retryer(retryer);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(FeignLoggerFactory.class)
+	public FeignLoggerFactory feignLoggerFactory() {
+		return new DefaultFeignLoggerFactory(this.logger);
+	}
+
+	@Bean
+	@ConditionalOnClass(name = "org.springframework.data.domain.Page")
+	public Module pageJacksonModule() {
+		return new PageJacksonModule();
+	}
+
+	@Configuration
+	@ConditionalOnClass({ HystrixCommand.class, HystrixFeign.class })
+	protected static class HystrixFeignConfiguration {
+
+		@Bean
+		@Scope("prototype")
+		@ConditionalOnMissingBean
+		@ConditionalOnProperty(name = "feign.hystrix.enabled")
+		public Feign.Builder feignHystrixBuilder() {
+			return HystrixFeign.builder();
+		}
+
+	}
+}
+```
+
+##### 1.2 自定义配置类
+
+**自定义重试类**
+
+```java
+@Slf4j
+public  class CommonFeignRetry extends Default {
+ 
+    private static final String METRICS_KEY = "feign_retry_count";
+ 
+    private static final String APOLLO_CONFIG_KEY = "feign.retry.enable";
+ 
+    private final Counter metrics = Metrics.newCounter(METRICS_KEY).build();
+ 
+    public CommonFeignRetry() {
+        //重试5次 最大间隔时间1秒
+        this(100, SECONDS.toMillis(1), 5);
+    }
+ 
+    public CommonFeignRetry(long period, long maxPeriod, int maxAttempts) {
+        super(period, maxPeriod, maxAttempts);
+    }
+ 
+    /**
+     * 主要在重试时记录日志
+     */
+    @Override
+    public void continueOrPropagate(RetryableException e) {
+        if (Boolean.FALSE.equals(ConfigService.getAppConfig().getBooleanProperty(APOLLO_CONFIG_KEY,
+            Boolean.TRUE))) {
+            throw e;
+        }
+        metrics.once();
+        log.warn("【FeignRetryAble】Message【{}】", e.getMessage());
+        super.continueOrPropagate(e);
+    }
+ 
+    @Override
+    public Retryer clone() {
+        return new CommonFeignRetry();
+    }
+}
+```
+
+**自定义错误编码类**
+
+```java
+@Slf4j
+public class FeignErrorDecoder implements ErrorDecoder {
+ 
+    @Override
+    public Exception decode(String methodKey, Response response) {
+        if (response.status() == 502) {
+            return new RetryableException("Server 502", response.request().httpMethod(), null);
+        } else {
+            return errorStatus(methodKey, response);
+        }
+    }
+}
+```
+
+**自定义 feign配置类**
+
+```java
+
+@Configuration
+public class FeignConfiguration {
+
+    /**
+	 * 日志
+	 * 
+	 */
+    @Bean
+    Logger.Level feignLevel() {
+        return Logger.Level.BASIC;
+    }
+
+    /**
+	 * timeout设置
+	 * 
+	 */
+    @Bean
+    Request.Options feignOptions() {
+        return new Request.Options(/**connectTimeoutMillis**/1 * 3000, /** readTimeoutMillis **/1 * 5000);
+    }
+
+    /**
+	 * 自定义重试
+	 * 
+	 */
+    @Bean
+    Retryer getRetryBean() {
+        return new CommonFeignRetryer();
+    }
+
+    /**
+	 * 自定义错误编码类
+	 * 
+	 */
+    @Bean
+    ErrorDecoder getError() {
+        return new FeignErrorDecoder();
+    }
+}
+```
+
+##### 1.3 yml 自定义feign全局配置
+
+```yaml
+feign:
+  hystrix:
+    enabled: true
+  compression:
+    request:
+      # 开启请求压缩
+      enabled: true 
+      # 设置压缩的数据类型，此处也是默认值
+      mime-types: text/html,application/xml,application/json 
+      # 设置触发压缩的⼤⼩下限，此处也是默认值
+      min-request-size: 2048 
+    response:
+      # 开启响应压缩
+      enabled: true 
+  client:
+    config:
+      default:
+        connectTimeout: 5000  # 相当于Request.Optionsn 连接超时时间
+        readTimeout: 5000     # 相当于Request.Options 读取超时时间
+        loggerLevel: full     # 配置Feign的日志级别，相当于代码配置方式中的Logger
+        errorDecoder: com.example.FeignErrorDecoder  # Feign的错误解码器，相当于代码配置方式中的ErrorDecoder
+        retryer: com.example.CommonFeignRetry  # 配置重试，相当于代码配置方式中的Retryer
+        requestInterceptors: # 配置拦截器，相当于代码配置方式中的RequestInterceptor
+          - com.example.FooRequestInterceptor
+          - com.example.BarRequestInterceptor
+        # 是否对404错误解码
+        decode404: false
+        encode: com.example.SimpleEncoder
+        decoder: com.example.SimpleDecoder
+        contract: com.example.SimpleContract
+```
 
 
-## 七、Feign 源码剖析
 
-#### 1. 利用SpringBoot的自动配置原理
+### 2. 全局配置
 
-源码略。。
+##### 2.1 注解添加配置类
 
-#### 2. 利用代理模式，为Feign接口生产代理对象
+```java
+//在启动类上为@EnableFeignClients注解添加defaultConfiguration配置
+@EnableFeignClients(defaultConfiguration = FeignConfiguration.class)
+```
 
-源码略。。
+##### 2.2 使用yml配置
+
+```yaml
+feign:
+  client:
+    config:
+      #将调用的微服务名称改成default就配置成全局的了
+      default:
+       loggerLevel: FULL
+```
+
+
+
+### 3. 细粒度配置
+
+> 优先级：细粒度yml配置 > 细粒度代码配置 > 全局yml配置 > 全局代码配置
+
+##### 3.1 注解添加配置类
+
+```java
+@FeignClient(name = "code-service"，configuration = FeignConfiguration.class)
+public interface CodeFeginClient {
+	...
+}
+```
+
+##### 3.2 使用yml配置
+
+```yaml
+feign:
+  client:
+    config:
+      #想要调用的微服务名称
+      user-service:
+        loggerLevel: FULL
+```
+
+
+
+
+
+## 八、Feign 源码剖析
+
+### 1. 利用SpringBoot的自动配置原理
+
+`org.springframework.cloud.openfeign.FeignClientsRegistrar`
+
+![image-20220817175253711](images/image-20220817175253711.png)
+
+### 2. 利用代理模式，为Feign接口生产代理对象
+
+`feign.SynchronousMethodHandler` 是Feign动态代理的核心类，`invoke` 调用目标 API时包含了重试及抛异常的逻辑。只有**网络IO时**发生 **`IOException`** 异常才会触发重试如 `SocketException`、`SocketTimeoutException`、`ConnectionClosedException `（被封装为了**`RetryableException`**），其他异常直接抛出。
+
+内部死循环调用目标API，终止条件如下：
+
+- 目标API 返回有效结果，return result
+- 重试次数达到上限，抛出异常
+
+![image-20220817173248044](images/image-20220817173248044.png)
+
+当调用目标API抛出 **`IOException`**异常 时，异常会被封装为 `RetryableException`并向上抛出。
+
+`invoke` 方法只对 **`RetryableException`**异常进行捕获并调用 `retryer.continueOrPropagate(e)` 处理**重试计数及重试间隔**，次数达到上限则抛出异常。
+
+![image-20220817173842389](images/image-20220817173842389.png)
+
+![image-20220817173920852](images/image-20220817173920852.png)
+
+![image-20220817174346776](images/image-20220817174346776.png)
