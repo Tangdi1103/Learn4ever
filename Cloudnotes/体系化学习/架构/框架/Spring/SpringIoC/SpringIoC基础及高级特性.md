@@ -739,3 +739,25 @@ public class ArticleChangeChannelListener implements SmartApplicationListener {
 }
 ```
 
+##### 4.5 异步通知/消费
+
+除了在监听器的订阅方法上加 `@Async` 实现实现异步消费外，还可以手动创建一个`SimpleApplicationEventMulticaster`，并设置 `TaskExecutor`，来将所有的消费事件采用异步线程执行。
+
+```java
+@Configuration
+public class SpringConfiguration {
+
+    @Bean
+    @Autowired
+    @Qualifier("commonPool")
+    public SimpleApplicationEventMulticaster applicationEventMulticaster(Executor commonPool) {
+        SimpleApplicationEventMulticaster simpleApplicationEventMulticaster = new SimpleApplicationEventMulticaster();
+        simpleApplicationEventMulticaster.setTaskExecutor(commonPool);
+        return simpleApplicationEventMulticaster;
+    }
+
+}
+```
+
+
+
