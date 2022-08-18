@@ -232,9 +232,9 @@ ApplicationContext a = new AnnotationConfigApplicationContext(SpringConfig.class
 
 3. #### 注解注入依赖
 
-   @Autowired（推荐使⽤）：策略为按照类型注⼊
+   @Autowired（推荐使用）：策略为按照类型注入。可使用在成员变量、setter方法、方法参数上实现装配bean到属性中。
 
-   @Qualifier（适用于接口有个实现类）：策略为按beanName注入（beanId）
+   @Qualifier（适用于接口有个实现类）：策略为按beanName注入（beanId）。可使用在成员变量、setter方法、方法参数上实现装配bean到属性中。
 
    @Resource（JDK11已经移除，需要单独引⼊jar包javax.annotation-api）： 策略为按beanName注入（beanId）
 
@@ -745,18 +745,16 @@ public class ArticleChangeChannelListener implements SmartApplicationListener {
 
 ```java
 @Configuration
-public class SpringConfiguration {
+public class ApplicationEventConfig {
 
     @Bean
-    @Autowired
-    @Qualifier("commonPool")
-    public SimpleApplicationEventMulticaster applicationEventMulticaster(Executor commonPool) {
+    public SimpleApplicationEventMulticaster applicationEventMulticaster(@Qualifier("sendSmsThreadPool") Executor sendSmsThreadPool) {
         SimpleApplicationEventMulticaster simpleApplicationEventMulticaster = new SimpleApplicationEventMulticaster();
-        simpleApplicationEventMulticaster.setTaskExecutor(commonPool);
+        simpleApplicationEventMulticaster.setTaskExecutor(sendSmsThreadPool);
         return simpleApplicationEventMulticaster;
     }
-
 }
+
 ```
 
 
