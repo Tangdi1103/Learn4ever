@@ -389,9 +389,9 @@ System.out.println(f3.join());
 
 ##### 介绍
 
-- allOf：CompletableFuture是多个任务都执行完成后才会执行，只有有一个任务执行异常，则返回的CompletableFuture执行get方法时会抛出异常，如果都是正常执行，则get返回null。
+- allOf：allOf是多个任务都执行完成后才会执行，只要有一个任务执行异常，则返回的CompletableFuture执行get方法时会抛出异常，如果都是正常执行，则get返回null。
 
-- anyOf ：CompletableFuture是多个任务只要有一个任务执行完成，则返回的CompletableFuture执行get方法时会抛出异常，如果都是正常执行，则get返回执行完成任务的结果。
+- anyOf ：anyOf是多个任务任意一个任务完成后才会执行，如果该任务异常，则返回的CompletableFuture执行get方法时会抛出异常，如果该任务正常执行，则get返回执行完成任务的结果。
 
 ```java
 CompletableFuture<Void> allOf(CompletableFuture<?>... cfs);
