@@ -295,7 +295,7 @@ public class SpringConfig {
 
 #### 	同xml+注解一致
 
-## 八、SpringIoC高级特性
+## 八、Spring 高级特性
 
 ### 1.延迟加载
 
@@ -582,35 +582,62 @@ public class EventTestController {
 
 ##### 4.4 Listener
 
+实现监听消费分为**同步**和**异步**两种，**所有同步消费都由主线程串行去执行**然后再往下执行剩余逻辑。而**异步消费则在所有同步事件消费完后才会执行**。
+
 `ApplicationListener`
 
 ```java
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationListener;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Component;
-
-/**
- * @program: practice
- * @description:
- * @author: Wangwentao
- * @date: 2022/08/15
- **/
 @Component
 @Slf4j
-public class MyApplicationListener2 implements ApplicationListener<MyEvent> {
+@Order(2)
+public class MyApplicationListener implements ApplicationListener<MyEvent> {
+
+    @Autowired
+    private ItemJpa itemJpa;
+    @Autowired
+    private UserJpa userJpa;
 
     @Override
     @Async("commonPool")
     public void onApplicationEvent(MyEvent event) {
         log.info("当前线程："+Thread.currentThread().getName());
-        System.out.println("MyApplicationListener2 接收到事件消息："+event.getMsg());
+        System.out.println("MyApplicationListener 接收到事件消息："+event.getMsg());
+        User user = null;
         try {
+            System.out.println("listener1查询到" + itemJpa.findByName("脆皮烧鸡"));
+            user = userJpa.save(User.builder().username("listener1").build());
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("MyApplicationListener 处理完成 --> " + user);
+    }
+}
+
+
+@Component
+@Slf4j
+@Order(1)
+public class MyApplicationListener2 implements ApplicationListener<MyEvent> {
+
+    @Autowired
+    private ItemJpa itemJpa;
+    @Autowired
+    private UserJpa userJpa;
+
+    @Override
+    public void onApplicationEvent(MyEvent event) {
+        log.info("当前线程："+Thread.currentThread().getName());
+        System.out.println("MyApplicationListener2 接收到事件消息："+event.getMsg());
+        User user = null;
+        try {
+            System.out.println("listener2查询到" + itemJpa.findByName("脆皮烧鸡"));
+            user = userJpa.save(User.builder().username("listener2").build());
             Thread.sleep(7000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        System.out.println("MyApplicationListener2 处理完成");
+        System.out.println("MyApplicationListener2 处理完成 --> " + user);
     }
 }
 ```
@@ -743,6 +770,8 @@ public class ArticleChangeChannelListener implements SmartApplicationListener {
 
 除了在监听器的订阅方法上加 `@Async` 实现实现异步消费外，还可以手动创建一个`SimpleApplicationEventMulticaster`，并设置 `TaskExecutor`，来将所有的消费事件采用异步线程执行。
 
+**注意：**异步消费时，**必须在所有同步的消费者完成之后**才会进行异步消费
+
 ```java
 @Configuration
 public class ApplicationEventConfig {
@@ -758,4 +787,79 @@ public class ApplicationEventConfig {
 ```
 
 
+
+### 5. Async
+
+`@Async` 对方法异步化，若不指定自定义线程池，则使用spring默认异步线程 `SimpleAsyncTaskExecutor`
+
+底层基于动态代理，通过方法返回类型Future、CompletableFuture，从而选择不同的异步执行方式
+
+`org.springframework.scheduling.aspectj.AbstractAsyncExecutionAspect` 对具体方法进行代理
+
+![image-20220831014400686](images/image-20220831014400686.png)
+
+获取线程池
+
+![image-20220831014138300](images/image-20220831014138300.png)
+
+真正执行任务
+
+根据具体方法的返回类型，选择不同的异步执行方式
+
+![image-20220831014442880](images/image-20220831014442880.png)
+
+
+
+### 6. 事务同步管理
+
+**事务同步管理**，可以确保某个方法事务提交后，**再去执行一些异步操作**。
+
+`TransactionSynchronizationManager` 在 @Transactional基础上，根据代理对象在执行commit的时机，其可通过注册的 `TransactionSynchronization` 来完成一些扩展操作。如afterCommit、beforeCommit、afterCompletion、beforeCompletion。
+
+基于此特性，可以利用afterCommit来完成对Redis缓存Key的删除，完成缓存的被动更新而无需担心脏数据
+
+```java
+@Transactional(rollbackFor = Exception.class)
+public void asynTxTest() throws InterruptedException {
+    log.info("当前线程："+Thread.currentThread().getName());
+    Item item = itemJpa.save(Item.builder().pId(1).name("红烧狮子头").build());
+
+    // TransactionSynchronizationManager保证主线程事务提交后才执行后续操作
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+        @Override
+        public void afterCommit() {
+            ExecutorFactory.THREAD_POOL_EXECUTOR_1.execute(() -> {
+                System.out.println("查询到" + itemJpa.findByName("红烧狮子头"));
+                User user = userJpa.save(User.builder().username("asynTxTest").build());
+                int i = 7 / 0; // 子线程由于没有事务管理，即使出现异常也不会回滚事务
+            });
+        }
+    });
+
+    // 模拟主线程由于其他业务操作，事务尚未提交
+    TimeUnit.SECONDS.sleep(3);
+    int i = 7 / 0; // 主线程出现异常则回滚事务，所以也不会执行TransactionSynchronizationManager后续操作
+//  int i = 7 / 0; // 主线程没有异常则正常提交事务，然后执行TransactionSynchronizationManager后续操作
+}
+
+
+@Transactional(rollbackFor = Exception.class)
+public void eventSyncTest() throws InterruptedException {
+    log.info("当前线程："+Thread.currentThread().getName());
+    Item item = itemJpa.save(Item.builder().pId(1).name("脆皮烧鸡").build());
+
+    // TransactionSynchronizationManager保证主线程事务提交后才执行后续操作
+    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+        @Override
+        public void afterCommit() {
+            publisher.publish(new MyEvent(this,new String(new byte[10000])));
+            log.info("发送并处理成功 --> " + item);
+        }
+    });
+
+    // 模拟主线程由于其他业务操作，事务尚未提交
+    TimeUnit.SECONDS.sleep(3);
+//  int i = 7 / 0;
+}
+```
 
