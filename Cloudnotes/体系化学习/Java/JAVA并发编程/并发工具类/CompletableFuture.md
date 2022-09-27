@@ -150,7 +150,7 @@ CompletableFuture<String> completableFuture = new CompletableFuture<String>();
 
 ### 1.2 使用线程池
 
-**`CompletableFuture`** 默认使用了**公共的 ForkJoinPool线程池**，这个 common线程池创建的coreThread为 **CPU核数 -1**（可通过 JVM option:`-Djava.util.concurrent.ForkJoinPool.common.parallelism` 来指定该默认线程池的线程数）。如果所有 **`CompletableFuture `** 公用一个线程池，一旦有任务执行很慢的I/O操作，那么所有的线程都将阻塞造成线程饥饿，进而影响整个系统性能。所以**应该根据不同业务类型创建不同的线程池，避免互相干扰。**
+**`CompletableFuture`** 默认使用了**公共的 ForkJoinPool线程池**，这个 common线程池创建的coreThread为  **CPU核数**（可通过 JVM option:`-Djava.util.concurrent.ForkJoinPool.common.parallelism` 来指定该默认线程池的线程数）。如果所有 **`CompletableFuture `** 公用一个线程池，一旦有任务执行很慢的I/O操作，那么所有的线程都将阻塞造成线程饥饿，进而影响整个系统性能。所以**应该根据不同业务类型创建不同的线程池，避免互相干扰。**
 
 创建 `CompletableFuture `时，可指定线程池或者默认使用线程池
 
