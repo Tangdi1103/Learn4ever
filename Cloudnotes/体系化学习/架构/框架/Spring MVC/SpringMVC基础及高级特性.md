@@ -354,7 +354,9 @@ import com.csair.order.util.CookiesUtil;
 import com.csair.util.MDCUtils;
 import com.csair.util.StringUtils;
 
+@Slf4j
 @Order(2)
+@Component
 @WebFilter(urlPatterns = "/*", filterName = "bookProcessFilter")
 public class BookProcessFilter implements Filter{
 
