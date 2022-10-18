@@ -198,7 +198,7 @@ Nginx可以用来Web服务器、反向代理、负载均衡和动静分离
 
 ### 4. 解决跨域
 
-```
+```sh
 location / {
 	# 设置跨域url
 	set $cors_origin "";
@@ -234,13 +234,112 @@ location / {
 
 ### 5. Nginx重构请求头，转发真实ip
 
-```
+```sh
 location / {
 	proxy_pass http://myweb;
 	#重构请求头，获取客户端请求的IP地址
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+Java获取客户端请求IP工具
+
+```java
+import org.apache.commons.lang3.StringUtils;
+import javax.servlet.http.HttpServletRequest;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Enumeration;
+
+public class IPUtil {
+    public static String getIpAdrress(HttpServletRequest request) {
+        String Xip = request.getHeader("X-Real-IP");
+        String XFor = request.getHeader("X-Forwarded-For");
+        if (StringUtils.isNotEmpty(XFor) && !"unKnown".equalsIgnoreCase(XFor)) {
+            int index = XFor.indexOf(",");
+            return index != -1 ? XFor.substring(0, index) : XFor;
+        } else {
+            XFor = Xip;
+            if (StringUtils.isNotEmpty(Xip) && !"unKnown".equalsIgnoreCase(Xip)) {
+                return Xip;
+            } else {
+                if (StringUtils.isBlank(Xip) || "unknown".equalsIgnoreCase(Xip)) {
+                    XFor = request.getHeader("Proxy-Client-IP");
+                }
+
+                if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+                    XFor = request.getHeader("WL-Proxy-Client-IP");
+                }
+
+                if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+                    XFor = request.getHeader("HTTP_CLIENT_IP");
+                }
+
+                if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+                    XFor = request.getHeader("HTTP_X_FORWARDED_FOR");
+                }
+
+                if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+                    XFor = request.getRemoteAddr();
+                }
+
+                return XFor;
+            }
+        }
+    }
+
+    public static String getServerIpAddress() {
+        try {
+            Enumeration networkInterfaces = NetworkInterface.getNetworkInterfaces();
+
+            label66:
+            while(true) {
+                NetworkInterface networkInterface;
+                String networkCardName;
+                Enumeration inetAddresses;
+                InetAddress inetAddress;
+                do {
+                    if (!networkInterfaces.hasMoreElements()) {
+                        Enumeration networkInterfaces1 = NetworkInterface.getNetworkInterfaces();
+
+                        while(networkInterfaces1.hasMoreElements()) {
+                            networkInterface = (NetworkInterface)networkInterfaces1.nextElement();
+                            inetAddresses = networkInterface.getInetAddresses();
+
+                            while(inetAddresses.hasMoreElements()) {
+                                inetAddress = (InetAddress)inetAddresses.nextElement();
+                                String inetAddressIp = inetAddress.getHostAddress();
+                                if (!inetAddressIp.endsWith(".0") && !inetAddressIp.endsWith(".1") && inetAddress.isSiteLocalAddress() && !inetAddress.isLoopbackAddress() && inetAddress.getHostAddress().indexOf(":") == -1 && inetAddress instanceof Inet4Address) {
+                                    return inetAddress.getHostAddress();
+                                }
+                            }
+                        }
+                        break label66;
+                    }
+
+                    networkInterface = (NetworkInterface)networkInterfaces.nextElement();
+                    networkCardName = networkInterface.getName();
+                } while(!"eth0".equalsIgnoreCase(networkCardName));
+
+                inetAddresses = networkInterface.getInetAddresses();
+
+                while(inetAddresses.hasMoreElements()) {
+                    inetAddress = (InetAddress)inetAddresses.nextElement();
+                    if (inetAddress != null && inetAddress instanceof Inet4Address) {
+                        return inetAddress.getHostAddress();
+                    }
+                }
+            }
+        } catch (SocketException var6) {
+            var6.printStackTrace();
+        }
+
+        return null;
+    }
 }
 ```
 

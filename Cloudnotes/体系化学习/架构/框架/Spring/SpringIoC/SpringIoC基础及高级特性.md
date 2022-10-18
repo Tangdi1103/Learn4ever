@@ -863,3 +863,83 @@ public void eventSyncTest() throws InterruptedException {
 }
 ```
 
+### 7. SpEL 表达式
+
+`Spring表达式语言`全称为“`Spring Expression Language`”，缩写为“`SpEL`”，类似于`Struts2x`中使用的`OGNL表达式`语言，能在运行时构建复杂表达式、存取对象图属性、对象方法调用等等，并且能与`Spring`功能完美整合，如能用来配置`Bean`定义。学习：https://zhuanlan.zhihu.com/p/174786047
+
+##### 基本功能代码示例：
+
+```java
+SpelExpressionParser parser = new SpelExpressionParser();
+        StandardEvaluationContext context = LogRecordContext.getContext();
+        context.setVariable("person", new Person("马克","浙江"));
+        context.setVariable("content", new Content(5));
+
+        TemplateParserContext template = new TemplateParserContext("${", "}");
+        String exp = "${#content.type > 3 ? '冻结' : '恢复'}用户, 类型：${#content.type}"; // 正确el，使用exp模板
+//        String exp = "(#content.type > 3 ? '冻结' : '恢复').concat('用户').concat(',类型：').concat(#content.type)"; // 正确el，非exp模板
+//        String exp = "#content.type > 3 ? '冻结' : '恢复' 用户"; // 错误el
+        System.out.println(parser.parseExpression("#person.address").getValue(context, String.class));
+        System.out.println(parser.parseExpression("T(com.tangdi.common.constants.I18nKeys).COMMON_BUSY").getValue(context, String.class));
+        System.out.println(parser.parseExpression("T(com.tangdi.common.enums.ErrorType).getMsgByCode(#root)").getValue("2001", String.class));
+        System.out.println(parser.parseExpression(exp, exp.contains("${") ? template : null).getValue(context, String.class));
+```
+
+##### 结合@Value注入bean
+
+SpEL针对bean的支持，是通过`#{}`符号来实现的。
+
+```java
+@Service
+public class RandomService {
+    private AtomicInteger cnt = new AtomicInteger(1);
+    public String randUid() {
+        return cnt.getAndAdd(1) + "_" + UUID.randomUUID().toString();
+    }
+}
+```
+
+```java
+/**
+ * 调用静态方法
+ */
+@Value("#{T(com.git.hui.boot.properties.value.config.SpelProperties).uuid('${auth.jwt.token}_')}")
+private String spelStaticMethod;
+
+/**
+ * 嵌套使用，从配置中获取值，然后执行SpEL语句
+ */
+@Value("#{'${auth.jwt.token}'.substring(2)}")
+private String spelLen;
+
+/**
+ * bean 方法访问
+ */
+@Value("#{randomService.randUid()}")
+private String spelBeanMethod;
+```
+
+如果想跟换掉默认的符号，我们可使用`BeanFactoryPostProcessor`的回调方法，它是在IoC容器创建但还未进行Bean初始化的时候被调用，因此在这个阶段替换掉符号是安全的，通过beanFactory获取`BeanExpressionResolver `，将表达式的符号替换掉。
+
+```java
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanExpressionResolver;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.context.expression.StandardBeanExpressionResolver;
+import org.springframework.stereotype.Component;
+
+@Component
+public class SpelBeanFactoryPostProcessor implements BeanFactoryPostProcessor {
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        BeanExpressionResolver beanExpressionResolver = beanFactory.getBeanExpressionResolver();
+        if (beanExpressionResolver instanceof StandardBeanExpressionResolver) {
+            StandardBeanExpressionResolver resolver = (StandardBeanExpressionResolver) beanExpressionResolver;
+            resolver.setExpressionPrefix("%{");
+            resolver.setExpressionSuffix("}");
+        }
+    }
+}
+```
+
