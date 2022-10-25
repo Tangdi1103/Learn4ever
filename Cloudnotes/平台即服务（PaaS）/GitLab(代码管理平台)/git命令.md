@@ -111,12 +111,30 @@ git push -f #推送到远程仓库
 
 
 
-##### 回滚本地commit版本
+##### 回退local及remote 到某个版本
 
 ```sh
 git reset --soft HEAD ~1 #回滚到上一次commit版本
 git reset --soft HEAD ~2 #回滚到前两次commit版本
 ```
+
+`--soft：`回退到某个版本，GIT暂存区和工作目录的内容不变，可以继续修改暂存区的代码。
+
+`--hard：`回退到某个版本，GIT暂存区清空，完全回到某个版本的状态。
+
+```sh
+# 1. 查看历史提交记录
+git reflog
+
+# 2. n是命令1 查到的某个历史版本
+git reset --hard HEAD@{11}
+git reset --hard HEAD@{n}
+
+# 3. push
+git push -f
+```
+
+
 
 
 
