@@ -58,7 +58,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
 #### ConditionObject原理
 
-原理与对象锁的wait()和notify()类似
+Condition是管程中条件变量的实现，await和signal分别对应synchronized的wait()和notify()。
 
 - wait()方法将当前线程放入Monitor的WaitSet集合中（线程状态进入waiting）
 - notify()方法唤醒WaitSet集合中的头结点，并放入EntryList集合中等待锁（线程状态进入blocking）
