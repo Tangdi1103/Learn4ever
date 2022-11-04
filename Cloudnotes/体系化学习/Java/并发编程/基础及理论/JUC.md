@@ -184,19 +184,31 @@ Queue分为阻塞和非阻塞（当队列已满时，入队操作阻塞；当队
 
 
 
-### 1.2 CopyOnWriteArrayList
+### 1.2 List
 
-在了解了CopyOnWriteArrayList之后，不知道大家会不会有这样的疑问：他的add/remove等方法都已经加锁了，还要copy一份再修改干嘛？多此一举？同样是线程安全的集合，这玩意和Vector有啥区别呢？
+##### 概述
 
-Copy-On-Write简称COW，是一种用于程序设计中的优化策略。其基本思路是，从一开始大家都在共享同一个内容，当某个人想要修改这个内容的时候，才会真正把内容Copy出去形成一个新的内容然后再改，这是一种延时懒惰策略。
+List 的并发容器实现是 `CopyOnWriteArrayList`，基于一种并发编程的设计模式[Copy-On-Write](../并发设计模式)，简称COW。其基本思路是，写的时候会将共享变量新复制一份出来，然后对其操作，这样做的好处是读操作完全无锁，极大提升读性能。
 
-CopyOnWrite容器即写时复制的容器。通俗的理解是当我们往一个容器添加元素的时候，不直接往当前容器添加，而是先将当前容器进行Copy，复制出一个新的容器，然后新的容器里添加元素，添加完元素之后，再将原容器的引用指向新的容器。
+##### 缺点
+
+- 没法按需复制，复制整个数组可能成为性能瓶颈。浪费时间和空间。
+
+##### 适用场景
+
+- 元素`个数不能太多`，`写操作极少`。
+- `最终一致性`，能容忍读快照时，数据短时间内的不同。
+- 遍历或者使用迭代器时，不支持写操作。因为是快照。
+
+##### 原理
+
+`CopyOnWriteArrayList`内部维护了一个array数组，迭代器遍历的就是这个array数组。当我们在遍历的同时，还有一个写操作，该如何操作？`CopyOnWriteArrayList`会从源array数组复制一个新的array数组，然后对其操作。而正在遍历的还是源array，等写操作完成后才将引用指向新的array数组。
 
 ![image-20220801140728726](images/image-20220801140728726.png)
 
-**CopyOnWriteArrayList中add/remove等写方法是需要加锁的**，目的是为了避免Copy出N个副本出来，导致并发写。
+CopyOnWriteArrayList中**add/remove等写方法是需要加锁的**，目的是为了避免Copy出N个副本出来，导致并发写。
 
-**CopyOnWriteArrayList中的读方法是没有加锁的。**
+CopyOnWriteArrayList中的**读方法是没有加锁的。**
 
 ```java
 public E get(int index) {
@@ -204,20 +216,19 @@ public E get(int index) {
 }
 ```
 
-这样做的好处是我们可以对CopyOnWrite容器进行并发的读，当然，这里读到的数据可能不是最新的。因为写时复制的思想是通过延时更新的策略来实现数据的最终一致性的，并非强一致性。
+极大的提升了读性能，因为读的是一个快照所以可能不是最新的。COW思想是通过`延时更新策略`来实现数据的最终一致性的，并非强一致性。
 
-**所以CopyOnWrite容器是一种读写分离的思想，读和写不同的容器。**而Vector在读写的时候使用同一个容器，读写互斥，同时只能做一件事儿。
-
-#### 注意事项
-
-- CopyOnWriteArrayList 仅适用于写操作非常少的场景，而且能够容忍读写的短暂不一致。例如上面的例子中，写入的新元素并不能立刻被遍历到。
-- CopyOnWriteArrayList **迭代器是只读的，不支持增删改**。因为迭代器遍历的**仅仅是一个快照**，而对快照进行增删改是没有意义的。
+所以CopyOnWrite容器的思想，读和写不同的容器。而Vector在读写的时候使用同一个容器，读写互斥，同时只能做一件事儿。
 
 
 
-### 1.3 ConcurrentHashMap
+### 1.3 Map
+
+Map 的并发容器实现是 `ConcurrentHashMap `和 `ConcurrentSkipListMap`，它们从应用的角度来看，主要区别在于**ConcurrentHashMap 的 key 是无序的，而 ConcurrentSkipListMap 的 key 是有序的**。所以如果你需要保证 key 的顺序，就只能使用 `ConcurrentSkipListMap`。另外他们对key和value要求`都不能null`。
 
 ![image-20220801140901043](images/image-20220801140901043.png)
+
+`ConcurrentSkipListMap`顾名思义是基于跳表实现的，其时间复杂度是O(log~n~)，理论上比`ConcurrentHashMap`更快。
 
 ##### 实现原理
 
@@ -253,3 +264,6 @@ value不能为null，是因为一旦 `get(key) == null` 时，在多线程的环
 
 弱一致性，未遍历到的地方若被修改，迭代器遍历出来则也会更改。而HashMap的迭代器的数据是在迭代器生成那一刻的数据，当同时有线程修改数据，则遍历出来的还是就数据。
 
+### 1.4 set
+
+Set 接口的两个实现是 CopyOnWriteArraySet 和 ConcurrentSkipListSet，使用场景可以参考前面讲述的 CopyOnWriteArrayList 和 ConcurrentSkipListMap。

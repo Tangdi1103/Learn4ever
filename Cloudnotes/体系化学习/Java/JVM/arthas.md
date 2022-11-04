@@ -755,7 +755,7 @@ redefine /root/com/lxl/jvm/DeadLockTest.class
 
 
 
-### <font style=color:#e0861a>6. dump</font>
+### <font style=color:#e0861a>7. dump</font>
 
 **将**已加载类的**字节码文件保存到特定目录**：logs/arthas/classdump/
 
@@ -785,7 +785,7 @@ dump demo.*
 
 
 
-### <font style=color:#e0861a>7. classloader</font>
+### <font style=color:#e0861a>8. classloader</font>
 
 * classloader 命令将 JVM 中**所有的classloader的信息统计出来**，并可以展示继承树，urls等。
 * 可以让指定的classloader去getResources，打印出所有查找到的resources的url。**对于ResourceNotFoundException异常比较有用**。
