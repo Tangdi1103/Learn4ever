@@ -42,7 +42,7 @@ Nacos 不用像Eureka那样需要自己搭建一个注册中心的工程，**==�
 
 ```shell
 linux/mac：sh startup.sh -m standalone
-windows：cmd startup.cmd -m standalone
+windows： startup.cmd -m standalone
 ```
 
 
