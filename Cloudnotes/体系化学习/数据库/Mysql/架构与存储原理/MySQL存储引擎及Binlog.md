@@ -222,11 +222,11 @@ Buffer Pool的底层采用 **三种链表管理Page页**，分别是以下三种
 
 **`innodb_flush_log_at_trx_commit // 参数控制日志刷新行为，默认为1`**
 
-- 0： 每秒提交 Redo buffer ->OS cache -> flush cache to disk，**可能丢失 1S 的事务数据**。由**后台Master -》 log thread线程每隔 1秒**执行一次操作。
-- 1：每次事务提交执行 Redo Buffer -> OS cache -> flush cache to disk，最安全，性能最差的方式。
-- 2：每次事务提交执行 Redo Buffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flush cache to disk 的操作。
+- 0：每次事务提交，MTR写入Log Buffer，然后由Log Thread每秒写入磁盘（可能丢失 1S 的事务数据）
+- 1：每次事务提交，MTR写入Log Buffer，同时写入OS 缓存，并同时写入磁盘（最安全，性能最差的方式）
+- 2：每次事务提交，MTR写入Log Buffer，同时写入OS 缓存，然后由Log Thread每秒写入磁盘（比较安全，只有在极端情况下，比如commit之后1秒内服务器关机）
 
-一般建议选择取值2，因为 MySQL 挂了数据没有损失，整个服务器挂了才会损失1秒的事务提交数据
+一般建议选择取值2，只有在服务器挂了这种极端情况下，才会丢失1秒内的数据
 
 ![image-20210916142152478](images/image-20210916142152478.png)
 
@@ -515,7 +515,7 @@ IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==*
 
 ### 1. MTR
 
-**MTR（mini-transaction）：最小原子操作**，一个**事务**可以有**多个 MTR 组成**，每个**MTR**都会**生成一个或多个log**。
+**MTR（mini-transaction）：最小原子操作**，一个事务可以有多个 MTR 组成（一个MTR，可简单理解为每行记录的更新），每个**MTR**都会**生成一个或多个log**。
 
 不管更新多少行，一个事务都会有多个mtr。因为mysql的更新要有undo，undo与数据记录不在同一个段中。undo也会有对应的redo和mtr
 
@@ -553,6 +553,8 @@ IO Thread 一共有四种Thread，分别为：==**write**==，==**read**==，==*
 
 
 ## 五、Undo Log
+
+![image-20230112001816070](images/image-20230112001816070.png)
 
 ### 1. Undo Log 回顾
 
@@ -610,6 +612,8 @@ Undo Log 在 InnoDB 存储引擎中用来==实现多版本并发控制==。事�
 
 ## 六、Redo Log
 
+![image-20230112001816070](images/image-20230112001816070.png)
+
 ### 1. Redo Log 回顾
 
 前文已经多出提到过Redo Log，如==InnoDB内存结构中的 Log Buffer==、==InnoDB磁盘结构的 Redo Log空间==
@@ -644,11 +648,11 @@ Redo Buffer 持久化到 Redo Log 的策略，可通过  **`Innodb_flush_log_at_
 
 **`innodb_flush_log_at_trx_commit // 参数控制日志刷新行为，默认为1`**
 
-- **0：** 每秒提交 Redo buffer ->OS cache -> flush cache to disk，可能丢失一秒内的事务数据。由后台Master线程每隔 1秒执行一次操作。
-- **1：**每次事务提交执行 Redo Buffer -> OS cache -> flush cache to disk，最安全，性能最差的方式。
-- **2：**每次事务提交执行 Redo Buffer -> OS cache，然后由后台Master线程再每隔1秒执行OScache -> flflush cache to disk 的操作。
+- 0：每次事务提交，MTR写入Log Buffer，然后由Log Thread每秒写入磁盘（可能丢失 1S 的事务数据）
+- 1：每次事务提交，MTR写入Log Buffer，同时写入OS 缓存，并同时写入磁盘（最安全，性能最差的方式）
+- 2：每次事务提交，MTR写入Log Buffer，同时写入OS 缓存，然后由Log Thread每秒写入磁盘（比较安全，只有在极端情况下，比如commit之后1秒内服务器关机）
 
-一般建议选择取值2，因为 MySQL 挂了数据没有损失，整个服务器挂了才会损失1秒的事务提交数据
+一般建议选择取值2，只有在服务器挂了这种极端情况下，才会丢失1秒内的数据
 
 ![image-20210916142152478](images/image-20210916142152478.png)
 
@@ -756,6 +760,8 @@ Binlog文件中Log event结构如下图所示：
 
 
 ### 4. Binlog 写入机制
+
+- **Binlog只有在数据落盘成功后，才会生成**，所以是晚于undo log和redo log的。甚至是基于redo log的crashsafe恢复数据后，才会生成binlog
 
 - 根据记录模式和操作触发event事件生成log event（事件触发执行机制）
 
